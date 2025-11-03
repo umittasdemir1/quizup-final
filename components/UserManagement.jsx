@@ -102,7 +102,12 @@ const UserManagement = () => {
       return;
     }
 
+    const normalizedEmail = form.email.trim().toLowerCase();
+
     setSubmitting(true);
+    let creationSession = null;
+    let rolledBack = false;
+    let creationCompleted = false;
     try {
       await waitFirebase();
       const {
@@ -119,23 +124,42 @@ const UserManagement = () => {
       }
 
       // Firebase Auth'da kullanıcı oluştur
-      const createdUser = await createUserWithEmailAndPasswordAsAdmin(form.email, form.password);
+      creationSession = await createUserWithEmailAndPasswordAsAdmin(normalizedEmail, form.password);
+      const createdUser = creationSession?.user;
 
       if (!createdUser?.uid) {
         throw new Error('Yeni kullanıcı kimliği alınamadı');
       }
 
       // Firestore'da kullanıcı bilgilerini kaydet
-      await setDoc(doc(db, 'users', createdUser.uid), {
-        firstName: form.firstName,
-        lastName: form.lastName,
-        email: form.email,
-        password: form.password, // Store password in Firestore for admin access
-        role: form.role,
-        position: form.position || null,
-        createdAt: serverTimestamp(),
-        createdBy: adminUser.uid
-      });
+      try {
+        await setDoc(doc(db, 'users', createdUser.uid), {
+          firstName: form.firstName,
+          lastName: form.lastName,
+          email: normalizedEmail,
+          password: form.password, // Store password in Firestore for admin access
+          role: form.role,
+          position: form.position || null,
+          createdAt: serverTimestamp(),
+          createdBy: adminUser.uid
+        });
+      } catch (firestoreError) {
+        if (creationSession?.rollback) {
+          await creationSession.rollback();
+          rolledBack = true;
+        }
+        throw firestoreError;
+      }
+
+      if (creationSession?.finalize) {
+        try {
+          await creationSession.finalize();
+        } catch (finalizeError) {
+          console.warn('İkincil oturum kapatılamadı', finalizeError);
+        }
+      }
+
+      creationCompleted = true;
 
       toast('Kullanıcı başarıyla oluşturuldu', 'success');
       setShowModal(false);
@@ -152,6 +176,15 @@ const UserManagement = () => {
     } catch (error) {
       console.error('Create user error:', error);
 
+      if (!rolledBack && !creationCompleted && creationSession?.rollback) {
+        try {
+          await creationSession.rollback();
+          rolledBack = true;
+        } catch (rollbackError) {
+          console.warn('Kullanıcı oluşturma geri alımı başarısız', rollbackError);
+        }
+      }
+
       if (error.code === 'auth/email-already-in-use') {
         toast('Bu email adresi zaten kullanılıyor', 'error');
       } else if (error.code === 'auth/invalid-email') {
@@ -163,7 +196,10 @@ const UserManagement = () => {
       } else if (error.code === 'permission-denied') {
         toast('Bu işlem için yetkiniz yok. Lütfen yönetici hesabıyla giriş yapın.', 'error');
       } else {
-        toast('Kullanıcı oluşturulurken hata oluştu', 'error');
+        const fallbackMessage = error?.message
+          ? `Kullanıcı oluşturulurken hata oluştu: ${error.message}`
+          : 'Kullanıcı oluşturulurken hata oluştu';
+        toast(fallbackMessage, 'error');
       }
     } finally {
       setSubmitting(false);

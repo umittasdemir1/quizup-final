@@ -8,6 +8,8 @@ import {
   signInAnonymously,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword as firebaseCreateUserWithEmailAndPassword,
+  deleteUser,
+  fetchSignInMethodsForEmail,
   onAuthStateChanged,
   signOut
 } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js';
@@ -68,6 +70,17 @@ const getSecondaryAuthInstance = () => {
   return secondaryAuthInstance;
 };
 
+const ensureSecondarySignedOut = async () => {
+  if (!secondaryAuthInstance) return;
+  try {
+    if (secondaryAuthInstance.currentUser) {
+      await signOut(secondaryAuthInstance);
+    }
+  } catch (signOutError) {
+    console.warn('[Firebase] Secondary auth pre-clean sign-out failed', signOutError);
+  }
+};
+
 const createUserWithEmailAndPasswordAsAdmin = async (email, password) => {
   const adminAuth = auth;
   const adminUser = adminAuth.currentUser;
@@ -78,11 +91,35 @@ const createUserWithEmailAndPasswordAsAdmin = async (email, password) => {
     throw error;
   }
 
+  const normalizedEmail = email?.trim().toLowerCase();
   const secondaryAuth = getSecondaryAuthInstance();
 
+  await ensureSecondarySignedOut();
+
+  let credential;
+
   try {
-    const credential = await firebaseCreateUserWithEmailAndPassword(secondaryAuth, email, password);
-    const createdUser = credential.user;
+    if (normalizedEmail) {
+      try {
+        const existingProviders = await fetchSignInMethodsForEmail(secondaryAuth, normalizedEmail);
+        if (existingProviders?.length) {
+          const dupError = new Error('Bu email adresi zaten kayıtlı');
+          dupError.code = 'auth/email-already-in-use';
+          throw dupError;
+        }
+      } catch (methodErr) {
+        // fetchSignInMethodsForEmail returns auth/user-not-found when email yok - ignore
+        if (methodErr.code && methodErr.code !== 'auth/user-not-found') {
+          console.warn('[Firebase] fetchSignInMethodsForEmail failed', methodErr);
+        }
+      }
+    }
+
+    credential = await firebaseCreateUserWithEmailAndPassword(
+      secondaryAuth,
+      normalizedEmail || email,
+      password
+    );
 
     try {
       await adminUser.reload?.();
@@ -90,17 +127,28 @@ const createUserWithEmailAndPasswordAsAdmin = async (email, password) => {
       console.warn('[Firebase] Admin reload failed after user creation', reloadError);
     }
 
-    return createdUser;
-  } catch (err) {
-    throw err;
-  } finally {
-    try {
-      if (secondaryAuth.currentUser) {
-        await signOut(secondaryAuth);
+    const createdUser = credential.user;
+
+    return {
+      user: createdUser,
+      async finalize() {
+        await ensureSecondarySignedOut();
+      },
+      async rollback() {
+        try {
+          if (createdUser) {
+            await deleteUser(createdUser);
+          }
+        } catch (deleteError) {
+          console.warn('[Firebase] Yeni oluşturulan kullanıcı silinemedi', deleteError);
+        } finally {
+          await ensureSecondarySignedOut();
+        }
       }
-    } catch (signOutError) {
-      console.warn('[Firebase] Secondary auth sign-out failed', signOutError);
-    }
+    };
+  } catch (err) {
+    await ensureSecondarySignedOut();
+    throw err;
   }
 };
 
