@@ -1,45 +1,23 @@
 const { useState, useEffect } = React;
 
 const Landing = () => {
-  const [logoUrl, setLogoUrl] = useState('');
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    (async () => {
-      await waitFirebase();
-      try {
-        const { db, doc, getDoc } = window.firebase;
-        const settingsDoc = await getDoc(doc(db, 'settings', 'branding'));
-        if (settingsDoc.exists()) {
-          setLogoUrl(settingsDoc.data()?.logoUrl || '');
-        }
-      } catch (e) {
-        console.error('Logo load error:', e);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
-
   return (
     <div className="bg-landing min-h-screen flex items-center justify-center relative">
       <div className="max-w-7xl mx-auto px-4 py-16 grid md:grid-cols-2 gap-12 items-center relative z-10">
         {/* Left Side */}
         <div className="space-y-6 flex flex-col items-center md:items-start text-center md:text-left">
-          {/* Customer Logo - Glassmorphism Card */}
-          {!loading && logoUrl && (
-            <div className="glass-brand-logo-card hero-title">
-              <img src={logoUrl} alt="Brand Logo" />
+          {/* QuizUp+ Logo */}
+          <div className="hero-title flex items-center gap-4 mb-2">
+            <div className="logo-icon" style={{ width: '64px', height: '64px', fontSize: '32px' }}>?</div>
+            <div className="text-left">
+              <div className="text-4xl font-bold text-dark-900">QuizUp+</div>
+              <div className="text-sm text-dark-600">Boost Your Knowledge</div>
             </div>
-          )}
-          
+          </div>
+
           <h2 className="text-4xl md:text-5xl font-bold text-dark-900 leading-tight hero-subtitle">
-            Boost Your<br/>Knowledge.
+            Test. Learn.<br/>Level Up.
           </h2>
-          
-          <p className="text-xl text-dark-600 hero-subtitle">
-            Test. Learn. Level Up.
-          </p>
           
           <div className="flex gap-4 hero-btn">
             <button
