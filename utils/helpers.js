@@ -184,7 +184,17 @@ const getCurrentUser = () => {
 };
 
 const isLoggedIn = () => {
-  return getCurrentUser() !== null;
+  const storedUser = getCurrentUser();
+  if (!window.__firebaseAuthReady) {
+    return storedUser !== null;
+  }
+
+  const authUser = window.__firebaseCurrentUser;
+  if (!authUser || authUser.isAnonymous) {
+    return false;
+  }
+
+  return storedUser !== null;
 };
 
 const hasRole = (requiredRole) => {
@@ -201,24 +211,65 @@ const isAdmin = () => {
   return hasRole('admin');
 };
 
+let pendingAuthToastId = null;
+
 const requireAuth = (requiredRole = null) => {
-  if (!isLoggedIn()) {
-    toast('Lütfen giriş yapın', 'error');
-    setTimeout(() => {
-      location.hash = '#/login';
-    }, 500);
-    return false;
+  const finalizeToast = () => {
+    if (pendingAuthToastId && typeof document !== 'undefined') {
+      const toastEl = document.querySelector(`.toast[data-id="${pendingAuthToastId}"]`);
+      if (toastEl) {
+        toastEl.remove();
+      }
+    }
+    pendingAuthToastId = null;
+  };
+
+  const verifyAccess = () => {
+    finalizeToast();
+
+    if (!window.__firebaseAuthReady) {
+      return false;
+    }
+
+    if (!isLoggedIn()) {
+      toast('Lütfen giriş yapın', 'error');
+      setTimeout(() => {
+        location.hash = '#/login';
+      }, 300);
+      return false;
+    }
+
+    if (requiredRole && !hasRole(requiredRole)) {
+      toast('Bu sayfaya erişim yetkiniz yok', 'error');
+      setTimeout(() => {
+        location.hash = '#/dashboard';
+      }, 300);
+      return false;
+    }
+
+    return true;
+  };
+
+  if (window.__firebaseAuthReady) {
+    return verifyAccess();
   }
 
-  if (requiredRole && !hasRole(requiredRole)) {
-    toast('Bu sayfaya erişim yetkiniz yok', 'error');
-    setTimeout(() => {
-      location.hash = '#/dashboard';
-    }, 500);
-    return false;
+  if (!pendingAuthToastId) {
+    pendingAuthToastId = toast('Oturum doğrulanıyor...', 'info', 1200);
   }
 
-  return true;
+  window.__firebaseAuthReadyPromise
+    ?.then(verifyAccess)
+    .catch((err) => {
+      console.warn('Auth readiness check failed', err);
+      finalizeToast();
+      toast('Oturum doğrulanamadı. Lütfen tekrar giriş yapın.', 'error');
+      setTimeout(() => {
+        location.hash = '#/login';
+      }, 300);
+    });
+
+  return false;
 };
 
 const logout = async () => {

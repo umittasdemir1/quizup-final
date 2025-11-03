@@ -142,12 +142,36 @@
   
   <!-- Main App -->
   <script type="text/babel">
-    const { useEffect } = React;
-    
+    const { useEffect, useState } = React;
+
     const App = () => {
       useAnon();
       const route = useHash();
-      
+      const [authReady, setAuthReady] = useState(Boolean(window.__firebaseAuthReady));
+
+      useEffect(() => {
+        if (window.__firebaseAuthReady) {
+          setAuthReady(true);
+        }
+
+        const handleAuth = (event) => {
+          if (event?.detail?.ready) {
+            setAuthReady(true);
+          }
+        };
+
+        window.addEventListener('fb-auth-state', handleAuth);
+        return () => window.removeEventListener('fb-auth-state', handleAuth);
+      }, []);
+
+      if (!authReady) {
+        return (
+          <main className="min-h-screen flex items-center justify-center bg-white">
+            <LoadingSpinner text="Oturum doğrulanıyor..." />
+          </main>
+        );
+      }
+
       return (
         <>
           <Sidebar />
