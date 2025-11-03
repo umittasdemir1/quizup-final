@@ -16,7 +16,7 @@ import {
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-storage.js';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBu2HRYevycC_MKLY1FlnQ1_HAH9yJ3El4",
+  apiKey: "AIzaSyAtGQUD_-8JhVI73cTg21MeucPorYpgTRs",
   authDomain: "retail-quiz-4bb8c.firebaseapp.com",
   projectId: "retail-quiz-4bb8c",
   storageBucket: "retail-quiz-4bb8c.firebasestorage.app",
