@@ -3,9 +3,32 @@ const { useState, useEffect } = React;
 const Sidebar = () => {
   const [open, setOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [pendingSuggestions, setPendingSuggestions] = useState(0);
   const route = useHash();
   const currentUser = getCurrentUser();
   const isLoggedIn = currentUser !== null;
+
+  // Load pending suggestions count for admin
+  useEffect(() => {
+    if (isLoggedIn && hasRole('admin')) {
+      loadPendingCount();
+      // Refresh every 30 seconds
+      const interval = setInterval(loadPendingCount, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [isLoggedIn]);
+
+  const loadPendingCount = async () => {
+    try {
+      await waitFirebase();
+      const { db, collection, getDocs, query, where } = window.firebase;
+      const q = query(collection(db, 'suggestedQuestions'), where('status', '==', 'pending'));
+      const snapshot = await getDocs(q);
+      setPendingSuggestions(snapshot.size);
+    } catch (e) {
+      console.error('Load pending count error:', e);
+    }
+  };
 
   const isActive = (path) => {
     if (path === '/') return route === '/';
@@ -64,6 +87,34 @@ const Sidebar = () => {
                   <span>Testler</span>
                 </a>
 
+                <a href="#/suggest" className={isActive('/suggest') ? 'active' : ''}>
+                  <span>💡</span>
+                  <span>Soru Öner</span>
+                </a>
+
+                <a href="#/suggestions" className={isActive('/suggestions') ? 'active' : ''} style={{ position: 'relative' }}>
+                  <span>📬</span>
+                  <span>Soru Önerileri</span>
+                  {pendingSuggestions > 0 && (
+                    <span style={{
+                      position: 'absolute',
+                      right: '12px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      backgroundColor: '#FF6B4A',
+                      color: 'white',
+                      borderRadius: '12px',
+                      padding: '2px 8px',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      minWidth: '20px',
+                      textAlign: 'center'
+                    }}>
+                      {pendingSuggestions}
+                    </span>
+                  )}
+                </a>
+
                 <a href="#/branding" className={isActive('/branding') ? 'active' : ''}>
                   <span>🎨</span>
                   <span>Marka Ayarları</span>
@@ -76,7 +127,7 @@ const Sidebar = () => {
               </>
             )}
 
-            {/* Manager: Dashboard, Manager Panel, Tests only */}
+            {/* Manager: Dashboard, Manager Panel, Tests, Suggest */}
             {hasRole('manager') && (
               <>
                 <a href="#/dashboard" className={isActive('/dashboard') ? 'active' : ''}>
@@ -93,15 +144,27 @@ const Sidebar = () => {
                   <span>📝</span>
                   <span>Testler</span>
                 </a>
+
+                <a href="#/suggest" className={isActive('/suggest') ? 'active' : ''}>
+                  <span>💡</span>
+                  <span>Soru Öner</span>
+                </a>
               </>
             )}
 
-            {/* Tester: Only tests */}
+            {/* Tester: Tests and Suggest */}
             {hasRole('tester') && (
-              <a href="#/tests" className={isActive('/tests') ? 'active' : ''}>
-                <span>📝</span>
-                <span>Testler</span>
-              </a>
+              <>
+                <a href="#/tests" className={isActive('/tests') ? 'active' : ''}>
+                  <span>📝</span>
+                  <span>Testler</span>
+                </a>
+
+                <a href="#/suggest" className={isActive('/suggest') ? 'active' : ''}>
+                  <span>💡</span>
+                  <span>Soru Öner</span>
+                </a>
+              </>
             )}
           </nav>
         </div>
