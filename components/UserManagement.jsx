@@ -191,8 +191,25 @@ const UserManagement = () => {
       {/* Add User Modal */}
       {showModal && (
         <>
-          <div className="overlay open" onClick={() => setShowModal(false)}></div>
-          <div className="modal-lg open">
+          <div className="overlay open" onClick={() => setShowModal(false)} style={{ zIndex: 998 }}></div>
+          <div
+            className="modal-lg open"
+            style={{
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              zIndex: 999,
+              background: 'white',
+              borderRadius: '16px',
+              padding: '32px',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+              maxWidth: '600px',
+              width: '90%',
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}
+          >
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-dark-900">Yeni Kullanıcı Ekle</h2>
               <button
