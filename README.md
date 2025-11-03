@@ -41,9 +41,20 @@ Modern bir perakende quiz/test platformu. Personel eğitimi ve değerlendirmesi 
 
 ## 🚀 Kurulum
 
-1. Dosyaları bir web sunucusuna yükleyin
-2. `config/firebase-config.sample.js` dosyasını `config/firebase-config.js` olarak kopyalayıp kendi Firebase bilgilerinizi girin (bu dosya git tarafından yok sayılır)
-3. `index.html` dosyasını açın
+1. `config/runtime-env.sample.js` dosyasını `config/runtime-env.js` olarak kopyalayın ve yerel geliştirme için `VITE_FIREBASE_API_KEY` değerini girin (Netlify dağıtımında bu dosya build sırasında otomatik üretilecektir).
+2. `config/firebase-config.sample.js` dosyasını `config/firebase-config.js` olarak kopyalayıp Firebase projenizin `authDomain`, `projectId`, `storageBucket`, `messagingSenderId`, `appId`, `measurementId` gibi alanlarını doldurun. `apiKey` alanı Netlify ortam değişkeninden otomatik olarak gelecektir.
+3. Dosyaları bir web sunucusuna yükleyin veya yerelde statik sunucu ile çalıştırın.
+4. `index.html` dosyasını açın.
+
+### Netlify üzerinde VITE_FIREBASE_API_KEY tanımlama
+
+1. Netlify panelinde sitenizi açın ve **Site settings → Environment variables** sayfasına gidin.
+2. Yeni değişken ekleyerek adını **`VITE_FIREBASE_API_KEY`** olarak belirleyin ve Firebase projenizdeki API anahtarını değer olarak kaydedin.
+3. Build komutunuzun bir parçası olarak aşağıdaki satırı ekleyin ki Netlify dağıtımı sırasında `config/runtime-env.js` dosyası otomatik üretilebilsin:
+   ```bash
+   echo "window.__RUNTIME_CONFIG = { VITE_FIREBASE_API_KEY: '${VITE_FIREBASE_API_KEY}' };" > config/runtime-env.js
+   ```
+4. Yerel geliştirmede aynı dosyayı manuel olarak oluşturarak anahtarı güvenli bir şekilde yönetebilirsiniz; dosya `.gitignore` içinde olduğu için sürüm kontrolüne dahil edilmez.
 
 ## 📁 Dosya Yapısı
 

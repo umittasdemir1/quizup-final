@@ -1,1 +1,2 @@
 config/firebase-config.js
+config/runtime-env.js

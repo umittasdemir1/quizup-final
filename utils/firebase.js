@@ -15,6 +15,34 @@ import {
 } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-storage.js';
 
+const resolveRuntimeApiKey = () => {
+  const candidateSources = [
+    window.__RUNTIME_CONFIG,
+    window.__ENV,
+    window.__NETLIFY_ENV,
+    window.__APP_ENV
+  ];
+
+  for (const source of candidateSources) {
+    if (!source || typeof source !== 'object') continue;
+    const candidate = source.VITE_FIREBASE_API_KEY || source.FIREBASE_API_KEY || source.NEXT_PUBLIC_FIREBASE_API_KEY;
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  const metaTag = document.querySelector('meta[name="VITE_FIREBASE_API_KEY"]');
+  if (metaTag?.content?.trim()) {
+    return metaTag.content.trim();
+  }
+
+  if (typeof window.__FIREBASE_API_KEY === 'string' && window.__FIREBASE_API_KEY.trim()) {
+    return window.__FIREBASE_API_KEY.trim();
+  }
+
+  return null;
+};
+
 const firebaseConfig = (() => {
   const config = window.__FIREBASE_CONFIG;
 
@@ -30,6 +58,16 @@ const firebaseConfig = (() => {
   }
 
   const sanitizedConfig = { ...config };
+  const runtimeApiKey = resolveRuntimeApiKey();
+
+  if (runtimeApiKey) {
+    sanitizedConfig.apiKey = runtimeApiKey;
+  }
+
+  if (!sanitizedConfig.apiKey) {
+    throw new Error('[Firebase] `apiKey` yapılandırması bulunamadı. Netlify ortam değişkeni VITE_FIREBASE_API_KEY veya config/firebase-config.js dosyası üzerinden bir değer sağlayın.');
+  }
+
   return Object.freeze(sanitizedConfig);
 })();
 
