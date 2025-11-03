@@ -2,6 +2,7 @@ const { useState, useRef } = React;
 
 const SuggestQuestion = () => {
   const currentUser = getCurrentUser();
+  const isAnonymous = !currentUser || currentUser.isAnonymous;
 
   const [form, setForm] = useState({
     questionText: '',
@@ -14,7 +15,10 @@ const SuggestQuestion = () => {
     timerSeconds: 60,
     hasImageOptions: false,
     optionImageUrls: ['', '', '', ''],
-    questionImageUrl: ''
+    questionImageUrl: '',
+    // For anonymous users
+    suggestorName: '',
+    suggestorEmail: ''
   });
 
   const [errors, setErrors] = useState({});
@@ -90,18 +94,40 @@ const SuggestQuestion = () => {
       return;
     }
 
+    // Anonim kullanıcı validasyonu
+    if (isAnonymous && (!form.suggestorName || !form.suggestorEmail)) {
+      toast('Lütfen adınızı ve email adresinizi girin', 'error');
+      return;
+    }
+
     setSaving(true);
     try {
       await waitFirebase();
       const { db, collection, addDoc, serverTimestamp } = window.firebase;
 
       const suggestion = {
-        ...form,
+        questionText: form.questionText,
+        type: form.type,
+        category: form.category,
+        difficulty: form.difficulty,
+        options: form.options,
+        correctAnswer: form.correctAnswer,
+        hasTimer: form.hasTimer,
+        timerSeconds: form.timerSeconds,
+        hasImageOptions: form.hasImageOptions,
+        optionImageUrls: form.optionImageUrls,
+        questionImageUrl: form.questionImageUrl,
         status: 'pending', // pending, approved, rejected
-        suggestedBy: {
+        suggestedBy: isAnonymous ? {
+          uid: null,
+          email: form.suggestorEmail,
+          name: form.suggestorName,
+          isAnonymous: true
+        } : {
           uid: currentUser.uid,
           email: currentUser.email,
-          name: `${currentUser.firstName} ${currentUser.lastName}`
+          name: `${currentUser.firstName} ${currentUser.lastName}`,
+          isAnonymous: false
         },
         createdAt: serverTimestamp()
       };
@@ -148,6 +174,34 @@ const SuggestQuestion = () => {
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
           <strong>📝 Not:</strong> Önerdiğiniz sorular admin tarafından incelendikten sonra soru havuzuna eklenecektir.
         </div>
+
+        {/* Anonymous User Info */}
+        {isAnonymous && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 space-y-3">
+            <div className="text-sm font-semibold text-yellow-800">🔔 İletişim Bilgileriniz</div>
+            <div className="grid md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold mb-1 text-dark-700">Adınız Soyadınız *</label>
+                <input
+                  className="field"
+                  value={form.suggestorName}
+                  onChange={e => updateField('suggestorName', e.target.value)}
+                  placeholder="Ahmet Yılmaz"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold mb-1 text-dark-700">Email Adresiniz *</label>
+                <input
+                  type="email"
+                  className="field"
+                  value={form.suggestorEmail}
+                  onChange={e => updateField('suggestorEmail', e.target.value)}
+                  placeholder="ahmet@example.com"
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Question Text */}
         <div>

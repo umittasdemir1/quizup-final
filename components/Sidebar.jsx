@@ -166,6 +166,16 @@ const Sidebar = () => {
                 </a>
               </>
             )}
+
+            {/* Not logged in / Anonymous users */}
+            {!isLoggedIn && (
+              <>
+                <a href="#/suggest" className={isActive('/suggest') ? 'active' : ''}>
+                  <span>💡</span>
+                  <span>Soru Öner</span>
+                </a>
+              </>
+            )}
           </nav>
         </div>
       )}
