@@ -28,10 +28,27 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-// DON'T auto sign in anonymously here!
-// useAnon() hook will handle anonymous auth when needed
-// If we do it here, it will override any existing logged-in user session
-console.log('[Firebase] Firebase initialized, waiting for auth state...');
+console.log('[Firebase] Firebase initialized');
+
+// Smart anonymous auth: Wait for auth state, then sign in anonymously ONLY if no user
+onAuthStateChanged(auth, async (user) => {
+  console.log('[Firebase] Auth state changed:', user?.email || user?.uid || 'null', 'isAnonymous:', user?.isAnonymous);
+
+  // If there's already a user (logged in or anonymous), don't do anything
+  if (user) {
+    console.log('[Firebase] User exists, skipping auto anonymous auth');
+    return;
+  }
+
+  // No user at all - sign in anonymously for data access
+  try {
+    console.log('[Firebase] No user found, signing in anonymously...');
+    await signInAnonymously(auth);
+    console.log('[Firebase] Anonymous sign-in successful');
+  } catch(e) {
+    console.warn('[Firebase] Anonymous auth error:', e);
+  }
+});
 
 window.firebase = {
   app, auth, db, storage,
