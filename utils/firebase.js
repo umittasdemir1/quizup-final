@@ -31,22 +31,37 @@ const storage = getStorage(app);
 console.log('[Firebase] Firebase initialized');
 
 let readyDispatched = false;
-if (!window.__firebaseReadyPromise) {
-  window.__firebaseReadyPromise = new Promise((resolve) => {
-    window.__firebaseReadyResolve = resolve;
-  });
-}
+let resolveReady;
+let authTimeoutId;
 
-const dispatchReady = () => {
-  if (!readyDispatched) {
-    readyDispatched = true;
-    console.log('[Firebase] Dispatching fb-ready event');
-    window.__firebaseReadyResolve?.();
-    window.dispatchEvent(new Event('fb-ready'));
+// Always create a fresh promise for this page lifecycle so we control the resolver
+window.__firebaseReadyPromise = new Promise((resolve) => {
+  resolveReady = resolve;
+  window.__firebaseReadyResolve = resolve;
+});
+
+const dispatchReady = (reason = 'unknown') => {
+  if (readyDispatched) return;
+  readyDispatched = true;
+  if (authTimeoutId) {
+    clearTimeout(authTimeoutId);
+    authTimeoutId = null;
   }
+  console.log(`[Firebase] Dispatching fb-ready event (reason: ${reason})`);
+  try {
+    resolveReady?.();
+  } catch (err) {
+    console.warn('[Firebase] Failed to resolve ready promise', err);
+  }
+  window.dispatchEvent(new Event('fb-ready'));
 };
 
 // Smart anonymous auth: Wait for auth state, then sign in anonymously ONLY if no user
+authTimeoutId = setTimeout(() => {
+  console.warn('[Firebase] Auth state listener timed out, continuing without auth state');
+  dispatchReady('timeout');
+}, 4000);
+
 onAuthStateChanged(auth, async (user) => {
   console.log('[Firebase] Auth state changed:', user?.email || user?.uid || 'null', 'isAnonymous:', user?.isAnonymous);
 
@@ -54,7 +69,7 @@ onAuthStateChanged(auth, async (user) => {
     // If there's already a user (logged in or anonymous), mark firebase as ready immediately
     if (user) {
       console.log('[Firebase] User exists, skipping auto anonymous auth');
-      dispatchReady();
+      dispatchReady('existing-user');
       return;
     }
 
@@ -62,11 +77,10 @@ onAuthStateChanged(auth, async (user) => {
     console.log('[Firebase] No user found, signing in anonymously...');
     await signInAnonymously(auth);
     console.log('[Firebase] Anonymous sign-in successful');
+    dispatchReady('anon-sign-in');
   } catch(e) {
     console.warn('[Firebase] Anonymous auth error:', e);
-  } finally {
-    // Ensure the app bootstraps even if anonymous auth fails
-    Promise.resolve().then(dispatchReady);
+    dispatchReady('anon-error');
   }
 });
 
@@ -77,9 +91,3 @@ window.firebase = {
   signInAnonymously, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut,
   ref, uploadBytes, getDownloadURL, deleteObject
 };
-
-// Fallback: if auth state never fires (shouldn't happen), ensure the app still boots
-setTimeout(() => {
-  console.log('[Firebase] Fallback fb-ready dispatch');
-  dispatchReady();
-}, 0);
