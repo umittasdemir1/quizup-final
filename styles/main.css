@@ -798,3 +798,15 @@ input:disabled + .toggle-slider {
   line-height: 1.4;
   letter-spacing: -0.01em;
 }
+
+/* Filter Dropdown Animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
