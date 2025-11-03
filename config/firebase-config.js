@@ -1,4 +1,6 @@
-window.__FIREBASE_CONFIG = {
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyAtGQUD_-8JhVI73cTg21MeucPorYpgTRs",
   authDomain: "retail-quiz-4bb8c.firebaseapp.com",
   projectId: "retail-quiz-4bb8c",
   storageBucket: "retail-quiz-4bb8c.appspot.com",
