@@ -32,6 +32,10 @@ const Sidebar = () => {
 
   const isActive = (path) => {
     if (path === '/') return route === '/';
+    // Exact match for conflicting paths
+    if (path === '/suggest' || path === '/suggestions') {
+      return route === path;
+    }
     return route.startsWith(path);
   };
 
@@ -44,6 +48,15 @@ const Sidebar = () => {
   // Hide sidebar on landing and login pages
   const hideSidebar = route === '/' || route === '/login' || route.startsWith('/login');
 
+  // Logo click handler
+  const handleLogoClick = () => {
+    if (isLoggedIn && hasRole(['admin', 'manager'])) {
+      location.hash = '#/dashboard';
+    } else {
+      location.hash = '#/';
+    }
+  };
+
   return (
     <>
       <div
@@ -53,7 +66,7 @@ const Sidebar = () => {
 
       {!hideSidebar && (
         <div className={'sidebar ' + (open ? 'open' : '')}>
-          <div className="p-6 border-b border-dark-700">
+          <div className="p-6 border-b border-dark-700 cursor-pointer hover:bg-dark-800 transition-colors" onClick={handleLogoClick}>
             <div className="flex items-center gap-3">
               <div className="logo-icon">?</div>
               <div>
@@ -195,7 +208,7 @@ const Sidebar = () => {
 
           {hideSidebar && <div className="w-8"></div>}
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity" onClick={handleLogoClick}>
             <div className="logo-icon">?</div>
             <span className="font-bold text-xl text-dark-900">QuizUp+</span>
           </div>

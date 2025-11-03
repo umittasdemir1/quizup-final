@@ -17,8 +17,7 @@ const SuggestQuestion = () => {
     optionImageUrls: ['', '', '', ''],
     questionImageUrl: '',
     // For anonymous users
-    suggestorName: '',
-    suggestorEmail: ''
+    suggestorName: ''
   });
 
   const [errors, setErrors] = useState({});
@@ -95,8 +94,8 @@ const SuggestQuestion = () => {
     }
 
     // Anonim kullanıcı validasyonu
-    if (isAnonymous && (!form.suggestorName || !form.suggestorEmail)) {
-      toast('Lütfen adınızı ve email adresinizi girin', 'error');
+    if (isAnonymous && !form.suggestorName) {
+      toast('Lütfen adınızı ve soyadınızı girin', 'error');
       return;
     }
 
@@ -120,7 +119,7 @@ const SuggestQuestion = () => {
         status: 'pending', // pending, approved, rejected
         suggestedBy: isAnonymous ? {
           uid: null,
-          email: form.suggestorEmail,
+          email: null,
           name: form.suggestorName,
           isAnonymous: true
         } : {
@@ -177,28 +176,16 @@ const SuggestQuestion = () => {
 
         {/* Anonymous User Info */}
         {isAnonymous && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 space-y-3">
-            <div className="text-sm font-semibold text-yellow-800">🔔 İletişim Bilgileriniz</div>
-            <div className="grid md:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold mb-1 text-dark-700">Adınız Soyadınız *</label>
-                <input
-                  className="field"
-                  value={form.suggestorName}
-                  onChange={e => updateField('suggestorName', e.target.value)}
-                  placeholder="Ahmet Yılmaz"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold mb-1 text-dark-700">Email Adresiniz *</label>
-                <input
-                  type="email"
-                  className="field"
-                  value={form.suggestorEmail}
-                  onChange={e => updateField('suggestorEmail', e.target.value)}
-                  placeholder="ahmet@example.com"
-                />
-              </div>
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="text-sm font-semibold text-yellow-800 mb-3">🔔 İletişim Bilgileriniz</div>
+            <div>
+              <label className="block text-xs font-semibold mb-1 text-dark-700">Adınız Soyadınız *</label>
+              <input
+                className="field"
+                value={form.suggestorName}
+                onChange={e => updateField('suggestorName', e.target.value)}
+                placeholder="Ahmet Yılmaz"
+              />
             </div>
           </div>
         )}
