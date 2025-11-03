@@ -175,9 +175,20 @@
       );
     };
 
-    window.addEventListener('fb-ready', () => {
-      ReactDOM.createRoot(document.getElementById('root')).render(<App />);
-    });
+    const renderApp = () => {
+      if (!window.__appRoot) {
+        window.__appRoot = ReactDOM.createRoot(document.getElementById('root'));
+      }
+      window.__appRoot.render(<App />);
+    };
+
+    if (window.__firebaseReadyPromise) {
+      window.__firebaseReadyPromise.then(renderApp);
+    } else if (window.firebase?.db) {
+      renderApp();
+    } else {
+      window.addEventListener('fb-ready', renderApp, { once: true });
+    }
   </script>
 </body>
 </html>

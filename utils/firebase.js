@@ -30,23 +30,43 @@ const storage = getStorage(app);
 
 console.log('[Firebase] Firebase initialized');
 
+let readyDispatched = false;
+if (!window.__firebaseReadyPromise) {
+  window.__firebaseReadyPromise = new Promise((resolve) => {
+    window.__firebaseReadyResolve = resolve;
+  });
+}
+
+const dispatchReady = () => {
+  if (!readyDispatched) {
+    readyDispatched = true;
+    console.log('[Firebase] Dispatching fb-ready event');
+    window.__firebaseReadyResolve?.();
+    window.dispatchEvent(new Event('fb-ready'));
+  }
+};
+
 // Smart anonymous auth: Wait for auth state, then sign in anonymously ONLY if no user
 onAuthStateChanged(auth, async (user) => {
   console.log('[Firebase] Auth state changed:', user?.email || user?.uid || 'null', 'isAnonymous:', user?.isAnonymous);
 
-  // If there's already a user (logged in or anonymous), don't do anything
-  if (user) {
-    console.log('[Firebase] User exists, skipping auto anonymous auth');
-    return;
-  }
-
-  // No user at all - sign in anonymously for data access
   try {
+    // If there's already a user (logged in or anonymous), mark firebase as ready immediately
+    if (user) {
+      console.log('[Firebase] User exists, skipping auto anonymous auth');
+      dispatchReady();
+      return;
+    }
+
+    // No user at all - sign in anonymously for data access
     console.log('[Firebase] No user found, signing in anonymously...');
     await signInAnonymously(auth);
     console.log('[Firebase] Anonymous sign-in successful');
   } catch(e) {
     console.warn('[Firebase] Anonymous auth error:', e);
+  } finally {
+    // Ensure the app bootstraps even if anonymous auth fails
+    Promise.resolve().then(dispatchReady);
   }
 });
 
@@ -58,4 +78,8 @@ window.firebase = {
   ref, uploadBytes, getDownloadURL, deleteObject
 };
 
-window.dispatchEvent(new Event('fb-ready'));
+// Fallback: if auth state never fires (shouldn't happen), ensure the app still boots
+setTimeout(() => {
+  console.log('[Firebase] Fallback fb-ready dispatch');
+  dispatchReady();
+}, 0);
