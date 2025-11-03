@@ -7,7 +7,7 @@ import {
   getAuth,
   signInAnonymously,
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
+  createUserWithEmailAndPassword as firebaseCreateUserWithEmailAndPassword,
   onAuthStateChanged,
   signOut
 } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js';
@@ -33,6 +33,8 @@ console.log('[Firebase] Firebase initialized');
 let readyDispatched = false;
 let resolveReady;
 let authTimeoutId;
+let secondaryAppInstance;
+let secondaryAuthInstance;
 
 // Always create a fresh promise for this page lifecycle so we control the resolver
 window.__firebaseReadyPromise = new Promise((resolve) => {
@@ -54,6 +56,52 @@ const dispatchReady = (reason = 'unknown') => {
     console.warn('[Firebase] Failed to resolve ready promise', err);
   }
   window.dispatchEvent(new Event('fb-ready'));
+};
+
+const getSecondaryAuthInstance = () => {
+  if (!secondaryAppInstance) {
+    secondaryAppInstance = initializeApp(firebaseConfig, 'secondary');
+  }
+  if (!secondaryAuthInstance) {
+    secondaryAuthInstance = getAuth(secondaryAppInstance);
+  }
+  return secondaryAuthInstance;
+};
+
+const createUserWithEmailAndPasswordAsAdmin = async (email, password) => {
+  const adminAuth = auth;
+  const adminUser = adminAuth.currentUser;
+
+  if (!adminUser) {
+    const error = new Error('Yönetici oturumu bulunamadı');
+    error.code = 'auth/admin-required';
+    throw error;
+  }
+
+  const secondaryAuth = getSecondaryAuthInstance();
+
+  try {
+    const credential = await firebaseCreateUserWithEmailAndPassword(secondaryAuth, email, password);
+    const createdUser = credential.user;
+
+    try {
+      await adminUser.reload?.();
+    } catch (reloadError) {
+      console.warn('[Firebase] Admin reload failed after user creation', reloadError);
+    }
+
+    return createdUser;
+  } catch (err) {
+    throw err;
+  } finally {
+    try {
+      if (secondaryAuth.currentUser) {
+        await signOut(secondaryAuth);
+      }
+    } catch (signOutError) {
+      console.warn('[Firebase] Secondary auth sign-out failed', signOutError);
+    }
+  }
 };
 
 // Smart anonymous auth: Wait for auth state, then sign in anonymously ONLY if no user
@@ -88,6 +136,8 @@ window.firebase = {
   app, auth, db, storage,
   collection, addDoc, onSnapshot, query, where, orderBy, doc, getDoc, getDocs,
   setDoc, updateDoc, deleteDoc, serverTimestamp, limit,
-  signInAnonymously, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut,
-  ref, uploadBytes, getDownloadURL, deleteObject
+  signInAnonymously, signInWithEmailAndPassword, onAuthStateChanged, signOut,
+  ref, uploadBytes, getDownloadURL, deleteObject,
+  createUserWithEmailAndPassword: firebaseCreateUserWithEmailAndPassword,
+  createUserWithEmailAndPasswordAsAdmin
 };

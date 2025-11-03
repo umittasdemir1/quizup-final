@@ -106,20 +106,27 @@ const UserManagement = () => {
     try {
       await waitFirebase();
       const {
-        auth,
-        createUserWithEmailAndPassword,
+        createUserWithEmailAndPasswordAsAdmin,
         db,
         doc,
         setDoc,
         serverTimestamp
       } = window.firebase;
 
+      const adminUser = getCurrentUser();
+      if (!adminUser || adminUser.role !== 'admin') {
+        throw Object.assign(new Error('Yönetici oturumu bulunamadı'), { code: 'auth/admin-required' });
+      }
+
       // Firebase Auth'da kullanıcı oluştur
-      const userCredential = await createUserWithEmailAndPassword(auth, form.email, form.password);
-      const user = userCredential.user;
+      const createdUser = await createUserWithEmailAndPasswordAsAdmin(form.email, form.password);
+
+      if (!createdUser?.uid) {
+        throw new Error('Yeni kullanıcı kimliği alınamadı');
+      }
 
       // Firestore'da kullanıcı bilgilerini kaydet
-      await setDoc(doc(db, 'users', user.uid), {
+      await setDoc(doc(db, 'users', createdUser.uid), {
         firstName: form.firstName,
         lastName: form.lastName,
         email: form.email,
@@ -127,7 +134,7 @@ const UserManagement = () => {
         role: form.role,
         position: form.position || null,
         createdAt: serverTimestamp(),
-        createdBy: getCurrentUser().uid
+        createdBy: adminUser.uid
       });
 
       toast('Kullanıcı başarıyla oluşturuldu', 'success');
@@ -151,6 +158,10 @@ const UserManagement = () => {
         toast('Geçersiz email adresi', 'error');
       } else if (error.code === 'auth/weak-password') {
         toast('Şifre çok zayıf', 'error');
+      } else if (error.code === 'auth/admin-required') {
+        toast('Yönetici oturumunuz bulunamadı. Lütfen tekrar giriş yapın.', 'error');
+      } else if (error.code === 'permission-denied') {
+        toast('Bu işlem için yetkiniz yok. Lütfen yönetici hesabıyla giriş yapın.', 'error');
       } else {
         toast('Kullanıcı oluşturulurken hata oluştu', 'error');
       }
