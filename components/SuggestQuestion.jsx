@@ -40,8 +40,7 @@ const SuggestQuestion = () => {
     setForm(prev => ({ ...prev, options: newOptions }));
   };
 
-  const uploadQuestionImage = async (e) => {
-    const file = e.target.files?.[0];
+  const uploadQuestionImage = async (file) => {
     if (!file) return;
 
     setUploading(true);
@@ -61,8 +60,7 @@ const SuggestQuestion = () => {
     }
   };
 
-  const uploadOptionImage = async (index, e) => {
-    const file = e.target.files?.[0];
+  const uploadOptionImage = async (file, index) => {
     if (!file) return;
 
     setUploading(true);
@@ -94,7 +92,8 @@ const SuggestQuestion = () => {
     }
 
     // Anonim kullanıcı validasyonu
-    if (isAnonymous && !form.suggestorName) {
+    if (isAnonymous && !form.suggestorName?.trim()) {
+      setErrors(prev => ({ ...prev, suggestorName: 'Ad soyad gereklidir' }));
       toast('Lütfen adınızı ve soyadınızı girin', 'error');
       return;
     }
@@ -146,7 +145,8 @@ const SuggestQuestion = () => {
         timerSeconds: 60,
         hasImageOptions: false,
         optionImageUrls: ['', '', '', ''],
-        questionImageUrl: ''
+        questionImageUrl: '',
+        suggestorName: isAnonymous ? form.suggestorName : ''
       });
       setErrors({});
 
@@ -165,235 +165,280 @@ const SuggestQuestion = () => {
   };
 
   return (
-    <Page
-      title="💡 Soru Öner"
-      subtitle="Soru havuzuna katkıda bulunun!"
-    >
-      <div className="card p-6 space-y-6">
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+    <Page title="💡 Soru Öner" subtitle="Soru havuzuna katkıda bulunun!">
+      <div className="max-w-3xl mx-auto">
+        {/* Info Box */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800 mb-6">
           <strong>📝 Not:</strong> Önerdiğiniz sorular admin tarafından incelendikten sonra soru havuzuna eklenecektir.
         </div>
 
         {/* Anonymous User Info */}
         {isAnonymous && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
             <div className="text-sm font-semibold text-yellow-800 mb-3">🔔 İletişim Bilgileriniz</div>
             <div>
-              <label className="block text-xs font-semibold mb-1 text-dark-700">Adınız Soyadınız *</label>
+              <label className="block text-sm font-semibold mb-2 text-dark-700">Adınız Soyadınız *</label>
               <input
-                className="field"
+                className={`field ${errors.suggestorName ? 'error' : ''}`}
                 value={form.suggestorName}
                 onChange={e => updateField('suggestorName', e.target.value)}
                 placeholder="Ahmet Yılmaz"
               />
+              {errors.suggestorName && <div className="error-text">{errors.suggestorName}</div>}
             </div>
           </div>
         )}
 
-        {/* Question Text */}
-        <div>
-          <label className="block text-sm font-semibold mb-2 text-dark-700">Soru Metni *</label>
-          <textarea
-            className={`field min-h-[100px] ${errors.questionText ? 'border-red-500' : ''}`}
-            value={form.questionText}
-            onChange={e => updateField('questionText', e.target.value)}
-            placeholder="Soru metnini giriniz..."
-          ></textarea>
-          {errors.questionText && <div className="text-red-600 text-sm mt-1">{errors.questionText}</div>}
-        </div>
-
-        {/* Question Image */}
-        <div>
-          <label className="block text-sm font-semibold mb-2 text-dark-700">Soru Görseli (İsteğe Bağlı)</label>
-          <input
-            ref={questionImageRef}
-            type="file"
-            accept="image/*"
-            onChange={uploadQuestionImage}
-            className="field"
-            disabled={uploading}
-          />
-          {form.questionImageUrl && (
-            <div className="mt-2">
-              <img src={form.questionImageUrl} alt="Question" className="max-w-xs rounded-lg border" />
-            </div>
-          )}
-        </div>
-
-        {/* Type, Category, Difficulty */}
-        <div className="grid md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-semibold mb-2 text-dark-700">Tip *</label>
-            <select
-              className="field"
-              value={form.type}
-              onChange={e => updateField('type', e.target.value)}
-            >
-              <option value="mcq">Çoktan Seçmeli</option>
-              <option value="open">Klasik (Serbest Yanıt)</option>
-            </select>
-          </div>
+        {/* Main Form Card - Matching AdminForm */}
+        <div className="card p-6 mb-6 space-y-4">
+          <h3 className="text-xl font-bold text-dark-900">Yeni Soru Öner</h3>
 
           <div>
-            <label className="block text-sm font-semibold mb-2 text-dark-700">Kategori *</label>
-            <input
-              className={`field ${errors.category ? 'border-red-500' : ''}`}
-              value={form.category}
-              onChange={e => updateField('category', e.target.value)}
-              placeholder="Ürün Bilgisi"
-            />
-            {errors.category && <div className="text-red-600 text-sm mt-1">{errors.category}</div>}
+            <label className="block text-sm font-semibold mb-2 text-dark-700">Soru Metni *</label>
+            <textarea
+              className={`field min-h-[100px] ${errors.questionText ? 'error' : ''}`}
+              value={form.questionText}
+              onChange={e => updateField('questionText', e.target.value)}
+              placeholder="Soru metnini giriniz..."
+            ></textarea>
+            {errors.questionText && <div className="error-text">{errors.questionText}</div>}
           </div>
 
-          <div>
-            <label className="block text-sm font-semibold mb-2 text-dark-700">Zorluk *</label>
-            <select
-              className="field"
-              value={form.difficulty}
-              onChange={e => updateField('difficulty', e.target.value)}
-            >
-              <option value="easy">Kolay</option>
-              <option value="medium">Orta</option>
-              <option value="hard">Zor</option>
-            </select>
-          </div>
-        </div>
-
-        {/* MCQ Options */}
-        {form.type === 'mcq' && (
-          <>
-            {/* Image Options Toggle */}
+          <div className="grid md:grid-cols-3 gap-4">
             <div>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={form.hasImageOptions}
-                  onChange={e => updateField('hasImageOptions', e.target.checked)}
-                />
-                <span className="text-sm font-semibold text-dark-700">Görsel Seçenekler Kullan</span>
-              </label>
+              <label className="block text-sm font-semibold mb-2 text-dark-700">Tip *</label>
+              <select className={`field ${errors.type ? 'error' : ''}`} value={form.type} onChange={e => updateField('type', e.target.value)}>
+                <option value="mcq">Çoktan Seçmeli</option>
+                <option value="open">Klasik (Serbest Yanıt)</option>
+              </select>
             </div>
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-dark-700">Kategori *</label>
+              <input
+                className={`field ${errors.category ? 'error' : ''}`}
+                value={form.category}
+                onChange={e => updateField('category', e.target.value)}
+                placeholder="Ürün Bilgisi"
+              />
+              {errors.category && <div className="error-text">{errors.category}</div>}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-dark-700">Zorluk *</label>
+              <select className={`field ${errors.difficulty ? 'error' : ''}`} value={form.difficulty} onChange={e => updateField('difficulty', e.target.value)}>
+                <option value="easy">Kolay</option>
+                <option value="medium">Orta</option>
+                <option value="hard">Zor</option>
+              </select>
+            </div>
+          </div>
 
-            {!form.hasImageOptions ? (
-              <>
-                {/* Text Options */}
-                <div>
-                  <label className="block text-sm font-semibold mb-2 text-dark-700">Seçenekler * (En az 2)</label>
-                  <div className="space-y-2">
-                    {form.options.map((o, i) => (
-                      <input
-                        key={i}
-                        className={`field ${errors.options ? 'border-red-500' : ''}`}
-                        value={o}
-                        onChange={e => updateOption(i, e.target.value)}
-                        placeholder={`Seçenek ${i + 1}`}
-                      />
-                    ))}
-                  </div>
-                  {errors.options && <div className="text-red-600 text-sm mt-1">{errors.options}</div>}
-                </div>
-
-                {/* Correct Answer */}
-                <div>
-                  <label className="block text-sm font-semibold mb-2 text-dark-700">Doğru Cevap *</label>
-                  <select
-                    className={`field ${errors.correctAnswer ? 'border-red-500' : ''}`}
-                    value={form.correctAnswer}
-                    onChange={e => updateField('correctAnswer', e.target.value)}
-                  >
-                    <option value="">Seçiniz</option>
-                    {form.options.filter(o => o.trim()).map((o, i) => (
-                      <option key={i} value={o}>{o}</option>
-                    ))}
-                  </select>
-                  {errors.correctAnswer && <div className="text-red-600 text-sm mt-1">{errors.correctAnswer}</div>}
-                </div>
-              </>
-            ) : (
-              <>
-                {/* Image Options */}
-                <div>
-                  <label className="block text-sm font-semibold mb-2 text-dark-700">Seçenek Görselleri *</label>
-                  <div className="grid grid-cols-2 gap-4">
-                    {form.options.map((o, i) => (
-                      <div key={i} className="space-y-2">
+          {form.type === 'mcq' && (
+            <>
+              {!form.hasImageOptions && (
+                <>
+                  <div>
+                    <label className="block text-sm font-semibold mb-2 text-dark-700">Seçenekler * (En az 2)</label>
+                    <div className="space-y-2">
+                      {form.options.map((o, i) => (
                         <input
+                          key={i}
+                          className={`field ${errors.options ? 'error' : ''}`}
+                          value={o}
+                          onChange={e => updateOption(i, e.target.value)}
+                          placeholder={`Seçenek ${i + 1}`}
+                        />
+                      ))}
+                    </div>
+                    {errors.options && <div className="error-text">{errors.options}</div>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-2 text-dark-700">Doğru Cevap *</label>
+                    <select className={`field ${errors.correctAnswer ? 'error' : ''}`} value={form.correctAnswer} onChange={e => updateField('correctAnswer', e.target.value)}>
+                      <option value="">Seçiniz</option>
+                      {form.options.filter(o => o.trim()).map((o, i) => <option key={i} value={o}>{o}</option>)}
+                    </select>
+                    {errors.correctAnswer && <div className="error-text">{errors.correctAnswer}</div>}
+                  </div>
+                </>
+              )}
+
+              {form.hasImageOptions && (
+                <>
+                  <div>
+                    <label className="block text-sm font-semibold mb-2 text-dark-700">Seçenek İsimleri * (Kısa etiketler)</label>
+                    <p className="text-xs text-dark-500 mb-2">Her görsel için kısa bir isim verin (örn: "A", "B", "C" veya "Seçenek 1")</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {form.options.map((o, i) => (
+                        <input
+                          key={i}
                           className="field"
                           value={o}
                           onChange={e => updateOption(i, e.target.value)}
                           placeholder={`Etiket ${i + 1}`}
                         />
-                        <input
-                          ref={el => optionImageRefs.current[i] = el}
-                          type="file"
-                          accept="image/*"
-                          onChange={e => uploadOptionImage(i, e)}
-                          className="field"
-                          disabled={uploading}
-                        />
-                        {form.optionImageUrls[i] && (
-                          <img src={form.optionImageUrls[i]} alt={`Option ${i + 1}`} className="w-full rounded-lg border" />
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-2 text-dark-700">Doğru Cevap *</label>
+                    <select className={`field ${errors.correctAnswer ? 'error' : ''}`} value={form.correctAnswer} onChange={e => updateField('correctAnswer', e.target.value)}>
+                      <option value="">Seçiniz</option>
+                      {form.options.filter(o => o.trim()).map((o, i) => <option key={i} value={o}>{o}</option>)}
+                    </select>
+                    {errors.correctAnswer && <div className="error-text">{errors.correctAnswer}</div>}
+                  </div>
+                </>
+              )}
+            </>
+          )}
+
+          {/* TIMER SECTION - Matching AdminForm */}
+          <div className="card p-4 bg-secondary-50 border border-secondary-200">
+            <div className="flex items-center gap-3 mb-3">
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={form.hasTimer}
+                  onChange={e => updateField('hasTimer', e.target.checked)}
+                />
+                <span className="toggle-slider"></span>
+              </label>
+              <span className="font-semibold text-dark-900">⏱️ Süre Sınırı Ekle</span>
+            </div>
+
+            {form.hasTimer && (
+              <div>
+                <label className="block text-sm font-semibold mb-2 text-dark-700">Süre (saniye)</label>
+                <input
+                  type="number"
+                  className="field"
+                  value={form.timerSeconds}
+                  onChange={e => updateField('timerSeconds', e.target.value)}
+                  placeholder="60"
+                  min="10"
+                  max="300"
+                />
+                <p className="text-xs text-dark-500 mt-1">Önerilen: 30-120 saniye arası</p>
+              </div>
+            )}
+          </div>
+
+          {/* IMAGE SECTION - Matching AdminForm */}
+          <div className="card p-4 bg-primary-50 border border-primary-200">
+            <h4 className="font-bold text-dark-900 mb-3">📸 Görsel Ekle</h4>
+
+            {/* Question Image */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-semibold text-dark-700">Soru Görseli</label>
+                {form.questionImageUrl && (
+                  <button
+                    type="button"
+                    className="text-xs text-red-600 hover:text-red-800"
+                    onClick={() => updateField('questionImageUrl', '')}
+                  >
+                    ✕ Kaldır
+                  </button>
+                )}
+              </div>
+              {form.questionImageUrl ? (
+                <div className="question-image-container max-w-md mx-auto">
+                  <img src={form.questionImageUrl} alt="Soru" />
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-ghost w-full"
+                    onClick={() => questionImageRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    {uploading ? 'Yükleniyor...' : '📤 Görsel Yükle'}
+                  </button>
+                  <input
+                    ref={questionImageRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => uploadQuestionImage(e.target.files[0])}
+                    style={{ display: 'none' }}
+                  />
+                </>
+              )}
+            </div>
+
+            {/* Option Images (Only for MCQ) */}
+            {form.type === 'mcq' && (
+              <div>
+                <div className="flex items-center gap-3 mb-3">
+                  <label className="toggle-switch">
+                    <input
+                      type="checkbox"
+                      checked={form.hasImageOptions}
+                      onChange={e => updateField('hasImageOptions', e.target.checked)}
+                    />
+                    <span className="toggle-slider"></span>
+                  </label>
+                  <span className="text-sm font-semibold text-dark-700">Seçeneklerde Görsel Kullan</span>
+                </div>
+
+                {form.hasImageOptions && (
+                  <div className="grid grid-cols-2 gap-3">
+                    {form.options.map((o, i) => o.trim() && (
+                      <div key={i} className="space-y-2">
+                        <label className="text-xs font-semibold text-dark-700">Seçenek {i + 1}</label>
+                        {form.optionImageUrls[i] ? (
+                          <div className="relative">
+                            <div className="question-image-container">
+                              <img
+                                src={form.optionImageUrls[i]}
+                                alt={`Seçenek ${i + 1}`}
+                                className="w-full aspect-square object-cover rounded-lg"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 text-xs"
+                              onClick={() => {
+                                const newUrls = [...form.optionImageUrls];
+                                newUrls[i] = '';
+                                updateField('optionImageUrls', newUrls);
+                              }}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              className="btn btn-ghost w-full text-xs py-2"
+                              onClick={() => optionImageRefs.current[i]?.click()}
+                              disabled={uploading}
+                            >
+                              📤 Yükle
+                            </button>
+                            <input
+                              ref={el => optionImageRefs.current[i] = el}
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => uploadOptionImage(e.target.files[0], i)}
+                              style={{ display: 'none' }}
+                            />
+                          </>
                         )}
                       </div>
                     ))}
                   </div>
-                  {errors.options && <div className="text-red-600 text-sm mt-1">{errors.options}</div>}
-                </div>
-
-                {/* Correct Answer */}
-                <div>
-                  <label className="block text-sm font-semibold mb-2 text-dark-700">Doğru Cevap *</label>
-                  <select
-                    className={`field ${errors.correctAnswer ? 'border-red-500' : ''}`}
-                    value={form.correctAnswer}
-                    onChange={e => updateField('correctAnswer', e.target.value)}
-                  >
-                    <option value="">Seçiniz</option>
-                    {form.options.filter(o => o.trim()).map((o, i) => (
-                      <option key={i} value={o}>{o}</option>
-                    ))}
-                  </select>
-                  {errors.correctAnswer && <div className="text-red-600 text-sm mt-1">{errors.correctAnswer}</div>}
-                </div>
-              </>
+                )}
+              </div>
             )}
-          </>
-        )}
+          </div>
 
-        {/* Timer */}
-        <div>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.hasTimer}
-              onChange={e => updateField('hasTimer', e.target.checked)}
-            />
-            <span className="text-sm font-semibold text-dark-700">Süre Sınırı Ekle</span>
-          </label>
-          {form.hasTimer && (
-            <div className="mt-2">
-              <input
-                type="number"
-                className="field"
-                value={form.timerSeconds}
-                onChange={e => updateField('timerSeconds', parseInt(e.target.value) || 60)}
-                min="10"
-                max="600"
-              />
-              <div className="text-xs text-dark-500 mt-1">Saniye cinsinden (10-600)</div>
-            </div>
-          )}
-        </div>
-
-        {/* Submit Button */}
-        <div className="flex gap-3 pt-4">
-          <button
-            className="btn btn-primary flex-1"
-            onClick={handleSubmit}
-            disabled={saving || uploading}
-          >
-            {saving ? 'Gönderiliyor...' : '📤 Soru Öner'}
-          </button>
+          <div className="flex gap-3 pt-2">
+            <button className="btn btn-primary" onClick={handleSubmit} disabled={saving || uploading}>
+              {saving ? 'Gönderiliyor...' : '📤 Soru Öner'}
+            </button>
+          </div>
         </div>
       </div>
     </Page>
