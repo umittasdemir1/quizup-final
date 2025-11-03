@@ -123,11 +123,17 @@ const Quiz = ({ sessionId }) => {
               return newAnswers;
             });
             
-            // 🔀 AUTO NEXT
+            // 🔀 AUTO NEXT OR SUBMIT
             setTimeout(() => {
               if (idx < questions.length - 1) {
                 toast('➡️ Sonraki soruya geçiliyor...', 'warning');
                 setIdx(i => i + 1);
+              } else {
+                // Son soruda süre bitti - otomatik test sonlandır
+                toast('⏰ Test sonlandırıldı', 'error');
+                setTimeout(() => {
+                  submit(true, true); // skip confirmation, mark as timeout
+                }, 1000);
               }
             }, 1500);
             return 0;
@@ -200,14 +206,14 @@ const Quiz = ({ sessionId }) => {
     }
   };
 
-  const submit = async () => {
-    if (!confirm('Quizi göndermek istediğinizden emin misiniz?')) return;
+  const submit = async (skipConfirm = false, isLastQuestionTimeout = false) => {
+    if (!skipConfirm && !confirm('Quizi göndermek istediğinizden emin misiniz?')) return;
 
     // Determine last question status before recording
     const currentQuestionId = questions[idx].id;
     const lastQuestionAnswer = answers[currentQuestionId];
     const lastQuestionAnswered = lastQuestionAnswer != null && lastQuestionAnswer !== '';
-    const lastQuestionStatus = lastQuestionAnswered ? 'answered' : 'skipped';
+    const lastQuestionStatus = isLastQuestionTimeout ? 'timeout' : (lastQuestionAnswered ? 'answered' : 'skipped');
     
     // Record time for last question
     recordQuestionTime(currentQuestionId, lastQuestionStatus);
