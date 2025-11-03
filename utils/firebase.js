@@ -28,11 +28,10 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-try {
-  await signInAnonymously(auth);
-} catch(e) {
-  console.warn('Anonymous auth error:', e);
-}
+// DON'T auto sign in anonymously here!
+// useAnon() hook will handle anonymous auth when needed
+// If we do it here, it will override any existing logged-in user session
+console.log('[Firebase] Firebase initialized, waiting for auth state...');
 
 window.firebase = {
   app, auth, db, storage,
