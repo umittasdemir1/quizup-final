@@ -77,27 +77,35 @@ const getLocationFromBrowser = () => {
         reject(error);
       },
       {
-        enableHighAccuracy: false,
-        timeout: 10000,
-        maximumAge: 300000 // 5 minutes cache
+        enableHighAccuracy: true, // Daha hassas konum
+        timeout: 15000, // 15 saniye timeout
+        maximumAge: 60000 // 1 dakika cache
       }
     );
   });
 };
 
-// Main function to get location (tries GPS first, falls back to IP)
+// Main function to get location (GPS only, no IP fallback)
 const getLocation = async () => {
   try {
-    // Try GPS first
+    // GPS only
     const location = await getLocationFromBrowser();
     console.log('Location obtained from GPS:', location);
     return location;
   } catch (error) {
-    // Fallback to IP
-    console.log('GPS failed, using IP location');
-    const location = await getLocationFromIP();
-    console.log('Location obtained from IP:', location);
-    return location;
+    console.error('GPS location failed:', error);
+    // Return null instead of IP fallback
+    return {
+      city: 'Konum alınamadı',
+      region: '',
+      country: 'Turkey',
+      countryCode: 'TR',
+      lat: null,
+      lng: null,
+      accuracy: null,
+      source: 'unavailable',
+      error: error.message
+    };
   }
 };
 
