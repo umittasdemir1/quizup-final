@@ -17,16 +17,30 @@ const SuggestedQuestions = () => {
   }, []);
 
   const loadSuggestions = async () => {
+    console.log('=== LOADING SUGGESTIONS ===');
     try {
       await waitFirebase();
       const { db, collection, getDocs, query, orderBy } = window.firebase;
+      console.log('Firebase ready, creating query...');
+
       const q = query(collection(db, 'suggestedQuestions'), orderBy('createdAt', 'desc'));
+      console.log('Query created, fetching documents...');
+
       const snapshot = await getDocs(q);
-      const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      console.log('Snapshot received. Document count:', snapshot.size);
+
+      const data = snapshot.docs.map(d => {
+        const docData = { id: d.id, ...d.data() };
+        console.log('Document:', docData);
+        return docData;
+      });
+
+      console.log('Total suggestions loaded:', data.length);
       setSuggestions(data);
     } catch (e) {
       console.error('Load suggestions error:', e);
-      toast('Öneriler yüklenemedi', 'error');
+      console.error('Error details:', e.message, e.code);
+      toast('Öneriler yüklenemedi: ' + e.message, 'error');
     } finally {
       setLoading(false);
     }

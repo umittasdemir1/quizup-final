@@ -83,8 +83,15 @@ const SuggestQuestion = () => {
   };
 
   const handleSubmit = async () => {
+    console.log('=== SUBMIT STARTED ===');
+    console.log('Current User:', currentUser);
+    console.log('Is Anonymous:', isAnonymous);
+    console.log('Form Data:', form);
+
     // Validation
     const validationErrors = validateQuestion(form);
+    console.log('Validation Errors:', validationErrors);
+
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       toast('Lütfen tüm gerekli alanları doldurun', 'error');
@@ -93,6 +100,7 @@ const SuggestQuestion = () => {
 
     // Anonim kullanıcı validasyonu
     if (isAnonymous && !form.suggestorName?.trim()) {
+      console.log('ERROR: Anonymous user name required');
       setErrors(prev => ({ ...prev, suggestorName: 'Ad soyad gereklidir' }));
       toast('Lütfen adınızı ve soyadınızı girin', 'error');
       return;
@@ -100,8 +108,10 @@ const SuggestQuestion = () => {
 
     setSaving(true);
     try {
+      console.log('Waiting for Firebase...');
       await waitFirebase();
       const { db, collection, addDoc, serverTimestamp } = window.firebase;
+      console.log('Firebase ready');
 
       const suggestion = {
         questionText: form.questionText,
@@ -130,7 +140,12 @@ const SuggestQuestion = () => {
         createdAt: serverTimestamp()
       };
 
-      await addDoc(collection(db, 'suggestedQuestions'), suggestion);
+      console.log('Suggestion Object:', suggestion);
+      console.log('Attempting to save to suggestedQuestions...');
+
+      const docRef = await addDoc(collection(db, 'suggestedQuestions'), suggestion);
+
+      console.log('SUCCESS! Document ID:', docRef.id);
       toast('Soru öneriniz gönderildi! Teşekkürler 🎉', 'success');
 
       // Reset form
