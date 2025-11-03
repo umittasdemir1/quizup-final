@@ -681,7 +681,6 @@ const UserManagement = () => {
                   <input
                     type="password"
                     className="field"
-                    placeholder="admin123"
                     value={adminPassword}
                     onChange={(e) => setAdminPassword(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && verifyAdminPassword()}
