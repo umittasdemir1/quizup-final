@@ -7,7 +7,7 @@ import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from 'https:/
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-storage.js';
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  apiKey: "AIzaSyAtGQUD_-8JhVI73cTg21MeucPorYpgTRs",
   authDomain: "retail-quiz-4bb8c.firebaseapp.com",
   projectId: "retail-quiz-4bb8c",
   storageBucket: "retail-quiz-4bb8c.firebasestorage.app",
