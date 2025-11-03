@@ -148,27 +148,27 @@ const Result = ({ sessionId, resultId }) => {
         </div>
 
         {/* Time Stats */}
-        <div className="card p-6 lg:col-span-2">
-          <h3 className="text-lg font-bold text-dark-900 mb-4">⏱️ Süre İstatistikleri</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="aspect-square bg-primary-50 p-4 rounded-xl border border-primary-200 flex flex-col justify-center">
-              <div className="text-sm text-dark-600 mb-2">Toplam Süre</div>
-              <div className="text-2xl font-bold text-primary-600">
+        <div className="card p-4 sm:p-6 lg:col-span-2">
+          <h3 className="text-base sm:text-lg font-bold text-dark-900 mb-3 sm:mb-4">⏱️ Süre İstatistikleri</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div className="bg-primary-50 p-3 sm:p-4 rounded-xl border border-primary-200 flex flex-col justify-center min-h-[80px]">
+              <div className="text-xs sm:text-sm text-dark-600 mb-1 sm:mb-2">Toplam Süre</div>
+              <div className="text-lg sm:text-xl md:text-2xl font-bold text-primary-600">
                 {formatTime(timeTracking.totalTime)}
               </div>
             </div>
-            
-            <div className="aspect-square bg-secondary-50 p-4 rounded-xl border border-secondary-200 flex flex-col justify-center">
-              <div className="text-sm text-dark-600 mb-2">Ortalama Soru Süresi</div>
-              <div className="text-2xl font-bold text-secondary-600">
+
+            <div className="bg-secondary-50 p-3 sm:p-4 rounded-xl border border-secondary-200 flex flex-col justify-center min-h-[80px]">
+              <div className="text-xs sm:text-sm text-dark-600 mb-1 sm:mb-2">Ortalama Soru Süresi</div>
+              <div className="text-lg sm:text-xl md:text-2xl font-bold text-secondary-600">
                 {timeTracking.averageTimePerQuestion || 0} sn
               </div>
             </div>
-            
+
             {fastestQ && (
-              <div className="aspect-square bg-accent-50 p-4 rounded-xl border border-accent-200 flex flex-col justify-center">
-                <div className="text-sm text-dark-600 mb-2">🏃 En Hızlı</div>
-                <div className="text-lg font-bold text-accent-600">
+              <div className="bg-accent-50 p-3 sm:p-4 rounded-xl border border-accent-200 flex flex-col justify-center min-h-[80px]">
+                <div className="text-xs sm:text-sm text-dark-600 mb-1 sm:mb-2">🏃 En Hızlı</div>
+                <div className="text-base sm:text-lg md:text-xl font-bold text-accent-600">
                   {fastestQ.timeSpent} sn
                 </div>
                 <div className="text-xs text-dark-500 mt-1 truncate">
@@ -176,11 +176,11 @@ const Result = ({ sessionId, resultId }) => {
                 </div>
               </div>
             )}
-            
+
             {slowestQ && (
-              <div className="aspect-square bg-orange-50 p-4 rounded-xl border border-orange-200 flex flex-col justify-center">
-                <div className="text-sm text-dark-600 mb-2">🐌 En Yavaş</div>
-                <div className="text-lg font-bold text-orange-600">
+              <div className="bg-orange-50 p-3 sm:p-4 rounded-xl border border-orange-200 flex flex-col justify-center min-h-[80px]">
+                <div className="text-xs sm:text-sm text-dark-600 mb-1 sm:mb-2">🐌 En Yavaş</div>
+                <div className="text-base sm:text-lg md:text-xl font-bold text-orange-600">
                   {slowestQ.timeSpent} sn
                 </div>
                 <div className="text-xs text-dark-500 mt-1 truncate">
