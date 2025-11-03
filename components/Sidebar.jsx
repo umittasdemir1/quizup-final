@@ -183,6 +183,10 @@ const Sidebar = () => {
             {/* Not logged in / Anonymous users */}
             {!isLoggedIn && (
               <>
+                <a href="#/mytests" className={isActive('/mytests') ? 'active' : ''}>
+                  <span>📝</span>
+                  <span>Testlerim</span>
+                </a>
                 <a href="#/suggest" className={isActive('/suggest') ? 'active' : ''}>
                   <span>💡</span>
                   <span>Soru Öner</span>

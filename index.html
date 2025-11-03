@@ -67,6 +67,7 @@
   <script type="text/babel" src="components/UserManagement.jsx"></script>
   <script type="text/babel" src="components/SuggestQuestion.jsx"></script>
   <script type="text/babel" src="components/SuggestedQuestions.jsx"></script>
+  <script type="text/babel" src="components/MyTests.jsx"></script>
   <script type="text/babel" src="components/Manager.jsx"></script>
   <script type="text/babel" src="components/Quiz.jsx"></script>
   <script type="text/babel" src="components/Dashboard.jsx"></script>
@@ -156,6 +157,7 @@
               : route.startsWith('/users') ? (isLoggedIn() && hasRole('admin') ? <UserManagement /> : (() => { requireAuth('admin'); return null; })())
               : route.startsWith('/suggestions') ? (isLoggedIn() && hasRole('admin') ? <SuggestedQuestions /> : (() => { requireAuth('admin'); return null; })())
               : route.startsWith('/suggest') ? <SuggestQuestion />
+              : route.startsWith('/mytests') ? <MyTests />
               : route.startsWith('/branding') ? (isLoggedIn() && hasRole('admin') ? <Branding /> : (() => { requireAuth('admin'); return null; })())
               : route.startsWith('/dashboard') ? (isLoggedIn() && hasRole(['admin', 'manager']) ? <Dashboard /> : (() => { requireAuth(['admin', 'manager']); return null; })())
               : route.startsWith('/quiz/') ? <Quiz sessionId={route.split('/')[2]} />

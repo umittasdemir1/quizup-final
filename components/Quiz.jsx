@@ -1,5 +1,15 @@
 const { useState, useEffect, useRef } = React;
 
+// Get or create anonymous user ID
+const getAnonymousId = () => {
+  let anonId = localStorage.getItem('anonUserId');
+  if (!anonId) {
+    anonId = 'anon_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem('anonUserId', anonId);
+  }
+  return anonId;
+};
+
 const Quiz = ({ sessionId }) => {
   const [session, setSession] = useState(null);
   const [questions, setQuestions] = useState([]);
@@ -274,6 +284,14 @@ const Quiz = ({ sessionId }) => {
 
       const ref = await addDoc(collection(db, 'results'), result);
       await updateDoc(doc(db, 'quizSessions', sessionId), { status: 'completed' });
+
+      // Save test ID to localStorage for anonymous users
+      const anonId = getAnonymousId();
+      const existingTests = JSON.parse(localStorage.getItem(`tests_${anonId}`) || '[]');
+      if (!existingTests.includes(ref.id)) {
+        existingTests.push(ref.id);
+        localStorage.setItem(`tests_${anonId}`, JSON.stringify(existingTests));
+      }
 
       toast('Quiz tamamlandı!', 'success');
       
