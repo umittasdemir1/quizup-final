@@ -44,9 +44,29 @@ const UserManagement = () => {
     console.log('=== LOADING USERS ===');
     try {
       await waitFirebase();
-      const { db, collection, getDocs, orderBy, query } = window.firebase;
-      console.log('Firebase ready, querying users...');
 
+      // Check if user is admin
+      const user = getCurrentUser();
+      console.log('Current user:', user);
+      if (!user || user.role !== 'admin') {
+        console.error('User is not admin, cannot load users');
+        toast('Yetkiniz yok', 'error');
+        setLoading(false);
+        return;
+      }
+
+      const { db, collection, getDocs, orderBy, query, auth } = window.firebase;
+      console.log('Firebase ready, Firebase Auth user:', auth.currentUser);
+
+      // Ensure Firebase Auth is ready
+      if (!auth.currentUser) {
+        console.error('Firebase Auth not ready');
+        toast('Lütfen tekrar giriş yapın', 'error');
+        setLoading(false);
+        return;
+      }
+
+      console.log('Querying users collection...');
       const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
       const snapshot = await getDocs(q);
       console.log('Users snapshot size:', snapshot.size);
@@ -61,6 +81,8 @@ const UserManagement = () => {
       setUsers(data);
     } catch (e) {
       console.error('Load users error:', e);
+      console.error('Error code:', e.code);
+      console.error('Error message:', e.message);
       toast('Kullanıcılar yüklenemedi: ' + e.message, 'error');
     } finally {
       setLoading(false);

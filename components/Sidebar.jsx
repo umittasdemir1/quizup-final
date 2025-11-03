@@ -21,12 +21,29 @@ const Sidebar = () => {
   const loadPendingCount = async () => {
     try {
       await waitFirebase();
-      const { db, collection, getDocs, query, where } = window.firebase;
+
+      // Double check: Only admin can load pending count
+      const user = getCurrentUser();
+      if (!user || user.role !== 'admin') {
+        console.log('Skipping pending count load: User is not admin');
+        return;
+      }
+
+      const { db, collection, getDocs, query, where, auth } = window.firebase;
+
+      // Ensure Firebase Auth is ready
+      if (!auth.currentUser) {
+        console.log('Skipping pending count load: Firebase Auth not ready');
+        return;
+      }
+
       const q = query(collection(db, 'suggestedQuestions'), where('status', '==', 'pending'));
       const snapshot = await getDocs(q);
       setPendingSuggestions(snapshot.size);
+      console.log('Pending suggestions count:', snapshot.size);
     } catch (e) {
       console.error('Load pending count error:', e);
+      // Silent fail - don't show toast to user
     }
   };
 
