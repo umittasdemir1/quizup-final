@@ -42,17 +42,11 @@ const Landing = () => {
           </p>
           
           <div className="flex gap-4 hero-btn">
-            <button 
+            <button
               className="btn btn-primary text-lg px-8 py-4"
-              onClick={() => location.hash = '#/admin'}
+              onClick={() => location.hash = '#/login'}
             >
               Get Started
-            </button>
-            <button 
-              className="btn btn-secondary text-lg px-8 py-4"
-              onClick={() => location.hash = '#/manager'}
-            >
-              Learn More
             </button>
           </div>
           

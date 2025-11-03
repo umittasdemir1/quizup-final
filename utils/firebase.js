@@ -3,7 +3,14 @@ import {
   getFirestore, collection, addDoc, onSnapshot, query, where, orderBy, doc, getDoc, getDocs,
   setDoc, updateDoc, deleteDoc, serverTimestamp, limit
 } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js';
-import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js';
+import {
+  getAuth,
+  signInAnonymously,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signOut
+} from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-storage.js';
 
 const firebaseConfig = {
@@ -31,7 +38,7 @@ window.firebase = {
   app, auth, db, storage,
   collection, addDoc, onSnapshot, query, where, orderBy, doc, getDoc, getDocs,
   setDoc, updateDoc, deleteDoc, serverTimestamp, limit,
-  signInAnonymously, onAuthStateChanged, signOut,
+  signInAnonymously, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut,
   ref, uploadBytes, getDownloadURL, deleteObject
 };
 

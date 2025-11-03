@@ -173,6 +173,70 @@ const Page = ({ title, subtitle, extra, children }) => (
   </div>
 );
 
+// Auth Helpers
+const getCurrentUser = () => {
+  try {
+    const userStr = localStorage.getItem('currentUser');
+    return userStr ? JSON.parse(userStr) : null;
+  } catch {
+    return null;
+  }
+};
+
+const isLoggedIn = () => {
+  return getCurrentUser() !== null;
+};
+
+const hasRole = (requiredRole) => {
+  const user = getCurrentUser();
+  if (!user) return false;
+
+  if (Array.isArray(requiredRole)) {
+    return requiredRole.includes(user.role);
+  }
+  return user.role === requiredRole;
+};
+
+const isAdmin = () => {
+  return hasRole('admin');
+};
+
+const requireAuth = (requiredRole = null) => {
+  if (!isLoggedIn()) {
+    toast('Lütfen giriş yapın', 'error');
+    setTimeout(() => {
+      location.hash = '#/login';
+    }, 500);
+    return false;
+  }
+
+  if (requiredRole && !hasRole(requiredRole)) {
+    toast('Bu sayfaya erişim yetkiniz yok', 'error');
+    setTimeout(() => {
+      location.hash = '#/dashboard';
+    }, 500);
+    return false;
+  }
+
+  return true;
+};
+
+const logout = async () => {
+  try {
+    await waitFirebase();
+    const { auth, signOut } = window.firebase;
+    await signOut(auth);
+    localStorage.removeItem('currentUser');
+    toast('Çıkış yapıldı', 'success');
+    setTimeout(() => {
+      location.hash = '#/';
+    }, 500);
+  } catch (e) {
+    console.error('Logout error:', e);
+    toast('Çıkış yapılırken hata oluştu', 'error');
+  }
+};
+
 // Make available globally
 window.waitFirebase = waitFirebase;
 window.fmtDate = fmtDate;
@@ -183,6 +247,12 @@ window.validateSession = validateSession;
 window.validateText = validateText;
 window.LoadingSpinner = LoadingSpinner;
 window.Page = Page;
+window.getCurrentUser = getCurrentUser;
+window.isLoggedIn = isLoggedIn;
+window.hasRole = hasRole;
+window.isAdmin = isAdmin;
+window.requireAuth = requireAuth;
+window.logout = logout;
 
 // Auto-apply text validation on blur for all text inputs
 if (typeof document !== 'undefined') {

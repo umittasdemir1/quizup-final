@@ -2,90 +2,173 @@ const { useState, useEffect } = React;
 
 const Sidebar = () => {
   const [open, setOpen] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const route = useHash();
-  
+  const currentUser = getCurrentUser();
+  const isLoggedIn = currentUser !== null;
+
   const isActive = (path) => {
     if (path === '/') return route === '/';
     return route.startsWith(path);
   };
-  
+
   useEffect(() => {
     if (open) {
       setOpen(false);
     }
   }, [route]);
-  
+
+  // Hide sidebar on landing and login pages
+  const hideSidebar = route === '/' || route === '/login' || route.startsWith('/login');
+
   return (
     <>
-      <div 
-        className={'overlay ' + (open ? 'open' : '')} 
+      <div
+        className={'overlay ' + (open ? 'open' : '')}
         onClick={() => setOpen(false)}
       ></div>
-      
-      <div className={'sidebar ' + (open ? 'open' : '')}>
-        <div className="p-6 border-b border-dark-700">
-          <div className="flex items-center gap-3">
-            <div className="logo-icon">?</div>
-            <div>
-              <div className="text-xl font-bold text-white">QuizUp+</div>
-              <div className="text-xs text-dark-300">Boost Your Knowledge</div>
+
+      {!hideSidebar && (
+        <div className={'sidebar ' + (open ? 'open' : '')}>
+          <div className="p-6 border-b border-dark-700">
+            <div className="flex items-center gap-3">
+              <div className="logo-icon">?</div>
+              <div>
+                <div className="text-xl font-bold text-white">QuizUp+</div>
+                <div className="text-xs text-dark-300">Boost Your Knowledge</div>
+              </div>
             </div>
           </div>
+
+          <nav className="py-4">
+            {/* Admin: See everything */}
+            {hasRole('admin') && (
+              <>
+                <a href="#/dashboard" className={isActive('/dashboard') ? 'active' : ''}>
+                  <span>📈</span>
+                  <span>Dashboard</span>
+                </a>
+
+                <a href="#/admin" className={isActive('/admin') ? 'active' : ''}>
+                  <span>⚙️</span>
+                  <span>Soru Havuzu</span>
+                </a>
+
+                <a href="#/manager" className={isActive('/manager') ? 'active' : ''}>
+                  <span>📊</span>
+                  <span>Yönetici Paneli</span>
+                </a>
+
+                <a href="#/tests" className={isActive('/tests') ? 'active' : ''}>
+                  <span>📝</span>
+                  <span>Testler</span>
+                </a>
+
+                <a href="#/branding" className={isActive('/branding') ? 'active' : ''}>
+                  <span>🎨</span>
+                  <span>Marka Ayarları</span>
+                </a>
+
+                <a href="#/users" className={isActive('/users') ? 'active' : ''}>
+                  <span>👥</span>
+                  <span>Kullanıcı Yönetimi</span>
+                </a>
+              </>
+            )}
+
+            {/* Manager: Dashboard, Manager Panel, Tests only */}
+            {hasRole('manager') && (
+              <>
+                <a href="#/dashboard" className={isActive('/dashboard') ? 'active' : ''}>
+                  <span>📈</span>
+                  <span>Dashboard</span>
+                </a>
+
+                <a href="#/manager" className={isActive('/manager') ? 'active' : ''}>
+                  <span>📊</span>
+                  <span>Yönetici Paneli</span>
+                </a>
+
+                <a href="#/tests" className={isActive('/tests') ? 'active' : ''}>
+                  <span>📝</span>
+                  <span>Testler</span>
+                </a>
+              </>
+            )}
+
+            {/* Tester: Only tests */}
+            {hasRole('tester') && (
+              <a href="#/tests" className={isActive('/tests') ? 'active' : ''}>
+                <span>📝</span>
+                <span>Testler</span>
+              </a>
+            )}
+          </nav>
         </div>
-        
-        <nav className="py-4">
-          <a 
-            href="#/" 
-            className={isActive('/') && !isActive('/admin') && !isActive('/manager') && !isActive('/tests') && !isActive('/dashboard') && !isActive('/branding') ? 'active' : ''}
-          >
-            <span>🏠</span>
-            <span>Ana Sayfa</span>
-          </a>
-          
-          <a href="#/dashboard" className={isActive('/dashboard') ? 'active' : ''}>
-            <span>📈</span>
-            <span>Dashboard</span>
-          </a>
-          
-          <a href="#/admin" className={isActive('/admin') ? 'active' : ''}>
-            <span>⚙️</span>
-            <span>Admin Panel</span>
-          </a>
-          
-          <a href="#/manager" className={isActive('/manager') ? 'active' : ''}>
-            <span>📊</span>
-            <span>Manager Panel</span>
-          </a>
-          
-          <a href="#/tests" className={isActive('/tests') ? 'active' : ''}>
-            <span>📝</span>
-            <span>Testler</span>
-          </a>
-          
-          <a href="#/branding" className={isActive('/branding') ? 'active' : ''}>
-            <span>🎨</span>
-            <span>Marka Ayarları</span>
-          </a>
-        </nav>
-      </div>
-      
+      )}
+
       <header className="sticky top-0 z-20 bg-white/90 backdrop-blur-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div 
-            className={'hamburger ' + (open ? 'open' : '')} 
-            onClick={() => setOpen(v => !v)}
-          >
-            <span></span>
-            <span></span>
-            <span></span>
-          </div>
-          
+          {!hideSidebar && (
+            <div
+              className={'hamburger ' + (open ? 'open' : '')}
+              onClick={() => setOpen(v => !v)}
+            >
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          )}
+
+          {hideSidebar && <div className="w-8"></div>}
+
           <div className="flex items-center gap-3">
             <div className="logo-icon">?</div>
             <span className="font-bold text-xl text-dark-900">QuizUp+</span>
           </div>
-          
-          <div className="w-8"></div>
+
+          {isLoggedIn ? (
+            <div className="relative">
+              <button
+                className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                onClick={() => setShowUserMenu(v => !v)}
+              >
+                <div className="w-8 h-8 rounded-full bg-primary-500 text-white flex items-center justify-center font-bold">
+                  {currentUser.firstName?.[0]}{currentUser.lastName?.[0]}
+                </div>
+              </button>
+
+              {showUserMenu && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowUserMenu(false)}></div>
+                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
+                    <div className="p-4 border-b border-gray-200">
+                      <div className="font-semibold text-dark-900">
+                        {currentUser.firstName} {currentUser.lastName}
+                      </div>
+                      <div className="text-sm text-dark-500">{currentUser.email}</div>
+                      {currentUser.position && (
+                        <div className="text-xs text-dark-400 mt-1">{currentUser.position}</div>
+                      )}
+                    </div>
+                    <div className="p-2">
+                      <button
+                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        onClick={() => {
+                          setShowUserMenu(false);
+                          logout();
+                        }}
+                      >
+                        🚪 Çıkış Yap
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="w-8"></div>
+          )}
         </div>
       </header>
     </>
