@@ -53,6 +53,12 @@
   <div id="root"></div>
 
   <!-- Firebase Config & Init -->
+  <script src="config/firebase-config.js"></script>
+  <script>
+    if (!window.__FIREBASE_CONFIG) {
+      console.error('Firebase yapılandırması eksik. `config/firebase-config.sample.js` dosyasını `config/firebase-config.js` olarak kopyalayın.');
+    }
+  </script>
   <script type="module" src="utils/firebase.js"></script>
   
   <!-- Utils & Helpers -->

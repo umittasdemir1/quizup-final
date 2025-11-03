@@ -15,15 +15,23 @@ import {
 } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-storage.js';
 
-const firebaseConfig = {
-  apiKey: "AIzaSyAtGQUD_-8JhVI73cTg21MeucPorYpgTRs",
-  authDomain: "retail-quiz-4bb8c.firebaseapp.com",
-  projectId: "retail-quiz-4bb8c",
-  storageBucket: "retail-quiz-4bb8c.firebasestorage.app",
-  messagingSenderId: "656506684656",
-  appId: "1:656506684656:web:a3e97785fdbe50737f6e35",
-  measurementId: "G-WMBNP0BZ27"
-};
+const firebaseConfig = (() => {
+  const config = window.__FIREBASE_CONFIG;
+
+  if (!config || typeof config !== 'object') {
+    throw new Error('[Firebase] `window.__FIREBASE_CONFIG` tanımlı değil. `config/firebase-config.js` dosyanızın yüklendiğinden emin olun.');
+  }
+
+  const requiredFields = ['apiKey', 'authDomain', 'projectId', 'appId'];
+  const missingFields = requiredFields.filter((field) => !config[field]);
+
+  if (missingFields.length) {
+    throw new Error(`[Firebase] Eksik Firebase yapılandırma alanları: ${missingFields.join(', ')}.`);
+  }
+
+  const sanitizedConfig = { ...config };
+  return Object.freeze(sanitizedConfig);
+})();
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);

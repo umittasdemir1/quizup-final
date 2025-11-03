@@ -42,7 +42,7 @@ Modern bir perakende quiz/test platformu. Personel eğitimi ve değerlendirmesi 
 ## 🚀 Kurulum
 
 1. Dosyaları bir web sunucusuna yükleyin
-2. Firebase yapılandırmanızı `utils/firebase.js` dosyasında güncelleyin
+2. `config/firebase-config.sample.js` dosyasını `config/firebase-config.js` olarak kopyalayıp kendi Firebase bilgilerinizi girin (bu dosya git tarafından yok sayılır)
 3. `index.html` dosyasını açın
 
 ## 📁 Dosya Yapısı
@@ -69,7 +69,8 @@ quizup-project/
 ├── styles/
 │   └── main.css               # Ana stil dosyası
 └── config/
-    └── tailwind.config.js     # Tailwind yapılandırması
+    ├── tailwind.config.js           # Tailwind yapılandırması
+    └── firebase-config.sample.js    # Yerel Firebase yapılandırma şablonu
 ```
 
 ## 🛠️ Teknolojiler
