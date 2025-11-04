@@ -10,6 +10,12 @@ const Manager = () => {
   const [errors, setErrors] = useState({});
   const [qrUrl, setQrUrl] = useState('');
   const qrRef = useRef(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState({
+    categories: [],
+    difficulties: [],
+  });
+  const filterRef = useRef(null);
 
   useEffect(() => {
     (async () => {
@@ -41,11 +47,62 @@ const Manager = () => {
     })();
   }, []);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (filterRef.current && !filterRef.current.contains(e.target)) {
+        setShowFilters(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Get unique categories from questions
+  const uniqueCategories = [...new Set(questions.map(q => q.category).filter(Boolean))].sort();
+  const difficulties = [
+    { value: 'easy', label: 'Kolay' },
+    { value: 'medium', label: 'Orta' },
+    { value: 'hard', label: 'Zor' }
+  ];
+
+  // Toggle filter selection
+  const toggleFilter = (type, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [type]: prev[type].includes(value)
+        ? prev[type].filter(v => v !== value)
+        : [...prev[type], value]
+    }));
+  };
+
+  // Clear all filters
+  const clearFilters = () => {
+    setFilters({ categories: [], difficulties: [] });
+  };
+
+  // Apply filters to questions
+  const filteredQuestions = questions.filter(q => {
+    // Category filter
+    if (filters.categories.length > 0 && !filters.categories.includes(q.category)) {
+      return false;
+    }
+    // Difficulty filter
+    if (filters.difficulties.length > 0 && !filters.difficulties.includes(q.difficulty)) {
+      return false;
+    }
+    return true;
+  });
+
+  // Count active filters
+  const activeFilterCount = filters.categories.length + filters.difficulties.length;
+
   const reset = () => {
     setForm({ employee: { fullName: '', store: '' }, questionIds: [] });
     setShowForm(false);
     setQrUrl('');
     setErrors({});
+    setFilters({ categories: [], difficulties: [] });
   };
 
   const toggleQ = (id) => {
@@ -64,7 +121,8 @@ const Manager = () => {
   };
 
   const selectAllQuestions = () => {
-    setForm(f => ({ ...f, questionIds: questions.map(q => q.id) }));
+    // Select all filtered questions, not all questions
+    setForm(f => ({ ...f, questionIds: filteredQuestions.map(q => q.id) }));
     if (errors.questions) {
       setErrors(e => {
         const newErrors = { ...e };
@@ -215,17 +273,17 @@ const Manager = () => {
                 Sorular Seç * ({form.questionIds.length} soru seçildi)
               </label>
               <div className="flex gap-2">
-                <button 
+                <button
                   type="button"
-                  className="btn btn-ghost text-xs px-3 py-1.5" 
+                  className="btn btn-ghost text-xs px-3 py-1.5"
                   onClick={selectAllQuestions}
-                  disabled={questions.length === 0}
+                  disabled={filteredQuestions.length === 0}
                 >
                   ✓ Tümünü Seç
                 </button>
-                <button 
+                <button
                   type="button"
-                  className="btn btn-ghost text-xs px-3 py-1.5" 
+                  className="btn btn-ghost text-xs px-3 py-1.5"
                   onClick={clearAllQuestions}
                   disabled={form.questionIds.length === 0}
                 >
@@ -233,15 +291,106 @@ const Manager = () => {
                 </button>
               </div>
             </div>
+
+            {/* Filter Section */}
+            <div className="flex justify-between items-center mb-3">
+              <div className="text-xs text-dark-600">
+                {filteredQuestions.length} / {questions.length} soru gösteriliyor
+              </div>
+
+              <div className="relative" ref={filterRef}>
+                <button
+                  type="button"
+                  className="btn btn-secondary text-xs px-3 py-1.5 flex items-center gap-2"
+                  onClick={() => setShowFilters(!showFilters)}
+                >
+                  🔍 Filtrele
+                  {activeFilterCount > 0 && (
+                    <span className="inline-flex items-center justify-center w-4 h-4 text-xs font-bold text-white bg-primary-500 rounded-full">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* Filter Dropdown */}
+                {showFilters && (
+                  <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-200 z-50 p-4" style={{ animation: 'fadeIn 0.2s ease-in' }}>
+                    <div className="flex justify-between items-center mb-3">
+                      <h3 className="font-bold text-dark-900 text-sm">Filtreler</h3>
+                      {activeFilterCount > 0 && (
+                        <button
+                          type="button"
+                          className="text-xs text-primary-500 hover:text-primary-600 font-semibold"
+                          onClick={clearFilters}
+                        >
+                          Temizle
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Category Filter */}
+                    {uniqueCategories.length > 0 && (
+                      <div className="mb-3">
+                        <h4 className="text-xs font-semibold text-dark-700 mb-2">📁 Kategori</h4>
+                        <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                          {uniqueCategories.map(cat => (
+                            <label key={cat} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                              <input
+                                type="checkbox"
+                                checked={filters.categories.includes(cat)}
+                                onChange={() => toggleFilter('categories', cat)}
+                                className="w-3.5 h-3.5 text-primary-500 rounded"
+                              />
+                              <span className="text-xs text-dark-800">{cat}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Difficulty Filter */}
+                    <div>
+                      <h4 className="text-xs font-semibold text-dark-700 mb-2">⚡ Zorluk</h4>
+                      <div className="space-y-1.5">
+                        {difficulties.map(diff => (
+                          <label key={diff.value} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                            <input
+                              type="checkbox"
+                              checked={filters.difficulties.includes(diff.value)}
+                              onChange={() => toggleFilter('difficulties', diff.value)}
+                              className="w-3.5 h-3.5 text-primary-500 rounded"
+                            />
+                            <span className="text-xs text-dark-800">{diff.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {errors.questions && <div className="error-text mb-2">{errors.questions}</div>}
             <div className="grid gap-3 max-h-96 overflow-y-auto p-2">
-              {questions.length === 0 ? (
+              {filteredQuestions.length === 0 ? (
                 <div className="text-center py-8 text-dark-500">
-                  <p>Aktif soru bulunmuyor</p>
-                  <a href="#/admin" className="btn btn-secondary mt-4">Soru Ekle</a>
+                  <p className="text-sm mb-2">
+                    {questions.length === 0 ? 'Aktif soru bulunmuyor' : 'Filtreye uygun soru bulunamadı'}
+                  </p>
+                  {questions.length === 0 ? (
+                    <a href="#/admin" className="btn btn-secondary mt-4">Soru Ekle</a>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-secondary text-xs px-3 py-1.5 mt-2"
+                      onClick={clearFilters}
+                    >
+                      Filtreleri Temizle
+                    </button>
+                  )}
                 </div>
               ) : (
-                questions.map(q => (
+                filteredQuestions.map(q => (
                   <label key={q.id} className={'option-card ' + (form.questionIds.includes(q.id) ? 'selected' : '')} style={{ cursor: 'pointer' }}>
                     <div className="flex items-start gap-3">
                       <input 
