@@ -7,6 +7,7 @@ const Admin = () => {
   const [editId, setEditId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [reordering, setReordering] = useState(false);
   const questionImageRef = useRef(null);
   const optionImageRefs = useRef([]);
   const [form, setForm] = useState({
@@ -32,7 +33,21 @@ const Admin = () => {
       const { db, collection, query, orderBy, onSnapshot } = window.firebase;
       const q = query(collection(db, 'questions'), orderBy('createdAt', 'desc'));
       const unsub = onSnapshot(q, snap => {
-        setQuestions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        const ordered = snap.docs.map((d, index) => {
+          const data = d.data();
+          return {
+            id: d.id,
+            ...data,
+            order: typeof data.order === 'number' ? data.order : null,
+            __originalIndex: index
+          };
+        }).sort((a, b) => {
+          const orderA = typeof a.order === 'number' ? a.order : a.__originalIndex;
+          const orderB = typeof b.order === 'number' ? b.order : b.__originalIndex;
+          return orderA - orderB;
+        }).map(({ __originalIndex, ...rest }) => rest);
+
+        setQuestions(ordered);
         setLoading(false);
       }, (error) => {
         console.error('Error loading questions:', error);
@@ -196,6 +211,7 @@ const Admin = () => {
         toast('Soru güncellendi', 'success');
       } else {
         data.createdAt = serverTimestamp();
+        data.order = questions.length;
         await addDoc(collection(db, 'questions'), data);
         toast('Soru eklendi', 'success');
       }
@@ -205,6 +221,29 @@ const Admin = () => {
       toast('Soru kaydedilirken hata oluştu', 'error');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleReorder = async (nextQuestions) => {
+    const previous = questions.map(q => ({ ...q }));
+    const withUpdatedOrder = nextQuestions.map((q, index) => ({ ...q, order: index }));
+    setQuestions(withUpdatedOrder);
+    setReordering(true);
+    try {
+      await waitFirebase();
+      const { db, writeBatch, doc } = window.firebase;
+      const batch = writeBatch(db);
+      withUpdatedOrder.forEach((q, index) => {
+        batch.update(doc(db, 'questions', q.id), { order: index });
+      });
+      await batch.commit();
+      toast('Soru sırası güncellendi', 'success');
+    } catch (e) {
+      console.error('Reorder error:', e);
+      setQuestions(previous);
+      toast('Soru sırası kaydedilemedi', 'error');
+    } finally {
+      setReordering(false);
     }
   };
 
@@ -275,12 +314,14 @@ const Admin = () => {
           reset={reset}
         />
       ) : (
-        <QuestionList 
+        <QuestionList
           questions={questions}
           handleEdit={handleEdit}
           handleDelete={handleDelete}
           toggleActive={toggleActive}
           setShowForm={setShowForm}
+          onReorder={handleReorder}
+          reordering={reordering}
         />
       )}
     </Page>
