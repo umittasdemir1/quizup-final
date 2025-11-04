@@ -57,7 +57,6 @@
         const script = existing || document.createElement('script');
         script.src = src;
         script.async = true;
-        script.crossOrigin = 'anonymous';
         script.dataset.loaded = 'false';
 
         script.addEventListener('load', () => {
