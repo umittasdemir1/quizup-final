@@ -192,6 +192,7 @@ const Manager = () => {
           fullName: form.employee.fullName.trim(),
           store: form.employee.store.trim()
         },
+        createdBy: window.__firebaseCurrentUser?.uid || null,
         questionIds: form.questionIds,
         status: 'pending',
         createdAt: serverTimestamp()
