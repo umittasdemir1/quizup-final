@@ -1,8 +1,14 @@
 const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, setShowForm, onReorder, reordering }) => {
   const { useState, useEffect, useRef, useMemo } = React;
-  const dndCore = window.DndKitCore;
-  const dndSortable = window.DndKitSortable;
-  const dndUtils = window.DndKitUtilities;
+  const [dndModules, setDndModules] = useState(() => ({
+    core: window.DndKitCore,
+    sortable: window.DndKitSortable,
+    utils: window.DndKitUtilities
+  }));
+  const [dndError, setDndError] = useState(() => window.__dndKitLoadError ?? null);
+  const dndCore = dndModules.core;
+  const dndSortable = dndModules.sortable;
+  const dndUtils = dndModules.utils;
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     categories: [],
@@ -22,9 +28,28 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, setSh
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    const handleDndReady = (event) => {
+      setDndModules({
+        core: window.DndKitCore,
+        sortable: window.DndKitSortable,
+        utils: window.DndKitUtilities
+      });
+
+      if (event?.detail?.success === false) {
+        setDndError(event.detail.error || new Error('DnD Kit yüklenemedi'));
+      } else {
+        setDndError(null);
+      }
+    };
+
+    window.addEventListener('dnd-kit-ready', handleDndReady);
+    return () => window.removeEventListener('dnd-kit-ready', handleDndReady);
+  }, []);
+
   const isDndReady = Boolean(dndCore?.DndContext && dndSortable?.SortableContext && dndUtils?.CSS);
   const filtersActive = filters.categories.length + filters.difficulties.length + filters.status.length > 0;
-  const isReorderEnabled = Boolean(isDndReady && typeof onReorder === 'function' && !filtersActive);
+  const isReorderEnabled = Boolean(isDndReady && typeof onReorder === 'function' && !filtersActive && !dndError);
 
   const sensors = useMemo(() => {
     if (!isReorderEnabled) return null;
@@ -310,10 +335,18 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, setSh
         </div>
       )}
 
-      {!isReorderEnabled && !filtersActive && typeof onReorder === 'function' && !isDndReady && (
-        <div className="card p-4 bg-red-50 border border-red-200 text-xs text-red-700">
-          Sürükle-bırak kütüphanesi yüklenemedi. Lütfen sayfayı yenileyin.
-        </div>
+      {!filtersActive && typeof onReorder === 'function' && !isReorderEnabled && (
+        dndError ? (
+          <div className="card p-4 bg-red-50 border border-red-200 text-xs text-red-700">
+            Sürükle-bırak kütüphanesi yüklenemedi. Lütfen sayfayı yenileyin.
+          </div>
+        ) : (
+          !isDndReady && (
+            <div className="card p-4 bg-secondary-50 border border-secondary-200 text-xs text-secondary-700">
+              Sürükle-bırak kütüphanesi yükleniyor...
+            </div>
+          )
+        )
       )}
 
       {/* Questions List */}

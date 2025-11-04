@@ -41,9 +41,42 @@
   </script>
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-  <script src="https://unpkg.com/@dnd-kit/core@6.0.8/dist/dnd-kit-core.umd.min.js" crossorigin></script>
-  <script src="https://unpkg.com/@dnd-kit/sortable@7.0.2/dist/dnd-kit-sortable.umd.min.js" crossorigin></script>
-  <script src="https://unpkg.com/@dnd-kit/utilities@3.2.1/dist/dnd-kit-utilities.umd.min.js" crossorigin></script>
+  <script type="module">
+    (async () => {
+      if (window.__dndKitLoading) return;
+      window.__dndKitLoading = true;
+      window.__dndKitLoadError = undefined;
+
+      const dispatchResult = (detail) => {
+        try {
+          window.dispatchEvent(new CustomEvent('dnd-kit-ready', { detail }));
+        } catch (error) {
+          console.warn('dnd-kit-ready event dispatch failed', error);
+        }
+      };
+
+      try {
+        const [core, sortable, utilities] = await Promise.all([
+          import('https://esm.sh/@dnd-kit/core@6.0.8?bundle'),
+          import('https://esm.sh/@dnd-kit/sortable@7.0.2?bundle'),
+          import('https://esm.sh/@dnd-kit/utilities@3.2.1?bundle')
+        ]);
+
+        window.DndKitCore = core;
+        window.DndKitSortable = sortable;
+        window.DndKitUtilities = utilities;
+        window.__dndKitLoadError = null;
+        dispatchResult({ success: true });
+      } catch (error) {
+        console.error('DnD Kit paketleri yüklenemedi:', error);
+        window.DndKitCore = null;
+        window.DndKitSortable = null;
+        window.DndKitUtilities = null;
+        window.__dndKitLoadError = error;
+        dispatchResult({ success: false, error });
+      }
+    })();
+  </script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
