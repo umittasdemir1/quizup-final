@@ -1,14 +1,5 @@
 const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, setShowForm, onReorder, reordering }) => {
-  const { useState, useEffect, useRef, useMemo } = React;
-  const [dndModules, setDndModules] = useState(() => ({
-    core: window.DndKitCore,
-    sortable: window.DndKitSortable,
-    utils: window.DndKitUtilities
-  }));
-  const [dndError, setDndError] = useState(() => window.__dndKitLoadError ?? null);
-  const dndCore = dndModules.core;
-  const dndSortable = dndModules.sortable;
-  const dndUtils = dndModules.utils;
+  const { useState, useEffect, useRef } = React;
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     categories: [],
@@ -16,6 +7,8 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, setSh
     status: [] // 'active', 'inactive'
   });
   const filterRef = useRef(null);
+  const [draggingId, setDraggingId] = useState(null);
+  const [dragOverId, setDragOverId] = useState(null);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -28,40 +21,16 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, setSh
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    const handleDndReady = (event) => {
-      setDndModules({
-        core: window.DndKitCore,
-        sortable: window.DndKitSortable,
-        utils: window.DndKitUtilities
-      });
-
-      if (event?.detail?.success === false) {
-        setDndError(event.detail.error || new Error('DnD Kit yüklenemedi'));
-      } else {
-        setDndError(null);
-      }
-    };
-
-    window.addEventListener('dnd-kit-ready', handleDndReady);
-    return () => window.removeEventListener('dnd-kit-ready', handleDndReady);
-  }, []);
-
-  const isDndReady = Boolean(dndCore?.DndContext && dndSortable?.SortableContext && dndUtils?.CSS);
   const filtersActive = filters.categories.length + filters.difficulties.length + filters.status.length > 0;
-  const isReorderEnabled = Boolean(isDndReady && typeof onReorder === 'function' && !filtersActive && !dndError);
+  const reorderAvailable = Boolean(typeof onReorder === 'function' && !filtersActive);
+  const canDrag = reorderAvailable && !reordering;
 
-  const sensors = useMemo(() => {
-    if (!isReorderEnabled) return null;
-    const { useSensor, useSensors, PointerSensor, KeyboardSensor } = dndCore;
-    const { sortableKeyboardCoordinates } = dndSortable;
-    if (!useSensor || !useSensors || !PointerSensor) return null;
-    const sensorList = [useSensor(PointerSensor, { activationConstraint: { distance: 8 } })];
-    if (sortableKeyboardCoordinates && KeyboardSensor) {
-      sensorList.push(useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+  useEffect(() => {
+    if (!canDrag) {
+      setDraggingId(null);
+      setDragOverId(null);
     }
-    return useSensors(...sensorList);
-  }, [dndCore, dndSortable, isReorderEnabled]);
+  }, [canDrag]);
 
   // Get unique categories from questions
   const uniqueCategories = [...new Set(questions.map(q => q.category).filter(Boolean))].sort();
@@ -118,10 +87,31 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, setSh
     );
   }
 
-  const QuestionCard = ({ question, index, dragHandleProps = {}, isDragging = false, showHandle = false }) => (
+  const QuestionCard = ({
+    question,
+    index,
+    isDragging = false,
+    isDragOver = false,
+    showHandle = false,
+    draggable = false,
+    onDragStart,
+    onDragEnter,
+    onDragOver,
+    onDragLeave,
+    onDrop,
+    onDragEnd
+  }) => (
     <div
-      className={`card p-6 transition ${isDragging ? 'shadow-lg border-primary-200 bg-primary-50/60' : ''}`}
+      className={`card p-6 transition ${isDragging ? 'shadow-lg border-primary-200 bg-primary-50/60' : ''} ${isDragOver ? 'border-primary-300 ring-2 ring-primary-100' : ''}`}
       style={{ opacity: isDragging ? 0.95 : 1 }}
+      data-question-card="true"
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragEnter={onDragEnter}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
     >
       <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
         <div className="flex items-start gap-4 w-full">
@@ -131,7 +121,6 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, setSh
                 type="button"
                 className={`rounded-full px-3 py-2 shadow-inner transition border border-gray-200 ${isDragging ? 'cursor-grabbing bg-gray-200' : 'cursor-grab bg-gray-100 hover:bg-gray-200'}`}
                 aria-label="Sürükle"
-                {...dragHandleProps}
               >
                 <span className="text-xl leading-none">⠿</span>
               </button>
@@ -179,40 +168,106 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, setSh
     </div>
   );
 
-  const SortableQuestionCard = ({ question, index }) => {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = dndSortable.useSortable({
-      id: question.id,
-      disabled: reordering
-    });
-
-    const style = {
-      transform: transform ? dndUtils.CSS.Transform.toString(transform) : undefined,
-      transition,
-      zIndex: isDragging ? 40 : 'auto'
-    };
-
-    return (
-      <div ref={setNodeRef} style={style}>
-        <QuestionCard
-          question={question}
-          index={index}
-          isDragging={isDragging}
-          showHandle
-          dragHandleProps={{ ...attributes, ...listeners }}
-        />
-      </div>
-    );
+  const arrayMove = (items, fromIndex, toIndex) => {
+    const list = [...items];
+    const startIndex = fromIndex < 0 ? list.length + fromIndex : fromIndex;
+    if (startIndex < 0 || startIndex >= list.length) return list;
+    const endIndex = toIndex < 0 ? list.length + toIndex : toIndex;
+    const [moved] = list.splice(startIndex, 1);
+    const boundedIndex = Math.max(0, Math.min(endIndex, list.length));
+    list.splice(boundedIndex, 0, moved);
+    return list;
   };
 
-  const handleDragEnd = (event) => {
-    if (!event?.over || event.active.id === event.over.id) return;
-    const { arrayMove } = dndSortable;
-    if (!arrayMove) return;
-    const oldIndex = questions.findIndex(q => q.id === event.active.id);
-    const newIndex = questions.findIndex(q => q.id === event.over.id);
-    if (oldIndex === -1 || newIndex === -1) return;
+  const handleDragStart = (event, id) => {
+    if (!canDrag) return;
+    event.dataTransfer.effectAllowed = 'move';
+    try {
+      event.dataTransfer.setData('text/plain', id);
+    } catch (error) {
+      // Ignore browsers that disallow custom MIME types.
+    }
+    setDraggingId(id);
+    setDragOverId(null);
+  };
+
+  const handleDragEnter = (event, id) => {
+    if (!canDrag || !draggingId || draggingId === id) return;
+    event.preventDefault();
+    setDragOverId(id);
+  };
+
+  const handleDragOver = (event, id) => {
+    if (!canDrag || !draggingId || draggingId === id) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    if (id) {
+      setDragOverId(id);
+    }
+  };
+
+  const commitReorder = (sourceId, targetId) => {
+    if (!canDrag || !sourceId || sourceId === targetId) return;
+    const oldIndex = questions.findIndex(q => q.id === sourceId);
+    if (oldIndex === -1) return;
+    let newIndex;
+    if (!targetId) {
+      newIndex = questions.length;
+    } else {
+      newIndex = questions.findIndex(q => q.id === targetId);
+      if (newIndex === -1) {
+        newIndex = questions.length;
+      }
+    }
     const reordered = arrayMove(questions, oldIndex, newIndex);
-    onReorder && onReorder(reordered);
+    if (onReorder) {
+      onReorder(reordered);
+    }
+  };
+
+  const handleDrop = (event, id) => {
+    if (!canDrag || !draggingId) return;
+    event.preventDefault();
+    commitReorder(draggingId, id);
+    setDraggingId(null);
+    setDragOverId(null);
+  };
+
+  const handleDragLeave = (id) => {
+    if (!canDrag) return;
+    if (dragOverId === id) {
+      setDragOverId(null);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggingId(null);
+    setDragOverId(null);
+  };
+
+  const handleContainerDragOver = (event) => {
+    if (!canDrag || !draggingId) return;
+    if (event.target !== event.currentTarget) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    setDragOverId('__container');
+  };
+
+  const handleContainerDrop = (event) => {
+    if (!canDrag || !draggingId) return;
+    if (event.target !== event.currentTarget) return;
+    event.preventDefault();
+    commitReorder(draggingId, null);
+    setDraggingId(null);
+    setDragOverId(null);
+  };
+
+  const handleContainerDragLeave = (event) => {
+    if (!canDrag) return;
+    if (event.target !== event.currentTarget) return;
+    if (dragOverId === '__container') {
+      setDragOverId(null);
+    }
   };
 
   return (
@@ -318,7 +373,7 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, setSh
         </div>
       </div>
 
-      {isReorderEnabled && (
+      {reorderAvailable && (
         <div className="card p-4 bg-secondary-50 border border-secondary-200 text-sm text-dark-600 flex flex-col gap-2">
           <div className="flex items-center gap-2 font-medium text-dark-800">
             <span className="text-lg">🧩</span>
@@ -329,24 +384,10 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, setSh
         </div>
       )}
 
-      {!isReorderEnabled && filtersActive && (
+      {!reorderAvailable && filtersActive && (
         <div className="card p-4 bg-yellow-50 border border-yellow-200 text-xs text-yellow-800">
           Filtreler açıkken sürükle-bırak sıralama devre dışıdır. Lütfen filtreleri temizleyin.
         </div>
-      )}
-
-      {!filtersActive && typeof onReorder === 'function' && !isReorderEnabled && (
-        dndError ? (
-          <div className="card p-4 bg-red-50 border border-red-200 text-xs text-red-700">
-            Sürükle-bırak kütüphanesi yüklenemedi. Lütfen sayfayı yenileyin.
-          </div>
-        ) : (
-          !isDndReady && (
-            <div className="card p-4 bg-secondary-50 border border-secondary-200 text-xs text-secondary-700">
-              Sürükle-bırak kütüphanesi yükleniyor...
-            </div>
-          )
-        )
       )}
 
       {/* Questions List */}
@@ -361,24 +402,44 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, setSh
             Filtreleri Temizle
           </button>
         </div>
-      ) : isReorderEnabled ? (
-        <dndCore.DndContext
-          sensors={sensors || undefined}
-          collisionDetection={dndCore.closestCenter}
-          onDragEnd={handleDragEnd}
+      ) : reorderAvailable ? (
+        <div
+          className="grid gap-4"
+          onDragOver={handleContainerDragOver}
+          onDrop={handleContainerDrop}
+          onDragLeave={handleContainerDragLeave}
         >
-          <dndSortable.SortableContext items={filteredQuestions.map(q => q.id)} strategy={dndSortable.verticalListSortingStrategy}>
-            <div className="grid gap-4">
-              {filteredQuestions.map((q, index) => (
-                <SortableQuestionCard key={q.id} question={q} index={index} />
-              ))}
-            </div>
-          </dndSortable.SortableContext>
-        </dndCore.DndContext>
+          {filteredQuestions.map((q, index) => (
+            <QuestionCard
+              key={q.id}
+              question={q}
+              index={index}
+              showHandle
+              draggable={canDrag}
+              isDragging={draggingId === q.id}
+              isDragOver={dragOverId === q.id}
+              onDragStart={(event) => handleDragStart(event, q.id)}
+              onDragEnter={(event) => handleDragEnter(event, q.id)}
+              onDragOver={(event) => handleDragOver(event, q.id)}
+              onDragLeave={() => handleDragLeave(q.id)}
+              onDrop={(event) => handleDrop(event, q.id)}
+              onDragEnd={handleDragEnd}
+            />
+          ))}
+          {draggingId && (
+            <div
+              className={`h-10 rounded-xl border-2 border-dashed transition ${dragOverId === '__container' ? 'border-primary-400 bg-primary-50' : 'border-transparent'}`}
+            ></div>
+          )}
+        </div>
       ) : (
         <div className="grid gap-4">
           {filteredQuestions.map((q, index) => (
-            <QuestionCard key={q.id} question={q} index={index} />
+            <QuestionCard
+              key={q.id}
+              question={q}
+              index={index}
+            />
           ))}
         </div>
       )}
