@@ -59,11 +59,8 @@ const Login = () => {
       }));
       window.dispatchEvent(new Event('user-info-updated'));
 
-      try {
-        await registerActiveSession(user.uid);
-      } catch (sessionErr) {
-        console.warn('Oturum kaydı yapılamadı:', sessionErr);
-      }
+      // Aktif oturum kaydı Firebase auth dinleyicisinde tetiklenir.
+      // Burada çağrı yapmak yinelenen oturumlar oluşturduğundan kaldırıldı.
 
       toast('Giriş başarılı!', 'success');
 
