@@ -88,6 +88,7 @@ let secondaryAppInstance;
 let secondaryAuthInstance;
 let userSessionUnsubscribe;
 let forcedLogoutInProgress = false;
+let sessionRegistered = false;
 
 let resolveAuthReady;
 let authReadyResolved = false;
@@ -487,6 +488,10 @@ authTimeoutId = setTimeout(() => {
 onAuthStateChanged(auth, async (user) => {
   console.log('[Firebase] Auth state changed:', user?.email || user?.uid || 'null', 'isAnonymous:', user?.isAnonymous);
 
+  if (!user || user.isAnonymous) {
+    sessionRegistered = false;
+  }
+
   if (user) {
     publishAuthState(user, { markReady: true });
     const reason = user.isAnonymous ? 'anon-user' : 'existing-user';
@@ -510,20 +515,22 @@ onAuthStateChanged(auth, async (user) => {
       console.warn('[Firebase] Kullanıcı profili önbelleğe alınamadı:', profileErr);
     }
 
-    try {
-      const evaluation = evaluateSessionRegistrationNeed(user.uid, cachedProfile?.rawData || {});
-      if (evaluation.needsRegistration) {
-        await requestActiveSessionRegistration({
-          userId: user.uid,
-          reason: evaluation.reason,
-          storedSessionId: evaluation.storedSessionId,
-          hasStoredSession: evaluation.hasStoredSession,
-          activeSessionKeys: evaluation.activeSessionKeys,
-          requestedFrom: 'auth-state'
-        });
+    if (!sessionRegistered) {
+      sessionRegistered = true;
+      try {
+        if (typeof window !== 'undefined' && typeof window.registerActiveSession === 'function') {
+          const registrationResult = await window.registerActiveSession(user.uid);
+          if (!registrationResult) {
+            sessionRegistered = false;
+          }
+        } else {
+          console.warn('[Firebase] registerActiveSession fonksiyonu bulunamadı');
+          sessionRegistered = false;
+        }
+      } catch (registrationErr) {
+        sessionRegistered = false;
+        console.warn('[Firebase] Oturum kaydı tamamlanamadı:', registrationErr);
       }
-    } catch (registrationErr) {
-      console.warn('[Firebase] Oturum kaydı değerlendirmesi tamamlanamadı:', registrationErr);
     }
 
     startSessionSyncGracePeriod();

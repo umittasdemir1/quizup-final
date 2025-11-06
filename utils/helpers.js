@@ -228,6 +228,37 @@ const generateSessionId = () => {
   return 'sess-' + Math.random().toString(16).slice(2) + Date.now().toString(16);
 };
 
+const deriveDeviceSessionId = () => {
+  if (typeof navigator === 'undefined') {
+    return null;
+  }
+
+  const source = `${navigator.userAgent || ''}${navigator.platform || ''}`;
+  if (!source) {
+    return null;
+  }
+
+  try {
+    const encoded = btoa(source);
+    return encoded ? encoded.replace(/=/g, '').slice(0, 12) || null : null;
+  } catch (err) {
+    console.warn('Cihaz oturum kimliği oluşturulamadı:', err);
+    return null;
+  }
+};
+
+const resolveUuidFallback = () => {
+  try {
+    if (typeof window !== 'undefined' && typeof window.uuidv4 === 'function') {
+      return window.uuidv4();
+    }
+  } catch (err) {
+    console.warn('uuidv4 yedek çağrısı başarısız oldu:', err);
+  }
+
+  return generateSessionId();
+};
+
 const buildDeviceFingerprint = () => {
   if (typeof navigator === 'undefined') {
     return {};
@@ -286,12 +317,52 @@ const startSessionHeartbeat = (userId, sessionId) => {
 const registerActiveSession = async (userId) => {
   if (!userId) return null;
 
+  await waitFirebase();
+
+  const {
+    db,
+    doc,
+    getDoc,
+    updateDoc,
+    deleteField,
+    serverTimestamp,
+    setDoc
+  } = window.firebase;
+
+  const userRef = doc(db, 'users', userId);
+  const device = buildDeviceFingerprint();
+
+  let existingSessionId = null;
+  let existingSessionData = null;
+
+  try {
+    const snapshot = await getDoc(userRef);
+    if (snapshot.exists()) {
+      const userData = snapshot.data() || {};
+      const activeSessions = userData.activeSessions && typeof userData.activeSessions === 'object'
+        ? userData.activeSessions
+        : {};
+
+      for (const [key, value] of Object.entries(activeSessions)) {
+        const sessionDevice = value?.device || {};
+        if (sessionDevice.userAgent === device.userAgent && sessionDevice.platform === device.platform) {
+          existingSessionId = key;
+          existingSessionData = value || {};
+          break;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Kullanıcı oturum bilgileri okunamadı:', err);
+  }
+
+  const derivedSessionId = deriveDeviceSessionId();
+  const sessionId = existingSessionId || derivedSessionId || resolveUuidFallback();
   const previousSessionId = getCurrentSessionId();
-  if (previousSessionId) {
+
+  if (previousSessionId && previousSessionId !== sessionId) {
     try {
-      await waitFirebase();
-      const { db, doc, updateDoc, deleteField, serverTimestamp } = window.firebase;
-      await updateDoc(doc(db, 'users', userId), {
+      await updateDoc(userRef, {
         [`activeSessions.${previousSessionId}`]: deleteField(),
         lastSessionUpdate: serverTimestamp()
       });
@@ -306,28 +377,29 @@ const registerActiveSession = async (userId) => {
 
   clearLocalSessionInfo();
 
-  const sessionId = generateSessionId();
-  const issuedAt = Date.now();
+  const now = Date.now();
+  const issuedAt = existingSessionData?.createdAtMs || now;
 
-  const device = buildDeviceFingerprint();
+  const sessionPayload = {
+    device,
+    lastActiveAt: serverTimestamp(),
+    lastActiveAtMs: now
+  };
+
+  if (!existingSessionId) {
+    sessionPayload.createdAt = serverTimestamp();
+    sessionPayload.createdAtMs = now;
+  }
 
   let registrationSucceeded = false;
 
   try {
-    await waitFirebase();
-    const { db, doc, updateDoc, serverTimestamp } = window.firebase;
-    const userRef = doc(db, 'users', userId);
-
-    await updateDoc(userRef, {
-      [`activeSessions.${sessionId}`]: {
-        createdAt: serverTimestamp(),
-        createdAtMs: issuedAt,
-        lastActiveAt: serverTimestamp(),
-        lastActiveAtMs: issuedAt,
-        device
+    await setDoc(userRef, {
+      activeSessions: {
+        [sessionId]: sessionPayload
       },
       lastSessionUpdate: serverTimestamp()
-    });
+    }, { merge: true });
 
     registrationSucceeded = true;
   } catch (err) {
