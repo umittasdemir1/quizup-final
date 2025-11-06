@@ -286,12 +286,14 @@ const startSessionHeartbeat = (userId, sessionId) => {
 const registerActiveSession = async (userId) => {
   if (!userId) return null;
 
+  await waitFirebase();
+  const { db, doc, updateDoc, deleteField, serverTimestamp, setDoc } = window.firebase;
+  const userRef = doc(db, 'users', userId);
+
   const previousSessionId = getCurrentSessionId();
   if (previousSessionId) {
     try {
-      await waitFirebase();
-      const { db, doc, updateDoc, deleteField, serverTimestamp } = window.firebase;
-      await updateDoc(doc(db, 'users', userId), {
+      await updateDoc(userRef, {
         [`activeSessions.${previousSessionId}`]: deleteField(),
         lastSessionUpdate: serverTimestamp()
       });
@@ -308,30 +310,42 @@ const registerActiveSession = async (userId) => {
 
   const sessionId = generateSessionId();
   const issuedAt = Date.now();
-
   const device = buildDeviceFingerprint();
+
+  try {
+    await setDoc(userRef, { uid: userId, ownerId: userId }, { merge: true });
+  } catch (ownershipErr) {
+    console.warn('Kullanıcı belgesi sahiplik bilgisi güncellenemedi:', ownershipErr);
+  }
 
   let registrationSucceeded = false;
 
-  try {
-    await waitFirebase();
-    const { db, doc, updateDoc, serverTimestamp } = window.firebase;
-    const userRef = doc(db, 'users', userId);
-
-    await updateDoc(userRef, {
-      [`activeSessions.${sessionId}`]: {
+  const sessionPayload = {
+    activeSessions: {
+      [sessionId]: {
         createdAt: serverTimestamp(),
         createdAtMs: issuedAt,
         lastActiveAt: serverTimestamp(),
         lastActiveAtMs: issuedAt,
         device
-      },
-      lastSessionUpdate: serverTimestamp()
-    });
+      }
+    },
+    lastSessionUpdate: serverTimestamp()
+  };
 
+  try {
+    await setDoc(userRef, sessionPayload, { merge: true });
     registrationSucceeded = true;
   } catch (err) {
     console.warn('Aktif oturum kaydı yapılamadı:', err);
+    if (err?.code === 'not-found') {
+      try {
+        await setDoc(userRef, { uid: userId, ownerId: userId, ...sessionPayload }, { merge: true });
+        registrationSucceeded = true;
+      } catch (fallbackError) {
+        console.warn('Aktif oturum kaydı (fallback) yapılamadı:', fallbackError);
+      }
+    }
   }
 
   if (!registrationSucceeded) {

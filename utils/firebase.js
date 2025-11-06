@@ -252,6 +252,8 @@ const ensureUserProfileCached = async (authUser) => {
     return null;
   }
 
+  const { db, doc, getDoc, setDoc, serverTimestamp } = window.firebase;
+
   const userRef = doc(db, 'users', authUser.uid);
   let snapshot;
   let userData = {};
@@ -271,12 +273,60 @@ const ensureUserProfileCached = async (authUser) => {
     userData = {};
   }
 
+  if (!exists) {
+    const creationPayload = {
+      uid: authUser.uid,
+      ownerId: authUser.uid,
+      email: authUser.email || null,
+      activeSessions: {},
+      createdAt: serverTimestamp()
+    };
+
+    try {
+      await setDoc(userRef, creationPayload, { merge: true });
+      userData = { ...creationPayload, ...userData };
+      exists = true;
+    } catch (creationError) {
+      console.warn('[Firebase] Kullanıcı belgesi oluşturulamadı:', creationError);
+    }
+  }
+
+  const backfillPayload = {};
+
+  if (!userData.uid) {
+    backfillPayload.uid = authUser.uid;
+    userData.uid = authUser.uid;
+  }
+
+  if (!userData.ownerId) {
+    backfillPayload.ownerId = authUser.uid;
+    userData.ownerId = authUser.uid;
+  }
+
+  if (!userData.email && authUser.email) {
+    backfillPayload.email = authUser.email;
+    userData.email = authUser.email;
+  }
+
+  if (!userData.activeSessions || typeof userData.activeSessions !== 'object') {
+    backfillPayload.activeSessions = {};
+    userData.activeSessions = {};
+  }
+
+  if (Object.keys(backfillPayload).length) {
+    try {
+      await setDoc(userRef, backfillPayload, { merge: true });
+    } catch (backfillError) {
+      console.warn('[Firebase] Kullanıcı belgesi alanları tamamlanamadı:', backfillError);
+    }
+  }
+
   let applicationPin = userData.applicationPin;
 
   if (!applicationPin || !/^\d{4}$/.test(applicationPin)) {
     applicationPin = '0000';
     try {
-      await updateDoc(userRef, { applicationPin });
+      await setDoc(userRef, { applicationPin }, { merge: true });
     } catch (pinError) {
       console.warn('[Firebase] Varsayılan uygulama PIN güncellenemedi:', pinError);
     }
@@ -289,6 +339,8 @@ const ensureUserProfileCached = async (authUser) => {
     company: userData.company || '',
     department: userData.department || '',
     position: userData.position || '',
+    ownerId: userData.ownerId || authUser.uid,
+    uid: userData.uid || authUser.uid,
     applicationPin
   };
 

@@ -83,17 +83,40 @@ const UserManagement = () => {
           ? rawData.applicationPin
           : '0000';
 
+        const updates = {};
+
+        if (!rawData.uid) {
+          updates.uid = d.id;
+        }
+
+        if (!rawData.ownerId) {
+          updates.ownerId = d.id;
+        }
+
+        if ((!rawData.activeSessions || typeof rawData.activeSessions !== 'object') && auth.currentUser) {
+          updates.activeSessions = {};
+        }
+
         if ((!rawData.applicationPin || !/^\d{4}$/.test(rawData.applicationPin)) && auth.currentUser) {
+          updates.applicationPin = normalizedPin;
+        }
+
+        if (Object.keys(updates).length > 0) {
           try {
-            await updateDoc(doc(db, 'users', d.id), { applicationPin: normalizedPin });
-          } catch (pinError) {
-            console.warn('Kullanıcı PIN güncellenemedi:', pinError);
+            await updateDoc(doc(db, 'users', d.id), updates);
+          } catch (updateError) {
+            console.warn('Kullanıcı kaydı güncellenemedi:', updateError);
           }
         }
 
         const userData = {
           id: d.id,
           ...rawData,
+          uid: rawData.uid || d.id,
+          ownerId: rawData.ownerId || d.id,
+          activeSessions: (rawData.activeSessions && typeof rawData.activeSessions === 'object')
+            ? rawData.activeSessions
+            : {},
           company: rawData.company || '',
           department: rawData.department || '',
           position: rawData.position || '',
@@ -176,6 +199,9 @@ const UserManagement = () => {
           company: form.company?.trim() || null,
           department: form.department?.trim() || null,
           applicationPin,
+          uid: createdUser.uid,
+          ownerId: createdUser.uid,
+          activeSessions: {},
           createdAt: serverTimestamp(),
           createdBy: adminUser.uid
         });
