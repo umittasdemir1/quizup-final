@@ -11,7 +11,10 @@ import {
   deleteUser,
   fetchSignInMethodsForEmail,
   onAuthStateChanged,
-  signOut
+  signOut,
+  updatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider
 } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-storage.js';
 
@@ -271,6 +274,7 @@ window.firebase = {
   collection, addDoc, onSnapshot, query, where, orderBy, doc, getDoc, getDocs,
   setDoc, updateDoc, deleteDoc, serverTimestamp, limit, writeBatch,
   signInAnonymously, signInWithEmailAndPassword, onAuthStateChanged, signOut,
+  updatePassword, reauthenticateWithCredential, EmailAuthProvider,
   ref, uploadBytes, getDownloadURL, deleteObject,
   createUserWithEmailAndPassword: firebaseCreateUserWithEmailAndPassword,
   createUserWithEmailAndPasswordAsAdmin

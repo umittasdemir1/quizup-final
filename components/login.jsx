@@ -16,7 +16,7 @@ const Login = () => {
     setLoading(true);
     try {
       await waitFirebase();
-      const { auth, signInWithEmailAndPassword, db, doc, getDoc } = window.firebase;
+      const { auth, signInWithEmailAndPassword, db, doc, getDoc, updateDoc } = window.firebase;
 
       // Firebase Auth ile giriş
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -33,12 +33,31 @@ const Login = () => {
 
       const userData = userDoc.data();
 
+      let applicationPin = userData.applicationPin;
+      if (!applicationPin || !/^\d{4}$/.test(applicationPin)) {
+        applicationPin = '0000';
+        try {
+          await updateDoc(doc(db, 'users', user.uid), { applicationPin });
+        } catch (pinError) {
+          console.warn('Varsayılan uygulama PIN güncellenemedi:', pinError);
+        }
+      }
+
+      const normalizedUserData = {
+        ...userData,
+        company: userData.company || '',
+        department: userData.department || '',
+        position: userData.position || '',
+        applicationPin
+      };
+
       // LocalStorage'a kullanıcı bilgilerini kaydet
       localStorage.setItem('currentUser', JSON.stringify({
         uid: user.uid,
         email: user.email,
-        ...userData
+        ...normalizedUserData
       }));
+      window.dispatchEvent(new Event('user-info-updated'));
 
       toast('Giriş başarılı!', 'success');
 
