@@ -183,267 +183,6 @@ const getCurrentUser = () => {
   }
 };
 
-const SESSION_ID_STORAGE_KEY = 'quizup:session:id';
-const SESSION_ISSUED_STORAGE_KEY = 'quizup:session:issuedAt';
-const sessionHeartbeatState = {
-  userId: null,
-  sessionId: null,
-  timerId: null,
-  lastSentAt: 0
-};
-
-const getCurrentSessionId = () => {
-  try {
-    return localStorage.getItem(SESSION_ID_STORAGE_KEY);
-  } catch (err) {
-    console.warn('Session id okunamadı:', err);
-    return null;
-  }
-};
-
-const clearLocalSessionInfo = () => {
-  try {
-    localStorage.removeItem(SESSION_ID_STORAGE_KEY);
-    localStorage.removeItem(SESSION_ISSUED_STORAGE_KEY);
-  } catch (err) {
-    console.warn('Session bilgileri temizlenemedi:', err);
-  }
-  sessionHeartbeatState.userId = null;
-  sessionHeartbeatState.sessionId = null;
-  if (sessionHeartbeatState.timerId) {
-    clearInterval(sessionHeartbeatState.timerId);
-    sessionHeartbeatState.timerId = null;
-  }
-};
-
-const generateSessionId = () => {
-  try {
-    if (window.crypto?.randomUUID) {
-      return window.crypto.randomUUID();
-    }
-  } catch (err) {
-    console.warn('randomUUID kullanılamadı:', err);
-  }
-
-  return 'sess-' + Math.random().toString(16).slice(2) + Date.now().toString(16);
-};
-
-const buildDeviceFingerprint = () => {
-  if (typeof navigator === 'undefined') {
-    return {};
-  }
-
-  return {
-    userAgent: navigator.userAgent || null,
-    language: navigator.language || null,
-    platform: navigator.platform || null,
-    vendor: navigator.vendor || null,
-    deviceMemory: navigator.deviceMemory || null,
-    hardwareConcurrency: navigator.hardwareConcurrency || null
-  };
-};
-
-const sendSessionHeartbeat = async (force = false) => {
-  if (!sessionHeartbeatState.userId || !sessionHeartbeatState.sessionId) {
-    return;
-  }
-
-  const now = Date.now();
-  if (!force && sessionHeartbeatState.lastSentAt && now - sessionHeartbeatState.lastSentAt < 60000) {
-    return;
-  }
-
-  try {
-    await waitFirebase();
-    const { db, doc, updateDoc, serverTimestamp } = window.firebase;
-    await updateDoc(doc(db, 'users', sessionHeartbeatState.userId), {
-      [`activeSessions.${sessionHeartbeatState.sessionId}.lastActiveAt`]: serverTimestamp(),
-      [`activeSessions.${sessionHeartbeatState.sessionId}.lastActiveAtMs`]: now
-    });
-    sessionHeartbeatState.lastSentAt = now;
-  } catch (err) {
-    console.warn('Session heartbeat gönderilemedi:', err);
-  }
-};
-
-const startSessionHeartbeat = (userId, sessionId) => {
-  if (!userId || !sessionId) {
-    return;
-  }
-
-  sessionHeartbeatState.userId = userId;
-  sessionHeartbeatState.sessionId = sessionId;
-  sessionHeartbeatState.lastSentAt = 0;
-
-  if (sessionHeartbeatState.timerId) {
-    clearInterval(sessionHeartbeatState.timerId);
-  }
-
-  sessionHeartbeatState.timerId = setInterval(() => sendSessionHeartbeat(false), 120000);
-  sendSessionHeartbeat(true);
-};
-
-const registerActiveSession = async (userId) => {
-  if (!userId) return null;
-
-  await waitFirebase();
-  const { db, doc, updateDoc, deleteField, serverTimestamp, setDoc } = window.firebase;
-  const userRef = doc(db, 'users', userId);
-
-  const previousSessionId = getCurrentSessionId();
-  if (previousSessionId) {
-    try {
-      await updateDoc(userRef, {
-        [`activeSessions.${previousSessionId}`]: deleteField(),
-        lastSessionUpdate: serverTimestamp()
-      });
-    } catch (cleanupErr) {
-      console.warn('Önceki oturum kaydı temizlenemedi:', cleanupErr);
-      if (cleanupErr?.code === 'permission-denied' || /insufficient permissions/i.test(cleanupErr?.message || '')) {
-        clearLocalSessionInfo();
-        return null;
-      }
-    }
-  }
-
-  clearLocalSessionInfo();
-
-  const sessionId = generateSessionId();
-  const issuedAt = Date.now();
-  const device = buildDeviceFingerprint();
-
-  try {
-    await setDoc(userRef, { uid: userId, ownerId: userId }, { merge: true });
-  } catch (ownershipErr) {
-    console.warn('Kullanıcı belgesi sahiplik bilgisi güncellenemedi:', ownershipErr);
-  }
-
-  let registrationSucceeded = false;
-
-  const sessionPayload = {
-    activeSessions: {
-      [sessionId]: {
-        createdAt: serverTimestamp(),
-        createdAtMs: issuedAt,
-        lastActiveAt: serverTimestamp(),
-        lastActiveAtMs: issuedAt,
-        device
-      }
-    },
-    lastSessionUpdate: serverTimestamp()
-  };
-
-  try {
-    await setDoc(userRef, sessionPayload, { merge: true });
-    registrationSucceeded = true;
-  } catch (err) {
-    console.warn('Aktif oturum kaydı yapılamadı:', err);
-    if (err?.code === 'not-found') {
-      try {
-        await setDoc(userRef, { uid: userId, ownerId: userId, ...sessionPayload }, { merge: true });
-        registrationSucceeded = true;
-      } catch (fallbackError) {
-        console.warn('Aktif oturum kaydı (fallback) yapılamadı:', fallbackError);
-      }
-    }
-  }
-
-  if (!registrationSucceeded) {
-    clearLocalSessionInfo();
-    return null;
-  }
-
-  try {
-    localStorage.setItem(SESSION_ID_STORAGE_KEY, sessionId);
-    localStorage.setItem(SESSION_ISSUED_STORAGE_KEY, String(issuedAt));
-  } catch (storageErr) {
-    console.warn('Session bilgileri kaydedilemedi:', storageErr);
-  }
-
-  startSessionHeartbeat(userId, sessionId);
-
-  return { sessionId, issuedAt };
-};
-
-const sessionRegistrationQueue = [];
-const sessionRegistrationQueuedUsers = new Set();
-let processingSessionRegistrationQueue = false;
-
-const dequeueSessionRegistration = () => {
-  if (!sessionRegistrationQueue.length) {
-    return null;
-  }
-  return sessionRegistrationQueue.shift();
-};
-
-const finalizeSessionRegistrationPayload = (payload) => {
-  if (!payload?.userId) return;
-  sessionRegistrationQueuedUsers.delete(payload.userId);
-  if (typeof window !== 'undefined' && window.__pendingSessionRegistrationUsers) {
-    delete window.__pendingSessionRegistrationUsers[payload.userId];
-  }
-};
-
-const processSessionRegistrationQueue = async () => {
-  if (processingSessionRegistrationQueue) {
-    return;
-  }
-
-  processingSessionRegistrationQueue = true;
-
-  try {
-    let payload = dequeueSessionRegistration();
-
-    while (payload) {
-      try {
-        const result = await registerActiveSession(payload.userId);
-        if (!result) {
-          console.warn('Oturum kaydı gerçekleştirilemedi:', payload);
-        }
-      } catch (err) {
-        console.warn('Oturum kaydı kuyruğu işlenirken hata oluştu:', err);
-      } finally {
-        finalizeSessionRegistrationPayload(payload);
-      }
-
-      payload = dequeueSessionRegistration();
-    }
-  } finally {
-    processingSessionRegistrationQueue = false;
-  }
-};
-
-const enqueueSessionRegistrationProcessing = (payload) => {
-  if (!payload?.userId || sessionRegistrationQueuedUsers.has(payload.userId)) {
-    return;
-  }
-
-  sessionRegistrationQueuedUsers.add(payload.userId);
-  sessionRegistrationQueue.push({ ...payload, queuedAt: Date.now() });
-  processSessionRegistrationQueue();
-};
-
-if (typeof window !== 'undefined') {
-  if (Array.isArray(window.__pendingSessionRegistrations) && window.__pendingSessionRegistrations.length) {
-    const pendingPayloads = window.__pendingSessionRegistrations.splice(0);
-    pendingPayloads.forEach((payload) => enqueueSessionRegistrationProcessing(payload));
-  }
-
-  window.addEventListener('firebase-register-session', (event) => {
-    enqueueSessionRegistrationProcessing(event?.detail || {});
-  });
-
-  window.addEventListener('focus', () => sendSessionHeartbeat(true));
-}
-
-if (typeof document !== 'undefined') {
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) {
-      sendSessionHeartbeat(true);
-    }
-  });
-}
-
 const isLoggedIn = () => {
   const storedUser = getCurrentUser();
   if (!window.__firebaseAuthReady) {
@@ -533,75 +272,25 @@ const requireAuth = (requiredRole = null) => {
   return false;
 };
 
-window.__manualLogoutInProgress = false;
-
-const logout = async (options = {}) => {
-  const {
-    suppressToast = false,
-    toastMessage = 'Çıkış yapıldı',
-    toastKind = 'success',
-    redirect = '#/'
-  } = options || {};
-
-  const currentUser = getCurrentUser();
-  const sessionId = getCurrentSessionId();
-
-  window.__manualLogoutInProgress = true;
-
-  let logoutError = null;
-
+const logout = async () => {
   try {
     await waitFirebase();
-    const { auth, signOut, db, doc, updateDoc, deleteField, serverTimestamp } = window.firebase;
-
-    if (currentUser?.uid && sessionId) {
-      try {
-        await updateDoc(doc(db, 'users', currentUser.uid), {
-          [`activeSessions.${sessionId}`]: deleteField(),
-          lastSessionUpdate: serverTimestamp()
-        });
-      } catch (sessionErr) {
-        console.warn('Oturum kaydı temizlenemedi:', sessionErr);
-      }
+    const { auth, signOut, endActiveSession } = window.firebase;
+    try {
+      await endActiveSession({ user: auth.currentUser });
+    } catch (sessionError) {
+      console.warn('Aktif oturum kaydı kapatılırken hata oluştu', sessionError);
     }
-
     await signOut(auth);
-  } catch (err) {
-    logoutError = err;
-    console.error('Logout error:', err);
-  } finally {
-    window.__manualLogoutInProgress = false;
-  }
-
-  try {
     localStorage.removeItem('currentUser');
-  } catch (err) {
-    console.warn('Kullanıcı bilgileri temizlenemedi:', err);
-  }
-
-  clearLocalSessionInfo();
-
-  try {
-    window.dispatchEvent(new Event('user-info-updated'));
-  } catch (eventErr) {
-    console.warn('user-info-updated olayı gönderilemedi:', eventErr);
-  }
-
-  if (!suppressToast) {
-    if (logoutError) {
-      toast('Çıkış yapılırken hata oluştu', 'error');
-    } else {
-      toast(toastMessage, toastKind);
-    }
-  }
-
-  if (redirect) {
+    toast('Çıkış yapıldı', 'success');
     setTimeout(() => {
-      location.hash = redirect;
+      location.hash = '#/';
     }, 500);
+  } catch (e) {
+    console.error('Logout error:', e);
+    toast('Çıkış yapılırken hata oluştu', 'error');
   }
-
-  return !logoutError;
 };
 
 // Make available globally
@@ -619,45 +308,7 @@ window.isLoggedIn = isLoggedIn;
 window.hasRole = hasRole;
 window.isAdmin = isAdmin;
 window.requireAuth = requireAuth;
-window.registerActiveSession = registerActiveSession;
-window.getCurrentSessionId = getCurrentSessionId;
 window.logout = logout;
-
-if (typeof window !== 'undefined') {
-  window.addEventListener('firebase-force-logout', (event) => {
-    const detail = event?.detail || {};
-    logout({
-      suppressToast: false,
-      toastMessage: detail.message || 'Oturumunuz sonlandırıldı.',
-      toastKind: detail.kind || 'warning',
-      redirect: detail.redirect ?? '#/login'
-    });
-  });
-
-  window.addEventListener('fb-auth-state', (event) => {
-    const authUser = event?.detail?.user;
-
-    if (authUser && !authUser.isAnonymous) {
-      const storedSessionId = getCurrentSessionId();
-      if (storedSessionId && sessionHeartbeatState.sessionId !== storedSessionId) {
-        sessionHeartbeatState.userId = authUser.uid;
-        sessionHeartbeatState.sessionId = storedSessionId;
-        sessionHeartbeatState.lastSentAt = 0;
-
-        if (sessionHeartbeatState.timerId) {
-          clearInterval(sessionHeartbeatState.timerId);
-        }
-
-        sessionHeartbeatState.timerId = setInterval(() => sendSessionHeartbeat(false), 120000);
-        sendSessionHeartbeat(true);
-      }
-    } else {
-      if (!authUser) {
-        clearLocalSessionInfo();
-      }
-    }
-  });
-}
 
 // Auto-apply text validation on blur for all text inputs
 if (typeof document !== 'undefined') {

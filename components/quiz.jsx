@@ -30,10 +30,10 @@ const Quiz = ({ sessionId }) => {
   // 📍 Location State
   const [userLocation, setUserLocation] = useState(null);
   
-  // 🔒 PIN Lock State
+  // 🔒 Password Lock State
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [pin, setPin] = useState('');
-  const [pinError, setPinError] = useState('');
+  const [password, setPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -185,7 +185,7 @@ const Quiz = ({ sessionId }) => {
     // Check if user already answered current question or moved forward
     const hasAnsweredCurrent = answers[questions[idx].id] != null;
     
-    // If current question was answered or skipped, require application PIN
+    // If current question was answered or skipped, require password
     if (hasAnsweredCurrent || idx > 0) {
       setShowPasswordModal(true);
       return;
@@ -202,28 +202,17 @@ const Quiz = ({ sessionId }) => {
       if (timerRef.current) clearInterval(timerRef.current);
       setIdx(i => i - 1);
       setShowPasswordModal(false);
-      setPin('');
-      setPinError('');
+      setPassword('');
+      setPasswordError('');
     }
   };
   
-  const handlePinSubmit = () => {
-    const currentUser = getCurrentUser();
-    const expectedPin = currentUser?.applicationPin && /^\d{4}$/.test(currentUser.applicationPin)
-      ? currentUser.applicationPin
-      : '0000';
-
-    if (!/^\d{4}$/.test(pin)) {
-      setPinError('PIN 4 haneli olmalıdır!');
-      setTimeout(() => setPinError(''), 2000);
-      return;
-    }
-
-    if (pin === expectedPin) {
+  const handlePasswordSubmit = () => {
+    if (password === 'admin123') {
       goToPrevQuestion();
     } else {
-      setPinError('Uygulama PIN\'i hatalı!');
-      setTimeout(() => setPinError(''), 2000);
+      setPasswordError('Hatalı şifre!');
+      setTimeout(() => setPasswordError(''), 2000);
     }
   };
 
@@ -506,29 +495,29 @@ const Quiz = ({ sessionId }) => {
               maxWidth: '400px',
               width: '90%'
             }}>
-              <h3 className="text-lg font-bold text-dark-900 mb-4">🔒 Uygulama PIN</h3>
-              <p className="text-sm text-dark-600 mb-4">Önceki soruya dönmek için uygulama PIN'inizi girin.</p>
-              <input
+              <h3 className="text-lg font-bold text-dark-900 mb-4">🔒 Yönetici Şifresi</h3>
+              <p className="text-sm text-dark-600 mb-4">Önceki soruya dönmek için yönetici şifresini girin.</p>
+              <input 
                 type="password"
                 className="field mb-2"
-                placeholder="PIN"
-                value={pin}
-                onChange={e => setPin(e.target.value)}
-                onKeyPress={e => e.key === 'Enter' && handlePinSubmit()}
+                placeholder="Şifre"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                onKeyPress={e => e.key === 'Enter' && handlePasswordSubmit()}
                 autoFocus
               />
-              {pinError && (
-                <div className="text-red-600 text-sm mb-3">❌ {pinError}</div>
+              {passwordError && (
+                <div className="text-red-600 text-sm mb-3">❌ {passwordError}</div>
               )}
               <div className="flex gap-2">
                 <button className="btn btn-ghost flex-1" onClick={() => {
                   setShowPasswordModal(false);
-                  setPin('');
-                  setPinError('');
+                  setPassword('');
+                  setPasswordError('');
                 }}>
                   İptal
                 </button>
-                <button className="btn btn-primary flex-1" onClick={handlePinSubmit}>
+                <button className="btn btn-primary flex-1" onClick={handlePasswordSubmit}>
                   Onayla
                 </button>
               </div>

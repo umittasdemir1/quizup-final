@@ -7,8 +7,8 @@ const UserManagement = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
-  const [adminPin, setAdminPin] = useState('');
-  const [pinError, setPinError] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
   const [revealedPasswords, setRevealedPasswords] = useState({});
   const [newPassword, setNewPassword] = useState('');
 
@@ -18,10 +18,7 @@ const UserManagement = () => {
     email: '',
     password: '',
     role: 'manager',
-    position: '',
-    company: '',
-    department: '',
-    applicationPin: ''
+    position: ''
   });
 
   const [editForm, setEditForm] = useState({
@@ -29,10 +26,7 @@ const UserManagement = () => {
     lastName: '',
     email: '',
     role: '',
-    position: '',
-    company: '',
-    department: '',
-    applicationPin: ''
+    position: ''
   });
 
   const [submitting, setSubmitting] = useState(false);
@@ -61,7 +55,7 @@ const UserManagement = () => {
         return;
       }
 
-      const { db, collection, getDocs, orderBy, query, auth, updateDoc, doc } = window.firebase;
+      const { db, collection, getDocs, orderBy, query, auth } = window.firebase;
       console.log('Firebase ready, Firebase Auth user:', auth.currentUser);
 
       // Ensure Firebase Auth is ready
@@ -77,54 +71,11 @@ const UserManagement = () => {
       const snapshot = await getDocs(q);
       console.log('Users snapshot size:', snapshot.size);
 
-      const data = await Promise.all(snapshot.docs.map(async (d) => {
-        const rawData = d.data();
-        const normalizedPin = rawData.applicationPin && /^\d{4}$/.test(rawData.applicationPin)
-          ? rawData.applicationPin
-          : '0000';
-
-        const updates = {};
-
-        if (!rawData.uid) {
-          updates.uid = d.id;
-        }
-
-        if (!rawData.ownerId) {
-          updates.ownerId = d.id;
-        }
-
-        if ((!rawData.activeSessions || typeof rawData.activeSessions !== 'object') && auth.currentUser) {
-          updates.activeSessions = {};
-        }
-
-        if ((!rawData.applicationPin || !/^\d{4}$/.test(rawData.applicationPin)) && auth.currentUser) {
-          updates.applicationPin = normalizedPin;
-        }
-
-        if (Object.keys(updates).length > 0) {
-          try {
-            await updateDoc(doc(db, 'users', d.id), updates);
-          } catch (updateError) {
-            console.warn('Kullanıcı kaydı güncellenemedi:', updateError);
-          }
-        }
-
-        const userData = {
-          id: d.id,
-          ...rawData,
-          uid: rawData.uid || d.id,
-          ownerId: rawData.ownerId || d.id,
-          activeSessions: (rawData.activeSessions && typeof rawData.activeSessions === 'object')
-            ? rawData.activeSessions
-            : {},
-          company: rawData.company || '',
-          department: rawData.department || '',
-          position: rawData.position || '',
-          applicationPin: normalizedPin
-        };
+      const data = snapshot.docs.map(d => {
+        const userData = { id: d.id, ...d.data() };
         console.log('User:', userData);
         return userData;
-      }));
+      });
 
       console.log('Total users loaded:', data.length);
       setUsers(data);
@@ -151,14 +102,7 @@ const UserManagement = () => {
       return;
     }
 
-    if (form.applicationPin && !/^\d{4}$/.test(form.applicationPin)) {
-      toast('Uygulama PIN\'i 4 haneli olmalıdır', 'error');
-      return;
-    }
-
     const normalizedEmail = form.email.trim().toLowerCase();
-    const normalizedPin = form.applicationPin?.trim();
-    const applicationPin = normalizedPin && /^\d{4}$/.test(normalizedPin) ? normalizedPin : '0000';
 
     setSubmitting(true);
     let creationSession = null;
@@ -196,12 +140,6 @@ const UserManagement = () => {
           password: form.password, // Store password in Firestore for admin access
           role: form.role,
           position: form.position || null,
-          company: form.company?.trim() || null,
-          department: form.department?.trim() || null,
-          applicationPin,
-          uid: createdUser.uid,
-          ownerId: createdUser.uid,
-          activeSessions: {},
           createdAt: serverTimestamp(),
           createdBy: adminUser.uid
         });
@@ -231,10 +169,7 @@ const UserManagement = () => {
         email: '',
         password: '',
         role: 'manager',
-        position: '',
-        company: '',
-        department: '',
-        applicationPin: ''
+        position: ''
       });
       loadUsers();
 
@@ -278,10 +213,7 @@ const UserManagement = () => {
       lastName: user.lastName,
       email: user.email,
       role: user.role,
-      position: user.position || '',
-      company: user.company || '',
-      department: user.department || '',
-      applicationPin: user.applicationPin || '0000'
+      position: user.position || ''
     });
     setShowEditModal(true);
   };
@@ -294,29 +226,17 @@ const UserManagement = () => {
       return;
     }
 
-    if (editForm.applicationPin && !/^\d{4}$/.test(editForm.applicationPin)) {
-      toast('Uygulama PIN\'i 4 haneli olmalıdır', 'error');
-      return;
-    }
-
     setSubmitting(true);
     try {
       await waitFirebase();
       const { db, doc, updateDoc } = window.firebase;
-
-      const applicationPin = editForm.applicationPin?.trim()
-        ? editForm.applicationPin.trim()
-        : '0000';
 
       await updateDoc(doc(db, 'users', editingUser.id), {
         firstName: editForm.firstName,
         lastName: editForm.lastName,
         email: editForm.email,
         role: editForm.role,
-        position: editForm.position || null,
-        company: editForm.company?.trim() || null,
-        department: editForm.department?.trim() || null,
-        applicationPin
+        position: editForm.position || null
       });
 
       toast('Kullanıcı başarıyla güncellendi', 'success');
@@ -334,26 +254,21 @@ const UserManagement = () => {
 
   const requestPasswordReveal = (userId) => {
     setEditingUser(users.find(u => u.id === userId));
-    setAdminPin('');
-    setPinError('');
+    setAdminPassword('');
+    setPasswordError('');
     setNewPassword('');
     setShowPasswordModal(true);
   };
 
-  const verifyAdminPin = () => {
-    const currentUser = getCurrentUser();
-    const expectedPin = currentUser?.applicationPin && /^\d{4}$/.test(currentUser.applicationPin)
-      ? currentUser.applicationPin
-      : '0000';
-
-    if (adminPin === expectedPin) {
+  const verifyAdminPassword = () => {
+    if (adminPassword === 'admin123') {
       setRevealedPasswords(prev => ({ ...prev, [editingUser.id]: true }));
       setShowPasswordModal(false);
-      setAdminPin('');
-      setPinError('');
+      setAdminPassword('');
+      setPasswordError('');
       toast('Şifre gösteriliyor', 'success');
     } else {
-      setPinError('Uygulama PIN\'i hatalı!');
+      setPasswordError('Hatalı admin şifresi!');
     }
   };
 
@@ -433,11 +348,8 @@ const UserManagement = () => {
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-dark-700 uppercase">İsim</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-dark-700 uppercase">Email</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-dark-700 uppercase">Şirket</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-dark-700 uppercase">Birim</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-dark-700 uppercase">Rol</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-dark-700 uppercase">Görev</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-dark-700 uppercase">Uygulama PIN</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-dark-700 uppercase">Şifre</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-dark-700 uppercase">Oluşturulma</th>
                   <th className="px-6 py-3 text-right text-xs font-semibold text-dark-700 uppercase">İşlem</th>
@@ -452,11 +364,8 @@ const UserManagement = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-dark-600">{user.email}</td>
-                    <td className="px-6 py-4 text-sm text-dark-600">{user.company || '-'}</td>
-                    <td className="px-6 py-4 text-sm text-dark-600">{user.department || '-'}</td>
                     <td className="px-6 py-4">{getRoleBadge(user.role)}</td>
                     <td className="px-6 py-4 text-sm text-dark-600">{user.position || '-'}</td>
-                    <td className="px-6 py-4 text-sm font-mono text-dark-900">{user.applicationPin || '0000'}</td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         {revealedPasswords[user.id] ? (
@@ -565,28 +474,6 @@ const UserManagement = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-dark-700 mb-2">Şirket</label>
-                  <input
-                    type="text"
-                    className="field"
-                    value={form.company}
-                    onChange={(e) => setForm({ ...form, company: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-dark-700 mb-2">Birim</label>
-                  <input
-                    type="text"
-                    className="field"
-                    value={form.department}
-                    onChange={(e) => setForm({ ...form, department: e.target.value })}
-                  />
-                </div>
-              </div>
-
               <div>
                 <label className="block text-sm font-semibold text-dark-700 mb-2">Şifre *</label>
                 <input
@@ -621,20 +508,6 @@ const UserManagement = () => {
                   value={form.position}
                   onChange={(e) => setForm({ ...form, position: e.target.value })}
                 />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-dark-700 mb-2">Uygulama PIN (4 Hane)</label>
-                <input
-                  type="text"
-                  className="field"
-                  placeholder="4 haneli PIN"
-                  inputMode="numeric"
-                  value={form.applicationPin}
-                  onChange={(e) => setForm({ ...form, applicationPin: e.target.value })}
-                  maxLength={4}
-                />
-                <p className="text-xs text-dark-500 mt-1">Belirtilmezse sistem varsayılan PIN'i atar.</p>
               </div>
 
               <div className="flex gap-3 pt-4">
@@ -723,28 +596,6 @@ const UserManagement = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-dark-700 mb-2">Şirket</label>
-                  <input
-                    type="text"
-                    className="field"
-                    value={editForm.company}
-                    onChange={(e) => setEditForm({ ...editForm, company: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-dark-700 mb-2">Birim</label>
-                  <input
-                    type="text"
-                    className="field"
-                    value={editForm.department}
-                    onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
-                  />
-                </div>
-              </div>
-
               <div>
                 <label className="block text-sm font-semibold text-dark-700 mb-2">Rol *</label>
                 <select
@@ -765,18 +616,6 @@ const UserManagement = () => {
                   className="field"
                   value={editForm.position}
                   onChange={(e) => setEditForm({ ...editForm, position: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-dark-700 mb-2">Uygulama PIN (4 Hane)</label>
-                <input
-                  type="text"
-                  className="field"
-                  inputMode="numeric"
-                  value={editForm.applicationPin}
-                  onChange={(e) => setEditForm({ ...editForm, applicationPin: e.target.value })}
-                  maxLength={4}
                 />
               </div>
 
@@ -834,22 +673,22 @@ const UserManagement = () => {
             {!revealedPasswords[editingUser.id] ? (
               <div className="space-y-4">
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800">
-                  <strong>⚠️ Güvenlik:</strong> Şifreyi görmek için uygulama PIN'inizi girin.
+                  <strong>⚠️ Güvenlik:</strong> Şifreyi görmek için admin şifrenizi girin.
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-dark-700 mb-2">Uygulama PIN</label>
+                  <label className="block text-sm font-semibold text-dark-700 mb-2">Admin Şifresi</label>
                   <input
                     type="password"
                     className="field"
-                    placeholder="PIN"
-                    value={adminPin}
-                    onChange={(e) => setAdminPin(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && verifyAdminPin()}
+                    placeholder="admin123"
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && verifyAdminPassword()}
                     autoFocus
                   />
-                  {pinError && (
-                    <div className="text-red-600 text-sm mt-2">❌ {pinError}</div>
+                  {passwordError && (
+                    <div className="text-red-600 text-sm mt-2">❌ {passwordError}</div>
                   )}
                 </div>
 
@@ -862,7 +701,7 @@ const UserManagement = () => {
                   </button>
                   <button
                     className="btn btn-primary flex-1"
-                    onClick={verifyAdminPin}
+                    onClick={verifyAdminPassword}
                   >
                     Doğrula
                   </button>
