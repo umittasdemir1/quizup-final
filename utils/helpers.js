@@ -308,6 +308,8 @@ const registerActiveSession = async (userId) => {
 
   const device = buildDeviceFingerprint();
 
+  let registrationSucceeded = false;
+
   try {
     await waitFirebase();
     const { db, doc, updateDoc, serverTimestamp } = window.firebase;
@@ -323,8 +325,14 @@ const registerActiveSession = async (userId) => {
       },
       lastSessionUpdate: serverTimestamp()
     });
+
+    registrationSucceeded = true;
   } catch (err) {
     console.warn('Aktif oturum kaydı yapılamadı:', err);
+  }
+
+  if (!registrationSucceeded) {
+    return null;
   }
 
   try {
