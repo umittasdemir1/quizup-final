@@ -183,6 +183,174 @@ const getCurrentUser = () => {
   }
 };
 
+const SESSION_ID_STORAGE_KEY = 'quizup:session:id';
+const SESSION_ISSUED_STORAGE_KEY = 'quizup:session:issuedAt';
+
+const sessionHeartbeatState = {
+  userId: null,
+  sessionId: null,
+  timerId: null,
+  lastSentAt: 0
+};
+
+const getCurrentSessionId = () => {
+  try {
+    return localStorage.getItem(SESSION_ID_STORAGE_KEY);
+  } catch (err) {
+    console.warn('Session id okunamadı:', err);
+    return null;
+  }
+};
+
+const clearLocalSessionInfo = () => {
+  try {
+    localStorage.removeItem(SESSION_ID_STORAGE_KEY);
+    localStorage.removeItem(SESSION_ISSUED_STORAGE_KEY);
+  } catch (err) {
+    console.warn('Session bilgileri temizlenemedi:', err);
+  }
+  sessionHeartbeatState.userId = null;
+  sessionHeartbeatState.sessionId = null;
+  if (sessionHeartbeatState.timerId) {
+    clearInterval(sessionHeartbeatState.timerId);
+    sessionHeartbeatState.timerId = null;
+  }
+};
+
+const generateSessionId = () => {
+  try {
+    if (window.crypto?.randomUUID) {
+      return window.crypto.randomUUID();
+    }
+  } catch (err) {
+    console.warn('randomUUID kullanılamadı:', err);
+  }
+
+  return 'sess-' + Math.random().toString(16).slice(2) + Date.now().toString(16);
+};
+
+const buildDeviceFingerprint = () => {
+  if (typeof navigator === 'undefined') {
+    return {};
+  }
+
+  return {
+    userAgent: navigator.userAgent || null,
+    language: navigator.language || null,
+    platform: navigator.platform || null,
+    vendor: navigator.vendor || null,
+    deviceMemory: navigator.deviceMemory || null,
+    hardwareConcurrency: navigator.hardwareConcurrency || null
+  };
+};
+
+const sendSessionHeartbeat = async (force = false) => {
+  if (!sessionHeartbeatState.userId || !sessionHeartbeatState.sessionId) {
+    return;
+  }
+
+  const now = Date.now();
+  if (!force && sessionHeartbeatState.lastSentAt && now - sessionHeartbeatState.lastSentAt < 60000) {
+    return;
+  }
+
+  try {
+    await waitFirebase();
+    const { db, doc, updateDoc, serverTimestamp } = window.firebase;
+    await updateDoc(doc(db, 'users', sessionHeartbeatState.userId), {
+      [`activeSessions.${sessionHeartbeatState.sessionId}.lastActiveAt`]: serverTimestamp(),
+      [`activeSessions.${sessionHeartbeatState.sessionId}.lastActiveAtMs`]: now
+    });
+    sessionHeartbeatState.lastSentAt = now;
+  } catch (err) {
+    console.warn('Session heartbeat gönderilemedi:', err);
+  }
+};
+
+const startSessionHeartbeat = (userId, sessionId) => {
+  if (!userId || !sessionId) {
+    return;
+  }
+
+  sessionHeartbeatState.userId = userId;
+  sessionHeartbeatState.sessionId = sessionId;
+  sessionHeartbeatState.lastSentAt = 0;
+
+  if (sessionHeartbeatState.timerId) {
+    clearInterval(sessionHeartbeatState.timerId);
+  }
+
+  sessionHeartbeatState.timerId = setInterval(() => sendSessionHeartbeat(false), 120000);
+  sendSessionHeartbeat(true);
+};
+
+const registerActiveSession = async (userId) => {
+  if (!userId) return null;
+
+  const previousSessionId = getCurrentSessionId();
+  if (previousSessionId) {
+    try {
+      await waitFirebase();
+      const { db, doc, updateDoc, deleteField, serverTimestamp } = window.firebase;
+      await updateDoc(doc(db, 'users', userId), {
+        [`activeSessions.${previousSessionId}`]: deleteField(),
+        lastSessionUpdate: serverTimestamp()
+      });
+    } catch (cleanupErr) {
+      console.warn('Önceki oturum kaydı temizlenemedi:', cleanupErr);
+    }
+  }
+
+  clearLocalSessionInfo();
+
+  const sessionId = generateSessionId();
+  const issuedAt = Date.now();
+
+  const device = buildDeviceFingerprint();
+
+  try {
+    await waitFirebase();
+    const { db, doc, updateDoc, serverTimestamp } = window.firebase;
+    const userRef = doc(db, 'users', userId);
+
+    await updateDoc(userRef, {
+      [`activeSessions.${sessionId}`]: {
+        createdAt: serverTimestamp(),
+        createdAtMs: issuedAt,
+        lastActiveAt: serverTimestamp(),
+        lastActiveAtMs: issuedAt,
+        device
+      },
+      lastSessionUpdate: serverTimestamp()
+    });
+  } catch (err) {
+    console.warn('Aktif oturum kaydı yapılamadı:', err);
+  }
+
+  try {
+    localStorage.setItem(SESSION_ID_STORAGE_KEY, sessionId);
+    localStorage.setItem(SESSION_ISSUED_STORAGE_KEY, String(issuedAt));
+  } catch (storageErr) {
+    console.warn('Session bilgileri kaydedilemedi:', storageErr);
+  }
+
+  startSessionHeartbeat(userId, sessionId);
+
+  return { sessionId, issuedAt };
+};
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('focus', () => sendSessionHeartbeat(true));
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      sendSessionHeartbeat(true);
+    }
+  });
+}
+
 const isLoggedIn = () => {
   const storedUser = getCurrentUser();
   if (!window.__firebaseAuthReady) {
@@ -272,20 +440,75 @@ const requireAuth = (requiredRole = null) => {
   return false;
 };
 
-const logout = async () => {
+window.__manualLogoutInProgress = false;
+
+const logout = async (options = {}) => {
+  const {
+    suppressToast = false,
+    toastMessage = 'Çıkış yapıldı',
+    toastKind = 'success',
+    redirect = '#/'
+  } = options || {};
+
+  const currentUser = getCurrentUser();
+  const sessionId = getCurrentSessionId();
+
+  window.__manualLogoutInProgress = true;
+
+  let logoutError = null;
+
   try {
     await waitFirebase();
-    const { auth, signOut } = window.firebase;
+    const { auth, signOut, db, doc, updateDoc, deleteField, serverTimestamp } = window.firebase;
+
+    if (currentUser?.uid && sessionId) {
+      try {
+        await updateDoc(doc(db, 'users', currentUser.uid), {
+          [`activeSessions.${sessionId}`]: deleteField(),
+          lastSessionUpdate: serverTimestamp()
+        });
+      } catch (sessionErr) {
+        console.warn('Oturum kaydı temizlenemedi:', sessionErr);
+      }
+    }
+
     await signOut(auth);
-    localStorage.removeItem('currentUser');
-    toast('Çıkış yapıldı', 'success');
-    setTimeout(() => {
-      location.hash = '#/';
-    }, 500);
-  } catch (e) {
-    console.error('Logout error:', e);
-    toast('Çıkış yapılırken hata oluştu', 'error');
+  } catch (err) {
+    logoutError = err;
+    console.error('Logout error:', err);
+  } finally {
+    window.__manualLogoutInProgress = false;
   }
+
+  try {
+    localStorage.removeItem('currentUser');
+  } catch (err) {
+    console.warn('Kullanıcı bilgileri temizlenemedi:', err);
+  }
+
+  clearLocalSessionInfo();
+
+  try {
+    window.dispatchEvent(new Event('user-info-updated'));
+  } catch (eventErr) {
+    console.warn('user-info-updated olayı gönderilemedi:', eventErr);
+  }
+
+  if (!suppressToast) {
+    if (logoutError) {
+      toast('Çıkış yapılırken hata oluştu', 'error');
+    } else {
+      toast(toastMessage, toastKind);
+    }
+  }
+
+  if (redirect) {
+    setTimeout(() => {
+      location.hash = redirect;
+    }, 500);
+  }
+
+  return !logoutError;
 };
 
 // Make available globally
@@ -303,7 +526,45 @@ window.isLoggedIn = isLoggedIn;
 window.hasRole = hasRole;
 window.isAdmin = isAdmin;
 window.requireAuth = requireAuth;
+window.registerActiveSession = registerActiveSession;
+window.getCurrentSessionId = getCurrentSessionId;
 window.logout = logout;
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('firebase-force-logout', (event) => {
+    const detail = event?.detail || {};
+    logout({
+      suppressToast: false,
+      toastMessage: detail.message || 'Oturumunuz sonlandırıldı.',
+      toastKind: detail.kind || 'warning',
+      redirect: detail.redirect ?? '#/login'
+    });
+  });
+
+  window.addEventListener('fb-auth-state', (event) => {
+    const authUser = event?.detail?.user;
+
+    if (authUser && !authUser.isAnonymous) {
+      const storedSessionId = getCurrentSessionId();
+      if (storedSessionId && sessionHeartbeatState.sessionId !== storedSessionId) {
+        sessionHeartbeatState.userId = authUser.uid;
+        sessionHeartbeatState.sessionId = storedSessionId;
+        sessionHeartbeatState.lastSentAt = 0;
+
+        if (sessionHeartbeatState.timerId) {
+          clearInterval(sessionHeartbeatState.timerId);
+        }
+
+        sessionHeartbeatState.timerId = setInterval(() => sendSessionHeartbeat(false), 120000);
+        sendSessionHeartbeat(true);
+      }
+    } else {
+      if (!authUser) {
+        clearLocalSessionInfo();
+      }
+    }
+  });
+}
 
 // Auto-apply text validation on blur for all text inputs
 if (typeof document !== 'undefined') {

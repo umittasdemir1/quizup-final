@@ -59,6 +59,12 @@ const Login = () => {
       }));
       window.dispatchEvent(new Event('user-info-updated'));
 
+      try {
+        await registerActiveSession(user.uid);
+      } catch (sessionErr) {
+        console.warn('Oturum kaydı yapılamadı:', sessionErr);
+      }
+
       toast('Giriş başarılı!', 'success');
 
       // Role göre yönlendirme

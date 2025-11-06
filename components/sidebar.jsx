@@ -19,6 +19,10 @@ const Sidebar = () => {
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
   const [savingUserInfo, setSavingUserInfo] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+  const [showSignOutAllModal, setShowSignOutAllModal] = useState(false);
+  const [signOutAllPin, setSignOutAllPin] = useState('');
+  const [signingOutAll, setSigningOutAll] = useState(false);
+  const [signOutAllError, setSignOutAllError] = useState('');
   const isLoggedIn = currentUser !== null;
 
   // Load pending suggestions count for admin
@@ -125,6 +129,77 @@ const Sidebar = () => {
     setSavingUserInfo(false);
     setChangingPassword(false);
     setPasswordForm({ current: '', new: '', confirm: '' });
+  };
+
+  const openSignOutAllModal = () => {
+    setShowUserMenu(false);
+    setSignOutAllPin('');
+    setSignOutAllError('');
+    setSigningOutAll(false);
+    setShowSignOutAllModal(true);
+  };
+
+  const closeSignOutAllModal = () => {
+    setShowSignOutAllModal(false);
+    setSignOutAllPin('');
+    setSignOutAllError('');
+    setSigningOutAll(false);
+  };
+
+  const handleSignOutAllDevices = async (e) => {
+    e.preventDefault();
+
+    if (!currentUser?.uid) {
+      toast('Kullanıcı oturumu bulunamadı', 'error');
+      return;
+    }
+
+    const normalizedPin = signOutAllPin.trim();
+
+    if (!normalizedPin || !/^\d{4}$/.test(normalizedPin)) {
+      setSignOutAllError('PIN 4 haneli olmalıdır');
+      return;
+    }
+
+    const expectedPin = currentUser?.applicationPin && /^\d{4}$/.test(currentUser.applicationPin)
+      ? currentUser.applicationPin
+      : '0000';
+
+    if (normalizedPin !== expectedPin) {
+      setSignOutAllError('Uygulama PIN\'i hatalı!');
+      return;
+    }
+
+    setSignOutAllError('');
+    setSigningOutAll(true);
+
+    window.__manualLogoutInProgress = true;
+
+    try {
+      await waitFirebase();
+      const { db, doc, updateDoc, serverTimestamp } = window.firebase;
+      await updateDoc(doc(db, 'users', currentUser.uid), {
+        activeSessions: {},
+        sessionInvalidationAt: serverTimestamp(),
+        lastSessionUpdate: serverTimestamp()
+      });
+
+      closeSignOutAllModal();
+
+      await logout({
+        toastMessage: 'Tüm cihazlardan çıkış yapıldı',
+        toastKind: 'success',
+        redirect: '#/login'
+      });
+    } catch (error) {
+      console.error('Tüm cihazlardan çıkış yapılırken hata oluştu:', error);
+      toast('Tüm cihazlardan çıkış yapılamadı', 'error');
+    } finally {
+      setSigningOutAll(false);
+      if (window.__manualLogoutInProgress) {
+        window.__manualLogoutInProgress = false;
+      }
+    }
   };
 
   const handleUserInfoSave = async (e) => {
@@ -255,6 +330,9 @@ const Sidebar = () => {
 
   const handleLogout = async () => {
     setShowUserMenu(false);
+    setShowSignOutAllModal(false);
+    setSignOutAllPin('');
+    setSignOutAllError('');
     try {
       await logout();
     } finally {
@@ -483,6 +561,12 @@ const Sidebar = () => {
                         👤 Kullanıcı Bilgileri
                       </button>
                       <button
+                        className="w-full text-left px-4 py-2 text-sm text-dark-600 hover:bg-gray-100 rounded-lg transition-colors"
+                        onClick={openSignOutAllModal}
+                      >
+                        🔐 Tüm cihazlarda oturumu kapat
+                      </button>
+                      <button
                         className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         onClick={handleLogout}
                       >
@@ -498,6 +582,75 @@ const Sidebar = () => {
           )}
         </div>
       </header>
+
+      {showSignOutAllModal && (
+        <>
+          <div className="overlay open" onClick={closeSignOutAllModal} style={{ zIndex: 998 }}></div>
+          <div
+            className="modal-sm open"
+            style={{
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              zIndex: 999,
+              background: 'white',
+              borderRadius: '16px',
+              padding: '28px',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+              maxWidth: '420px',
+              width: '90%'
+            }}
+          >
+            <form onSubmit={handleSignOutAllDevices} className="space-y-5">
+              <div>
+                <h3 className="text-xl font-semibold text-dark-900 mb-2">🔐 Tüm Cihazlarda Oturumu Kapat</h3>
+                <p className="text-sm text-dark-600">
+                  Bu işlem tüm cihazlarınızdaki oturumları sonlandırır. Devam etmek için uygulama PIN'inizi doğrulayın.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-dark-700 mb-2">Uygulama PIN (4 Hane)</label>
+                <input
+                  type="password"
+                  className="field"
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={signOutAllPin}
+                  onChange={(e) => {
+                    setSignOutAllPin(e.target.value);
+                    setSignOutAllError('');
+                  }}
+                  autoFocus
+                />
+                {signOutAllError && (
+                  <p className="text-xs text-red-500 mt-2">{signOutAllError}</p>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <button
+                  type="submit"
+                  className="btn btn-primary w-full"
+                  style={{ backgroundColor: '#DC2626', borderColor: '#DC2626' }}
+                  disabled={signingOutAll}
+                >
+                  {signingOutAll ? 'Oturumlar kapatılıyor...' : 'Tüm Oturumları Kapat'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost w-full"
+                  onClick={closeSignOutAllModal}
+                  disabled={signingOutAll}
+                >
+                  Vazgeç
+                </button>
+              </div>
+            </form>
+          </div>
+        </>
+      )}
 
       {showUserInfoModal && (
         <>

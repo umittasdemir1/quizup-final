@@ -1,7 +1,7 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js';
 import {
   getFirestore, collection, addDoc, onSnapshot, query, where, orderBy, doc, getDoc, getDocs,
-  setDoc, updateDoc, deleteDoc, serverTimestamp, limit, writeBatch
+  setDoc, updateDoc, deleteDoc, serverTimestamp, limit, writeBatch, deleteField
 } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js';
 import {
   getAuth,
@@ -86,6 +86,8 @@ let resolveReady;
 let authTimeoutId;
 let secondaryAppInstance;
 let secondaryAuthInstance;
+let userSessionUnsubscribe;
+let forcedLogoutInProgress = false;
 
 let resolveAuthReady;
 let authReadyResolved = false;
@@ -116,6 +118,46 @@ const dispatchReady = (reason = 'unknown') => {
     console.warn('[Firebase] Failed to resolve ready promise', err);
   }
   window.dispatchEvent(new Event('fb-ready'));
+};
+
+const SESSION_ID_STORAGE_KEY = 'quizup:session:id';
+const SESSION_ISSUED_STORAGE_KEY = 'quizup:session:issuedAt';
+
+const detachUserSessionListener = () => {
+  try {
+    userSessionUnsubscribe?.();
+  } catch (err) {
+    console.warn('[Firebase] Failed to detach user session listener', err);
+  }
+  userSessionUnsubscribe = null;
+};
+
+const triggerForcedLogout = (detail) => {
+  if (forcedLogoutInProgress) return;
+  forcedLogoutInProgress = true;
+
+  const payload = {
+    reason: detail?.reason || 'unknown',
+    message: detail?.message || 'Güvenlik nedeniyle oturumunuz kapatıldı.',
+    kind: detail?.kind || 'warning',
+    redirect: detail?.redirect || '#/login'
+  };
+
+  try {
+    window.dispatchEvent(new CustomEvent('firebase-force-logout', { detail: payload }));
+  } catch (err) {
+    console.warn('[Firebase] Force logout event failed, falling back', err);
+    try {
+      localStorage.removeItem('currentUser');
+      localStorage.removeItem(SESSION_ID_STORAGE_KEY);
+      localStorage.removeItem(SESSION_ISSUED_STORAGE_KEY);
+    } catch (storageErr) {
+      console.warn('[Firebase] Force logout storage cleanup failed', storageErr);
+    }
+    signOut(auth).catch((signOutErr) => {
+      console.warn('[Firebase] Force sign-out fallback failed', signOutErr);
+    });
+  }
 };
 
 const publishAuthState = (user, { markReady = false } = {}) => {
@@ -252,8 +294,90 @@ onAuthStateChanged(auth, async (user) => {
     publishAuthState(user, { markReady: true });
     const reason = user.isAnonymous ? 'anon-user' : 'existing-user';
     dispatchReady(reason);
+
+    if (user.isAnonymous) {
+      detachUserSessionListener();
+      forcedLogoutInProgress = false;
+      return;
+    }
+
+    forcedLogoutInProgress = false;
+
+    detachUserSessionListener();
+
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      userSessionUnsubscribe = onSnapshot(userRef, (snapshot) => {
+        if (!snapshot.exists()) {
+          return;
+        }
+
+        const data = snapshot.data() || {};
+
+        if (window.__manualLogoutInProgress) {
+          return;
+        }
+
+        let localSessionId = null;
+        let localIssuedAt = 0;
+
+        try {
+          localSessionId = localStorage.getItem(SESSION_ID_STORAGE_KEY);
+        } catch (err) {
+          console.warn('[Firebase] Unable to read local session id', err);
+        }
+
+        try {
+          const issuedRaw = localStorage.getItem(SESSION_ISSUED_STORAGE_KEY);
+          localIssuedAt = issuedRaw ? Number(issuedRaw) : 0;
+        } catch (err) {
+          console.warn('[Firebase] Unable to read local session timestamp', err);
+        }
+
+        if (!forcedLogoutInProgress) {
+          let invalidationMs = 0;
+          const invalidationValue = data.sessionInvalidationAt;
+          if (invalidationValue?.toMillis) {
+            invalidationMs = invalidationValue.toMillis();
+          } else if (typeof invalidationValue === 'number') {
+            invalidationMs = invalidationValue;
+          }
+
+          if (invalidationMs && localIssuedAt && invalidationMs >= localIssuedAt) {
+            triggerForcedLogout({
+              reason: 'session-invalidated',
+              message: 'Tüm cihazlarda oturum kapatma işlemi nedeniyle çıkış yaptınız.',
+              kind: 'warning'
+            });
+            return;
+          }
+        }
+
+        if (!forcedLogoutInProgress && localSessionId) {
+          const activeSessions = data.activeSessions && typeof data.activeSessions === 'object'
+            ? data.activeSessions
+            : {};
+
+          if (localSessionId && !activeSessions[localSessionId]) {
+            triggerForcedLogout({
+              reason: 'session-removed',
+              message: 'Oturumunuz başka bir cihazdan kapatıldı.',
+              kind: 'warning'
+            });
+          }
+        }
+      }, (error) => {
+        console.warn('[Firebase] User session listener error', error);
+      });
+    } catch (listenerError) {
+      console.warn('[Firebase] Failed to attach user session listener', listenerError);
+    }
+
     return;
   }
+
+  detachUserSessionListener();
+  forcedLogoutInProgress = false;
 
   publishAuthState(null);
 
@@ -272,7 +396,7 @@ onAuthStateChanged(auth, async (user) => {
 window.firebase = {
   app, auth, db, storage,
   collection, addDoc, onSnapshot, query, where, orderBy, doc, getDoc, getDocs,
-  setDoc, updateDoc, deleteDoc, serverTimestamp, limit, writeBatch,
+  setDoc, updateDoc, deleteDoc, serverTimestamp, limit, writeBatch, deleteField,
   signInAnonymously, signInWithEmailAndPassword, onAuthStateChanged, signOut,
   updatePassword, reauthenticateWithCredential, EmailAuthProvider,
   ref, uploadBytes, getDownloadURL, deleteObject,
