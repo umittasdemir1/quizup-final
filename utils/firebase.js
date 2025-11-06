@@ -92,6 +92,21 @@ let forcedLogoutInProgress = false;
 let resolveAuthReady;
 let authReadyResolved = false;
 
+let sessionSyncGraceUntil = 0;
+
+const startSessionSyncGracePeriod = (durationMs = 8000) => {
+  const now = Date.now();
+  sessionSyncGraceUntil = now + Math.max(0, durationMs);
+  if (typeof window !== 'undefined') {
+    window.__sessionSyncGraceUntil = sessionSyncGraceUntil;
+  }
+};
+
+const isSessionSyncGracePeriodActive = () => {
+  if (!sessionSyncGraceUntil) return false;
+  return Date.now() < sessionSyncGraceUntil;
+};
+
 window.__firebaseAuthReady = false;
 window.__firebaseCurrentUser = null;
 window.__firebaseAuthReadyPromise = new Promise((resolve) => {
@@ -123,6 +138,54 @@ const dispatchReady = (reason = 'unknown') => {
 const SESSION_ID_STORAGE_KEY = 'quizup:session:id';
 const SESSION_ISSUED_STORAGE_KEY = 'quizup:session:issuedAt';
 
+const isSessionSyncDisabled = () => {
+  try {
+    if (typeof window !== 'undefined' && typeof window.isSessionSyncDisabled === 'function') {
+      return window.isSessionSyncDisabled();
+    }
+  } catch (err) {
+    console.warn('[Firebase] Session sync durumu okunamadı:', err);
+  }
+
+  if (typeof window !== 'undefined') {
+    return window.__sessionSyncDisabled === true;
+  }
+
+  return false;
+};
+
+const disableSessionSync = (reason = 'bilinmiyor') => {
+  try {
+    if (typeof window !== 'undefined' && typeof window.disableSessionSync === 'function') {
+      window.disableSessionSync(reason);
+      return;
+    }
+  } catch (err) {
+    console.warn('[Firebase] Session sync disable çağrısı başarısız:', err);
+  }
+
+  if (typeof window !== 'undefined') {
+    window.__sessionSyncDisabled = true;
+  }
+  sessionSyncGraceUntil = 0;
+  console.warn('[Firebase] Session sync devre dışı bırakıldı (fallback):', reason);
+};
+
+const enableSessionSync = () => {
+  try {
+    if (typeof window !== 'undefined' && typeof window.enableSessionSync === 'function') {
+      window.enableSessionSync();
+      return;
+    }
+  } catch (err) {
+    console.warn('[Firebase] Session sync enable çağrısı başarısız:', err);
+  }
+
+  if (typeof window !== 'undefined') {
+    window.__sessionSyncDisabled = false;
+  }
+};
+
 const detachUserSessionListener = () => {
   try {
     userSessionUnsubscribe?.();
@@ -133,6 +196,11 @@ const detachUserSessionListener = () => {
 };
 
 const triggerForcedLogout = (detail) => {
+  if (isSessionSyncDisabled()) {
+    console.warn('[Firebase] Session sync devre dışı, zorunlu çıkış tetiklenmeyecek:', detail);
+    return;
+  }
+
   if (forcedLogoutInProgress) return;
   forcedLogoutInProgress = true;
 
@@ -305,6 +373,13 @@ onAuthStateChanged(auth, async (user) => {
 
     detachUserSessionListener();
 
+    startSessionSyncGracePeriod();
+
+    if (isSessionSyncDisabled()) {
+      console.warn('[Firebase] Session sync devre dışı, kullanıcı oturum dinleyicisi eklenmeyecek.');
+      return;
+    }
+
     try {
       const userRef = doc(db, 'users', user.uid);
       userSessionUnsubscribe = onSnapshot(userRef, (snapshot) => {
@@ -354,6 +429,10 @@ onAuthStateChanged(auth, async (user) => {
         }
 
         if (!forcedLogoutInProgress && localSessionId) {
+          if (isSessionSyncGracePeriodActive()) {
+            return;
+          }
+
           const activeSessions = data.activeSessions && typeof data.activeSessions === 'object'
             ? data.activeSessions
             : {};
@@ -368,9 +447,16 @@ onAuthStateChanged(auth, async (user) => {
         }
       }, (error) => {
         console.warn('[Firebase] User session listener error', error);
+        if (error?.code === 'permission-denied' || /insufficient permissions/i.test(error?.message || '')) {
+          disableSessionSync('permission-denied:listener');
+          detachUserSessionListener();
+        }
       });
     } catch (listenerError) {
       console.warn('[Firebase] Failed to attach user session listener', listenerError);
+      if (listenerError?.code === 'permission-denied' || /insufficient permissions/i.test(listenerError?.message || '')) {
+        disableSessionSync('permission-denied:listener-attach');
+      }
     }
 
     return;

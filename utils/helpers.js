@@ -185,6 +185,7 @@ const getCurrentUser = () => {
 
 const SESSION_ID_STORAGE_KEY = 'quizup:session:id';
 const SESSION_ISSUED_STORAGE_KEY = 'quizup:session:issuedAt';
+const SESSION_SYNC_DISABLED_STORAGE_KEY = 'quizup:session:syncDisabled';
 
 const sessionHeartbeatState = {
   userId: null,
@@ -192,6 +193,90 @@ const sessionHeartbeatState = {
   timerId: null,
   lastSentAt: 0
 };
+
+let sessionSyncDisabled = false;
+
+const readStoredSessionSyncDisabled = () => {
+  if (typeof localStorage === 'undefined') {
+    return false;
+  }
+
+  try {
+    return localStorage.getItem(SESSION_SYNC_DISABLED_STORAGE_KEY) === '1';
+  } catch (err) {
+    console.warn('Session sync bayrağı okunamadı:', err);
+    return false;
+  }
+};
+
+const persistSessionSyncDisabled = (disabled) => {
+  if (typeof localStorage === 'undefined') {
+    return;
+  }
+
+  try {
+    if (disabled) {
+      localStorage.setItem(SESSION_SYNC_DISABLED_STORAGE_KEY, '1');
+    } else {
+      localStorage.removeItem(SESSION_SYNC_DISABLED_STORAGE_KEY);
+    }
+  } catch (err) {
+    console.warn('Session sync bayrağı kaydedilemedi:', err);
+  }
+};
+
+const applySessionSyncDisabledState = (disabled, { persist = true, reason = 'bilinmiyor' } = {}) => {
+  const normalized = Boolean(disabled);
+  if (typeof window !== 'undefined') {
+    window.__sessionSyncDisabled = normalized;
+  }
+
+  if (normalized === sessionSyncDisabled) {
+    return normalized;
+  }
+
+  sessionSyncDisabled = normalized;
+
+  if (typeof window !== 'undefined') {
+    window.__sessionSyncDisabled = normalized;
+  }
+
+  if (persist) {
+    persistSessionSyncDisabled(normalized);
+  }
+
+  if (normalized) {
+    console.warn('Session senkronizasyonu devre dışı bırakıldı:', reason);
+  } else {
+    console.log('Session senkronizasyonu yeniden etkinleştirildi.');
+  }
+
+  return normalized;
+};
+
+const initializeSessionSyncState = () => {
+  try {
+    const stored = readStoredSessionSyncDisabled();
+    applySessionSyncDisabledState(stored, { persist: false });
+  } catch (err) {
+    console.warn('Session sync başlangıç durumu okunamadı:', err);
+    applySessionSyncDisabledState(false, { persist: false });
+  }
+};
+
+const disableSessionSync = (reason = 'bilinmeyen neden') => {
+  applySessionSyncDisabledState(true, { reason });
+};
+
+const enableSessionSync = () => {
+  applySessionSyncDisabledState(false);
+};
+
+const isSessionSyncDisabled = () => {
+  return sessionSyncDisabled === true;
+};
+
+initializeSessionSyncState();
 
 const getCurrentSessionId = () => {
   try {
@@ -245,6 +330,10 @@ const buildDeviceFingerprint = () => {
 };
 
 const sendSessionHeartbeat = async (force = false) => {
+  if (isSessionSyncDisabled()) {
+    return;
+  }
+
   if (!sessionHeartbeatState.userId || !sessionHeartbeatState.sessionId) {
     return;
   }
@@ -264,10 +353,17 @@ const sendSessionHeartbeat = async (force = false) => {
     sessionHeartbeatState.lastSentAt = now;
   } catch (err) {
     console.warn('Session heartbeat gönderilemedi:', err);
+    if (err?.code === 'permission-denied' || /insufficient permissions/i.test(err?.message || '')) {
+      disableSessionSync('permission-denied:heartbeat');
+    }
   }
 };
 
 const startSessionHeartbeat = (userId, sessionId) => {
+  if (isSessionSyncDisabled()) {
+    return;
+  }
+
   if (!userId || !sessionId) {
     return;
   }
@@ -287,6 +383,18 @@ const startSessionHeartbeat = (userId, sessionId) => {
 const registerActiveSession = async (userId) => {
   if (!userId) return null;
 
+  const wasDisabled = isSessionSyncDisabled();
+  if (wasDisabled) {
+    console.warn('Session senkronizasyonu devre dışıydı, yeniden etkinleştirilmeye çalışılıyor.');
+    enableSessionSync();
+  }
+
+  if (isSessionSyncDisabled()) {
+    console.warn('Session senkronizasyonu devre dışı, registerActiveSession atlanıyor.');
+    clearLocalSessionInfo();
+    return null;
+  }
+
   const previousSessionId = getCurrentSessionId();
   if (previousSessionId) {
     try {
@@ -298,6 +406,11 @@ const registerActiveSession = async (userId) => {
       });
     } catch (cleanupErr) {
       console.warn('Önceki oturum kaydı temizlenemedi:', cleanupErr);
+      if (cleanupErr?.code === 'permission-denied' || /insufficient permissions/i.test(cleanupErr?.message || '')) {
+        disableSessionSync('permission-denied:cleanup');
+        clearLocalSessionInfo();
+        return null;
+      }
     }
   }
 
@@ -327,11 +440,16 @@ const registerActiveSession = async (userId) => {
     });
 
     registrationSucceeded = true;
+    enableSessionSync();
   } catch (err) {
     console.warn('Aktif oturum kaydı yapılamadı:', err);
+    if (err?.code === 'permission-denied' || /insufficient permissions/i.test(err?.message || '')) {
+      disableSessionSync('permission-denied:register');
+    }
   }
 
   if (!registrationSucceeded) {
+    clearLocalSessionInfo();
     return null;
   }
 
@@ -469,7 +587,7 @@ const logout = async (options = {}) => {
     await waitFirebase();
     const { auth, signOut, db, doc, updateDoc, deleteField, serverTimestamp } = window.firebase;
 
-    if (currentUser?.uid && sessionId) {
+    if (!isSessionSyncDisabled() && currentUser?.uid && sessionId) {
       try {
         await updateDoc(doc(db, 'users', currentUser.uid), {
           [`activeSessions.${sessionId}`]: deleteField(),
@@ -477,6 +595,9 @@ const logout = async (options = {}) => {
         });
       } catch (sessionErr) {
         console.warn('Oturum kaydı temizlenemedi:', sessionErr);
+        if (sessionErr?.code === 'permission-denied' || /insufficient permissions/i.test(sessionErr?.message || '')) {
+          disableSessionSync('permission-denied:logout');
+        }
       }
     }
 
@@ -537,6 +658,9 @@ window.requireAuth = requireAuth;
 window.registerActiveSession = registerActiveSession;
 window.getCurrentSessionId = getCurrentSessionId;
 window.logout = logout;
+window.disableSessionSync = disableSessionSync;
+window.enableSessionSync = enableSessionSync;
+window.isSessionSyncDisabled = isSessionSyncDisabled;
 
 if (typeof window !== 'undefined') {
   window.addEventListener('firebase-force-logout', (event) => {

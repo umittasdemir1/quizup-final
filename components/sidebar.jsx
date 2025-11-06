@@ -176,6 +176,13 @@ const Sidebar = () => {
     window.__manualLogoutInProgress = true;
 
     try {
+      if (typeof window.isSessionSyncDisabled === 'function' && window.isSessionSyncDisabled()) {
+        setSigningOutAll(false);
+        setSignOutAllError('Oturum senkronizasyonu devre dışı. Lütfen yöneticinizle iletişime geçin.');
+        window.__manualLogoutInProgress = false;
+        return;
+      }
+
       await waitFirebase();
       const { db, doc, updateDoc, serverTimestamp } = window.firebase;
       await updateDoc(doc(db, 'users', currentUser.uid), {
@@ -194,6 +201,13 @@ const Sidebar = () => {
     } catch (error) {
       console.error('Tüm cihazlardan çıkış yapılırken hata oluştu:', error);
       toast('Tüm cihazlardan çıkış yapılamadı', 'error');
+      if (error?.code === 'permission-denied' || /insufficient permissions/i.test(error?.message || '')) {
+        try {
+          window.disableSessionSync?.('permission-denied:signout-all');
+        } catch (flagErr) {
+          console.warn('Session sync bayrağı güncellenemedi:', flagErr);
+        }
+      }
     } finally {
       setSigningOutAll(false);
       if (window.__manualLogoutInProgress) {
