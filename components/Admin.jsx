@@ -2,6 +2,7 @@ const { useState, useEffect, useRef } = React;
 
 const Admin = () => {
   const [questions, setQuestions] = useState([]);
+  const [togglingQuestions, setTogglingQuestions] = useState({});
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -261,6 +262,8 @@ const Admin = () => {
   };
 
   const toggleActive = async (id, currentStatus) => {
+    setQuestions(prev => prev.map(q => q.id === id ? { ...q, isActive: !currentStatus } : q));
+    setTogglingQuestions(prev => ({ ...prev, [id]: true }));
     try {
       await waitFirebase();
       const { db, doc, updateDoc } = window.firebase;
@@ -268,7 +271,13 @@ const Admin = () => {
       toast((!currentStatus ? 'Soru aktif edildi' : 'Soru pasif edildi'), 'success');
     } catch(e) {
       console.error('Toggle error:', e);
+      setQuestions(prev => prev.map(q => q.id === id ? { ...q, isActive: currentStatus } : q));
       toast('Durum değiştirilemedi', 'error');
+    } finally {
+      setTogglingQuestions(prev => {
+        const { [id]: _, ...rest } = prev;
+        return rest;
+      });
     }
   };
 
@@ -319,6 +328,7 @@ const Admin = () => {
           handleEdit={handleEdit}
           handleDelete={handleDelete}
           toggleActive={toggleActive}
+          togglingStates={togglingQuestions}
           setShowForm={setShowForm}
           onReorder={handleReorder}
           reordering={reordering}

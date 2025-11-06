@@ -1,4 +1,4 @@
-const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, setShowForm, onReorder, reordering }) => {
+const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, togglingStates = {}, setShowForm, onReorder, reordering }) => {
   const { useState, useEffect, useRef } = React;
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
@@ -153,11 +153,20 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, setSh
         </div>
         <div className="flex items-center gap-4 flex-shrink-0">
           <div className="flex flex-col items-center gap-1">
-            <label className="toggle-switch">
-              <input type="checkbox" checked={question.isActive} onChange={() => toggleActive(question.id, question.isActive)} />
+            <label className={`toggle-switch ${togglingStates[question.id] ? 'opacity-60 pointer-events-none' : ''}`}>
+              <input
+                type="checkbox"
+                checked={Boolean(question.isActive)}
+                onChange={() => toggleActive(question.id, Boolean(question.isActive))}
+                disabled={Boolean(togglingStates[question.id])}
+              />
               <span className="toggle-slider"></span>
             </label>
-            <span className="text-xs text-dark-500">{question.isActive ? 'Aktif' : 'Pasif'}</span>
+            <span className="text-xs text-dark-500">
+              {togglingStates[question.id]
+                ? 'Güncelleniyor...'
+                : Boolean(question.isActive) ? 'Aktif' : 'Pasif'}
+            </span>
           </div>
           <div className="flex gap-2">
             <button className="btn btn-ghost text-sm px-3 py-2" onClick={() => handleEdit(question)}>✏️ Düzenle</button>
