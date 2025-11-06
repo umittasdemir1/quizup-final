@@ -10,6 +10,7 @@ import {
   createUserWithEmailAndPassword as firebaseCreateUserWithEmailAndPassword,
   deleteUser,
   fetchSignInMethodsForEmail,
+  getIdTokenResult,
   onAuthStateChanged,
   signOut
 } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js';
@@ -271,6 +272,7 @@ window.firebase = {
   collection, addDoc, onSnapshot, query, where, orderBy, doc, getDoc, getDocs,
   setDoc, updateDoc, deleteDoc, serverTimestamp, limit, writeBatch,
   signInAnonymously, signInWithEmailAndPassword, onAuthStateChanged, signOut,
+  getIdTokenResult,
   ref, uploadBytes, getDownloadURL, deleteObject,
   createUserWithEmailAndPassword: firebaseCreateUserWithEmailAndPassword,
   createUserWithEmailAndPasswordAsAdmin

@@ -151,6 +151,7 @@ let cachedAdminSecretMeta = null;
 let sessionWatcherUnsubscribe = null;
 
 const fetchAdminSecretMeta = async () => {
+  await ensureAdminClaims();
   await waitFirebase();
   const { db, doc, getDoc } = window.firebase;
   const docRef = doc(db, 'securitySettings', 'adminControls');
@@ -201,6 +202,7 @@ const updateAdminSecret = async (secret, { updatedBy = null } = {}) => {
   }
 
   const hash = await hashString(secret);
+  await ensureAdminClaims();
   await waitFirebase();
   const { db, doc, setDoc, serverTimestamp } = window.firebase;
   const docRef = doc(db, 'securitySettings', 'adminControls');
@@ -363,6 +365,11 @@ const startSessionWatcher = async (userId) => {
 
 const invalidateUserSessions = async (userId, { includeCurrent = true } = {}) => {
   if (!userId) return null;
+
+  const currentUser = getCurrentUser();
+  if (!currentUser || currentUser.uid !== userId) {
+    await ensureAdminClaims();
+  }
 
   await waitFirebase();
   const { db, collection, query, where, getDocs, doc, setDoc, serverTimestamp } = window.firebase;
@@ -611,6 +618,45 @@ const isAdmin = () => {
 
 let pendingAuthToastId = null;
 
+const fetchAdminClaims = async (forceRefresh = false) => {
+  await waitFirebase();
+  const { auth, getIdTokenResult } = window.firebase;
+  const currentUser = auth.currentUser;
+
+  if (!currentUser) {
+    const error = new Error('Yönetici oturumu bulunamadı');
+    error.code = 'auth/admin-required';
+    throw error;
+  }
+
+  try {
+    const tokenResult = await getIdTokenResult(currentUser, forceRefresh);
+    return tokenResult?.claims || null;
+  } catch (err) {
+    console.warn('Admin yetki bilgileri alınamadı', err);
+    if (!forceRefresh) {
+      return fetchAdminClaims(true);
+    }
+    throw err;
+  }
+};
+
+const ensureAdminClaims = async () => {
+  const claims = await fetchAdminClaims(false);
+  if (claims?.admin) {
+    return claims;
+  }
+
+  const refreshedClaims = await fetchAdminClaims(true);
+  if (refreshedClaims?.admin) {
+    return refreshedClaims;
+  }
+
+  const error = new Error('Yönetici yetkisi doğrulanamadı');
+  error.code = 'auth/missing-admin-claim';
+  throw error;
+};
+
 const requireAuth = (requiredRole = null) => {
   const finalizeToast = () => {
     if (pendingAuthToastId && typeof document !== 'undefined') {
@@ -705,6 +751,7 @@ window.getCurrentUser = getCurrentUser;
 window.isLoggedIn = isLoggedIn;
 window.hasRole = hasRole;
 window.isAdmin = isAdmin;
+window.ensureAdminClaims = ensureAdminClaims;
 window.requireAuth = requireAuth;
 window.logout = logout;
 window.registerActiveSession = registerActiveSession;

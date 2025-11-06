@@ -127,6 +127,7 @@ const UserManagement = () => {
     console.log('=== LOADING USERS ===');
     try {
       await waitFirebase();
+      await ensureAdminClaims();
 
       // Check if user is admin
       const user = getCurrentUser();
@@ -166,10 +167,17 @@ const UserManagement = () => {
       console.error('Load users error:', e);
       console.error('Error code:', e.code);
       console.error('Error message:', e.message);
+      if (e?.code === 'auth/missing-admin-claim' || e?.code === 'auth/admin-required') {
+        toast('Yönetici yetkiniz doğrulanamadı. Lütfen tekrar giriş yapın.', 'error');
+        setAuthStatus('denied');
+      }
+      const handledAdminClaimError = e?.code === 'auth/missing-admin-claim' || e?.code === 'auth/admin-required';
       if (e?.code === 'permission-denied') {
         setAuthStatus('denied');
       }
-      toast('Kullanıcılar yüklenemedi: ' + e.message, 'error');
+      if (!handledAdminClaimError) {
+        toast('Kullanıcılar yüklenemedi: ' + e.message, 'error');
+      }
     } finally {
       setLoading(false);
     }
@@ -179,6 +187,7 @@ const UserManagement = () => {
     setSessionsLoading(true);
     try {
       await waitFirebase();
+      await ensureAdminClaims();
       const { db, collection, getDocs } = window.firebase;
 
       const snapshot = await getDocs(collection(db, 'userSessions'));
@@ -206,10 +215,17 @@ const UserManagement = () => {
       setSessionsByUser(grouped);
     } catch (err) {
       console.error('Oturumlar yüklenirken hata:', err);
+      const handledAdminClaimError = err?.code === 'auth/missing-admin-claim' || err?.code === 'auth/admin-required';
+      if (handledAdminClaimError) {
+        toast('Yönetici oturumunuz doğrulanamadı. Lütfen çıkış yapıp tekrar giriş yapın.', 'error');
+        setAuthStatus('denied');
+      }
       if (err?.code === 'permission-denied') {
         setAuthStatus('denied');
       }
-      toast('Oturum bilgileri yüklenemedi: ' + (err.message || err), 'error');
+      if (!handledAdminClaimError) {
+        toast('Oturum bilgileri yüklenemedi: ' + (err.message || err), 'error');
+      }
     } finally {
       setSessionsLoading(false);
     }
@@ -231,7 +247,12 @@ const UserManagement = () => {
       }
     } catch (err) {
       console.error('Yönetici şifresi bilgisi alınamadı:', err);
-      setAdminSecretMeta({ status: 'error', hasSecret: false, updatedAt: null, updatedBy: null, error: err.message || String(err) });
+      let message = err.message || String(err);
+      if (err?.code === 'auth/missing-admin-claim' || err?.code === 'auth/admin-required') {
+        message = 'Yönetici oturumu doğrulanamadı. Lütfen çıkış yapıp tekrar giriş yapın.';
+        setAuthStatus('denied');
+      }
+      setAdminSecretMeta({ status: 'error', hasSecret: false, updatedAt: null, updatedBy: null, error: message });
     }
   };
 
@@ -336,6 +357,7 @@ const UserManagement = () => {
     let creationCompleted = false;
     try {
       await waitFirebase();
+      await ensureAdminClaims();
       const {
         createUserWithEmailAndPasswordAsAdmin,
         db,
@@ -456,6 +478,7 @@ const UserManagement = () => {
     setSubmitting(true);
     try {
       await waitFirebase();
+      await ensureAdminClaims();
       const { db, doc, updateDoc } = window.firebase;
 
       await updateDoc(doc(db, 'users', editingUser.id), {
@@ -526,6 +549,7 @@ const UserManagement = () => {
     setSubmitting(true);
     try {
       await waitFirebase();
+      await ensureAdminClaims();
       const { db, doc, updateDoc } = window.firebase;
 
       await updateDoc(doc(db, 'users', editingUser.id), {
@@ -552,6 +576,7 @@ const UserManagement = () => {
 
     try {
       await waitFirebase();
+      await ensureAdminClaims();
       const { db, doc, deleteDoc } = window.firebase;
       await deleteDoc(doc(db, 'users', userId));
       toast('Kullanıcı silindi', 'success');
