@@ -1,0 +1,1 @@
+<the full helpers.js code provided by user>
