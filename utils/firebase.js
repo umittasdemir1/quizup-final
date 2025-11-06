@@ -138,54 +138,6 @@ const dispatchReady = (reason = 'unknown') => {
 const SESSION_ID_STORAGE_KEY = 'quizup:session:id';
 const SESSION_ISSUED_STORAGE_KEY = 'quizup:session:issuedAt';
 
-const isSessionSyncDisabled = () => {
-  try {
-    if (typeof window !== 'undefined' && typeof window.isSessionSyncDisabled === 'function') {
-      return window.isSessionSyncDisabled();
-    }
-  } catch (err) {
-    console.warn('[Firebase] Session sync durumu okunamadı:', err);
-  }
-
-  if (typeof window !== 'undefined') {
-    return window.__sessionSyncDisabled === true;
-  }
-
-  return false;
-};
-
-const disableSessionSync = (reason = 'bilinmiyor') => {
-  try {
-    if (typeof window !== 'undefined' && typeof window.disableSessionSync === 'function') {
-      window.disableSessionSync(reason);
-      return;
-    }
-  } catch (err) {
-    console.warn('[Firebase] Session sync disable çağrısı başarısız:', err);
-  }
-
-  if (typeof window !== 'undefined') {
-    window.__sessionSyncDisabled = true;
-  }
-  sessionSyncGraceUntil = 0;
-  console.warn('[Firebase] Session sync devre dışı bırakıldı (fallback):', reason);
-};
-
-const enableSessionSync = () => {
-  try {
-    if (typeof window !== 'undefined' && typeof window.enableSessionSync === 'function') {
-      window.enableSessionSync();
-      return;
-    }
-  } catch (err) {
-    console.warn('[Firebase] Session sync enable çağrısı başarısız:', err);
-  }
-
-  if (typeof window !== 'undefined') {
-    window.__sessionSyncDisabled = false;
-  }
-};
-
 const readStoredSessionId = () => {
   try {
     return typeof localStorage !== 'undefined'
@@ -224,12 +176,6 @@ const evaluateSessionRegistrationNeed = (userId, userData) => {
     } catch (err) {
       console.warn('[Firebase] Aktif oturum anahtarları okunamadı:', err);
     }
-  }
-
-  if (isSessionSyncDisabled()) {
-    result.needsRegistration = true;
-    result.reason = 'session-sync-disabled';
-    return result;
   }
 
   if (!storedSessionId) {
@@ -384,11 +330,6 @@ const detachUserSessionListener = () => {
 };
 
 const triggerForcedLogout = (detail) => {
-  if (isSessionSyncDisabled()) {
-    console.warn('[Firebase] Session sync devre dışı, zorunlu çıkış tetiklenmeyecek:', detail);
-    return;
-  }
-
   if (forcedLogoutInProgress) return;
   forcedLogoutInProgress = true;
 
@@ -587,11 +528,6 @@ onAuthStateChanged(auth, async (user) => {
 
     startSessionSyncGracePeriod();
 
-    if (isSessionSyncDisabled()) {
-      console.warn('[Firebase] Session sync devre dışı, kullanıcı oturum dinleyicisi eklenmeyecek.');
-      return;
-    }
-
     try {
       const userRef = cachedProfile?.userRef || doc(db, 'users', user.uid);
       userSessionUnsubscribe = onSnapshot(userRef, (snapshot) => {
@@ -660,15 +596,11 @@ onAuthStateChanged(auth, async (user) => {
       }, (error) => {
         console.warn('[Firebase] User session listener error', error);
         if (error?.code === 'permission-denied' || /insufficient permissions/i.test(error?.message || '')) {
-          disableSessionSync('permission-denied:listener');
           detachUserSessionListener();
         }
       });
     } catch (listenerError) {
       console.warn('[Firebase] Failed to attach user session listener', listenerError);
-      if (listenerError?.code === 'permission-denied' || /insufficient permissions/i.test(listenerError?.message || '')) {
-        disableSessionSync('permission-denied:listener-attach');
-      }
     }
 
     return;
