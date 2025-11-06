@@ -18,6 +18,9 @@ const UserManagement = () => {
   const [sessionModalUser, setSessionModalUser] = useState(null);
   const [forceLogoutState, setForceLogoutState] = useState({});
 
+  const [authStatus, setAuthStatus] = useState('pending');
+  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
+
   const [adminSecretMeta, setAdminSecretMeta] = useState({ status: 'loading', hasSecret: false, updatedAt: null, updatedBy: null });
   const [adminSecretForm, setAdminSecretForm] = useState({ password: '', confirm: '' });
   const [adminSecretSaving, setAdminSecretSaving] = useState(false);
@@ -43,17 +46,82 @@ const UserManagement = () => {
 
   // Auth check
   useEffect(() => {
-    if (!requireAuth('admin')) return;
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    let isMounted = true;
+
+    const evaluateAccess = () => {
+      if (!isMounted) return;
+      if (!window.__firebaseAuthReady) return;
+
+      const allowed = requireAuth('admin');
+      if (!allowed) {
+        setAuthStatus('denied');
+        setLoading(false);
+        setSessionsLoading(false);
+        return;
+      }
+
+      setAuthStatus('authorized');
+    };
+
+    const handleAuthState = () => {
+      evaluateAccess();
+    };
+
+    try {
+      requireAuth('admin');
+    } catch (err) {
+      console.warn('Yönetici erişim kontrolü başlatılamadı:', err);
+    }
+
+    if (window.__firebaseAuthReady) {
+      evaluateAccess();
+    }
+
+    const authReadyPromise = window.__firebaseAuthReadyPromise;
+    if (authReadyPromise?.then) {
+      authReadyPromise
+        .then(() => {
+          evaluateAccess();
+        })
+        .catch((err) => {
+          console.warn('Yönetici erişim kontrolü tamamlanamadı:', err);
+          if (!isMounted) return;
+          setAuthStatus('denied');
+          setLoading(false);
+          setSessionsLoading(false);
+        });
+    }
+
+    window.addEventListener('fb-auth-state', handleAuthState);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('fb-auth-state', handleAuthState);
+    };
   }, []);
 
   useEffect(() => {
+    if (authStatus !== 'authorized' || initialDataLoaded) return;
+
+    setInitialDataLoaded(true);
     loadUsers();
-  }, []);
-
-  useEffect(() => {
     loadSessions();
     loadAdminSecret();
-  }, []);
+  }, [authStatus, initialDataLoaded]);
+
+  useEffect(() => {
+    if (authStatus === 'denied') {
+      setUsers([]);
+      setSessionsByUser({});
+      setInitialDataLoaded(false);
+      setLoading(false);
+      setSessionsLoading(false);
+    }
+  }, [authStatus]);
 
   const loadUsers = async () => {
     console.log('=== LOADING USERS ===');
@@ -98,6 +166,9 @@ const UserManagement = () => {
       console.error('Load users error:', e);
       console.error('Error code:', e.code);
       console.error('Error message:', e.message);
+      if (e?.code === 'permission-denied') {
+        setAuthStatus('denied');
+      }
       toast('Kullanıcılar yüklenemedi: ' + e.message, 'error');
     } finally {
       setLoading(false);
@@ -135,6 +206,9 @@ const UserManagement = () => {
       setSessionsByUser(grouped);
     } catch (err) {
       console.error('Oturumlar yüklenirken hata:', err);
+      if (err?.code === 'permission-denied') {
+        setAuthStatus('denied');
+      }
       toast('Oturum bilgileri yüklenemedi: ' + (err.message || err), 'error');
     } finally {
       setSessionsLoading(false);
@@ -641,18 +715,21 @@ const UserManagement = () => {
                           </button>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="text-xs text-dark-400">Tüm cihazlarda kapat</span>
-                          <button
-                            type="button"
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${forceLogoutState[user.id]?.toggled ? 'bg-red-500' : 'bg-gray-300'} ${forceLogoutState[user.id]?.loading ? 'opacity-60 pointer-events-none' : 'hover:bg-red-400'}`}
-                            onClick={() => handleForceLogout(user)}
-                            disabled={forceLogoutState[user.id]?.loading}
+                          <span className="text-xs text-dark-400">
+                            {forceLogoutState[user.id]?.loading ? 'Kapatılıyor...' : 'Tüm cihazlarda kapat'}
+                          </span>
+                          <label
+                            className={`toggle-switch ${forceLogoutState[user.id]?.loading ? 'opacity-60 pointer-events-none' : ''}`}
                           >
-                            <span className="sr-only">Tüm cihazlardan oturumu kapat</span>
-                            <span
-                              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${forceLogoutState[user.id]?.toggled ? 'translate-x-5' : 'translate-x-1'}`}
-                            ></span>
-                          </button>
+                            <input
+                              type="checkbox"
+                              aria-label="Tüm cihazlarda oturumu kapat"
+                              checked={Boolean(forceLogoutState[user.id]?.toggled)}
+                              onChange={() => handleForceLogout(user)}
+                              disabled={forceLogoutState[user.id]?.loading}
+                            />
+                            <span className="toggle-slider"></span>
+                          </label>
                         </div>
                       </div>
                     </td>
