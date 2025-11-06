@@ -29,8 +29,9 @@ const Quiz = ({ sessionId }) => {
   
   // 📍 Location State
   const [userLocation, setUserLocation] = useState(null);
-  
+
   // 🔒 Password Lock State
+  const [sessionPin, setSessionPin] = useState('0000');
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -48,6 +49,25 @@ const Quiz = ({ sessionId }) => {
         }
         const sd = { id: s.id, ...s.data() };
         setSession(sd);
+
+        if (sd.createdBy) {
+          try {
+            const ownerSnapshot = await getDoc(doc(db, 'users', sd.createdBy));
+            if (ownerSnapshot.exists()) {
+              const ownerData = ownerSnapshot.data();
+              const ownerPin = ownerData?.appPin ? String(ownerData.appPin).trim() : '';
+              setSessionPin(/^\d{4}$/.test(ownerPin) ? ownerPin : '0000');
+            } else {
+              setSessionPin('0000');
+            }
+          } catch (pinErr) {
+            console.warn('Quiz oturumu için PIN alınamadı', pinErr);
+            setSessionPin('0000');
+          }
+        } else {
+          setSessionPin('0000');
+        }
+
         const qs = await Promise.all((sd.questionIds || []).map(id => getDoc(doc(db, 'questions', id))));
         setQuestions(qs.filter(d => d.exists()).map(d => ({ id: d.id, ...d.data() })));
         
@@ -208,10 +228,18 @@ const Quiz = ({ sessionId }) => {
   };
   
   const handlePasswordSubmit = () => {
-    if (password === 'admin123') {
+    const sanitizedPin = (password || '').trim();
+
+    if (!/^\d{4}$/.test(sanitizedPin)) {
+      setPasswordError('PIN 4 haneli olmalıdır');
+      setTimeout(() => setPasswordError(''), 2000);
+      return;
+    }
+
+    if (sanitizedPin === sessionPin) {
       goToPrevQuestion();
     } else {
-      setPasswordError('Hatalı şifre!');
+      setPasswordError('Hatalı PIN!');
       setTimeout(() => setPasswordError(''), 2000);
     }
   };
@@ -495,16 +523,21 @@ const Quiz = ({ sessionId }) => {
               maxWidth: '400px',
               width: '90%'
             }}>
-              <h3 className="text-lg font-bold text-dark-900 mb-4">🔒 Yönetici Şifresi</h3>
-              <p className="text-sm text-dark-600 mb-4">Önceki soruya dönmek için yönetici şifresini girin.</p>
-              <input 
+              <h3 className="text-lg font-bold text-dark-900 mb-4">🔒 Uygulama PIN</h3>
+              <p className="text-sm text-dark-600 mb-4">Önceki soruya dönmek için yetkili PIN kodunu girin.</p>
+              <input
                 type="password"
                 className="field mb-2"
-                placeholder="Şifre"
+                placeholder="PIN"
                 value={password}
-                onChange={e => setPassword(e.target.value)}
+                onChange={e => {
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 4);
+                  setPassword(value);
+                }}
                 onKeyPress={e => e.key === 'Enter' && handlePasswordSubmit()}
                 autoFocus
+                maxLength={4}
+                inputMode="numeric"
               />
               {passwordError && (
                 <div className="text-red-600 text-sm mb-3">❌ {passwordError}</div>

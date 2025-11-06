@@ -16,7 +16,7 @@ const Login = () => {
     setLoading(true);
     try {
       await waitFirebase();
-      const { auth, signInWithEmailAndPassword, db, doc, getDoc } = window.firebase;
+      const { auth, signInWithEmailAndPassword, db, doc, getDoc, updateDoc, serverTimestamp } = window.firebase;
 
       // Firebase Auth ile giriş
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -31,17 +31,32 @@ const Login = () => {
         return;
       }
 
-      const userData = userDoc.data();
+      let userData = userDoc.data() || {};
+
+      let ensuredPin = typeof userData.appPin === 'string' ? userData.appPin.trim() : '';
+      if (!/^\d{4}$/.test(ensuredPin)) {
+        ensuredPin = '0000';
+        try {
+          await updateDoc(doc(db, 'users', user.uid), {
+            appPin: ensuredPin,
+            updatedAt: serverTimestamp()
+          });
+        } catch (pinError) {
+          console.warn('Varsayılan PIN atanırken hata oluştu', pinError);
+        }
+      }
+
+      userData = { ...userData, appPin: ensuredPin };
 
       // LocalStorage'a kullanıcı bilgilerini kaydet
-      localStorage.setItem('currentUser', JSON.stringify({
+      const storedUser = mergeCurrentUser({
         uid: user.uid,
         email: user.email,
         ...userData
-      }));
+      });
 
       try {
-        await window.firebase.registerUserSession({ user, profile: userData });
+        await window.firebase.registerUserSession({ user, profile: storedUser || userData });
       } catch (sessionError) {
         console.warn('Session registration during login failed', sessionError);
       }

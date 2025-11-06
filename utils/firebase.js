@@ -11,7 +11,10 @@ import {
   deleteUser,
   fetchSignInMethodsForEmail,
   onAuthStateChanged,
-  signOut
+  signOut,
+  updatePassword as firebaseUpdatePassword,
+  EmailAuthProvider,
+  reauthenticateWithCredential
 } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-storage.js';
 
@@ -78,6 +81,16 @@ const storage = getStorage(app);
 
 const SESSION_STORAGE_KEY = 'quizup.activeSessionId';
 let lastKnownSessionUid = null;
+
+const PIN_REGEX = /^\d{4}$/;
+
+const normalizePin = (pin) => {
+  if (typeof pin === 'number') {
+    pin = String(pin);
+  }
+  if (typeof pin !== 'string') return '';
+  return pin.trim();
+};
 
 const readStoredSessionId = () => {
   try {
@@ -166,6 +179,197 @@ const ensureUserProfile = async (uid, existingProfile) => {
   return null;
 };
 
+const ensureUserHasPin = async (uid, profileData) => {
+  const currentPin = normalizePin(profileData?.appPin);
+  if (PIN_REGEX.test(currentPin)) {
+    return currentPin;
+  }
+
+  try {
+    await updateDoc(doc(db, 'users', uid), {
+      appPin: '0000',
+      updatedAt: serverTimestamp()
+    });
+  } catch (pinError) {
+    console.warn('[Firebase] Failed to assign default PIN', pinError);
+  }
+
+  return '0000';
+};
+
+const fetchUserDocument = async (uid) => {
+  if (!uid) return null;
+  try {
+    const snapshot = await getDoc(doc(db, 'users', uid));
+    if (!snapshot.exists()) return null;
+    return { id: snapshot.id, ...snapshot.data() };
+  } catch (err) {
+    console.warn('[Firebase] Failed to fetch user document', err);
+    return null;
+  }
+};
+
+const fetchCurrentUserProfile = async () => {
+  const authUser = auth.currentUser;
+  if (!authUser || authUser.isAnonymous) {
+    const err = new Error('Oturum bulunamadı');
+    err.code = 'auth/not-authenticated';
+    throw err;
+  }
+
+  const profile = await fetchUserDocument(authUser.uid);
+  if (!profile) {
+    const err = new Error('Kullanıcı kaydı bulunamadı');
+    err.code = 'firestore/not-found';
+    throw err;
+  }
+
+  const ensuredPin = await ensureUserHasPin(authUser.uid, profile);
+  return { ...profile, appPin: ensuredPin };
+};
+
+const verifyCurrentUserPin = async (pinInput) => {
+  const sanitizedPin = normalizePin(pinInput);
+  if (!PIN_REGEX.test(sanitizedPin)) {
+    const err = new Error('PIN 4 haneli olmalıdır');
+    err.code = 'auth/invalid-pin';
+    throw err;
+  }
+
+  const profile = await fetchCurrentUserProfile();
+
+  if (profile.appPin !== sanitizedPin) {
+    const err = new Error('PIN doğrulanamadı');
+    err.code = 'auth/pin-mismatch';
+    throw err;
+  }
+
+  return profile;
+};
+
+const sanitizeProfileValue = (value) => {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed;
+  }
+  return value ?? '';
+};
+
+const updateCurrentUserProfileWithPin = async ({ pin, updates } = {}) => {
+  if (!updates || typeof updates !== 'object') {
+    updates = {};
+  }
+
+  const profile = await verifyCurrentUserPin(pin);
+  const payload = {};
+
+  if (Object.prototype.hasOwnProperty.call(updates, 'firstName')) {
+    payload.firstName = sanitizeProfileValue(updates.firstName);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'lastName')) {
+    payload.lastName = sanitizeProfileValue(updates.lastName);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'company')) {
+    payload.company = sanitizeProfileValue(updates.company);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'department')) {
+    const departmentValue = sanitizeProfileValue(updates.department);
+    payload.department = departmentValue;
+    payload.unit = departmentValue;
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'position')) {
+    payload.position = sanitizeProfileValue(updates.position);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'appPin')) {
+    const nextPin = normalizePin(updates.appPin);
+    if (!PIN_REGEX.test(nextPin)) {
+      const err = new Error('Yeni PIN 4 haneli olmalıdır');
+      err.code = 'auth/invalid-new-pin';
+      throw err;
+    }
+    payload.appPin = nextPin;
+  }
+
+  if (!Object.keys(payload).length) {
+    return profile;
+  }
+
+  payload.updatedAt = serverTimestamp();
+
+  await updateDoc(doc(db, 'users', profile.id), payload);
+
+  const merged = { ...profile, ...payload };
+  if (payload.department !== undefined && payload.unit === payload.department) {
+    merged.unit = payload.department;
+  }
+
+  return merged;
+};
+
+const updateCurrentUserPasswordWithPin = async ({ pin, currentPassword, newPassword } = {}) => {
+  if (!currentPassword) {
+    const err = new Error('Mevcut şifre gereklidir');
+    err.code = 'auth/missing-current-password';
+    throw err;
+  }
+
+  if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
+    const err = new Error('Yeni şifre en az 6 karakter olmalıdır');
+    err.code = 'auth/weak-password';
+    throw err;
+  }
+
+  const profile = await verifyCurrentUserPin(pin);
+  const authUser = auth.currentUser;
+
+  if (!authUser?.email) {
+    const err = new Error('Kullanıcı emaili bulunamadı');
+    err.code = 'auth/email-missing';
+    throw err;
+  }
+
+  const credential = EmailAuthProvider.credential(authUser.email, currentPassword);
+
+  try {
+    await reauthenticateWithCredential(authUser, credential);
+  } catch (reauthError) {
+    console.warn('[Firebase] Reauthentication failed', reauthError);
+    const err = new Error('Mevcut şifre doğrulanamadı');
+    err.code = 'auth/reauthentication-failed';
+    throw err;
+  }
+
+  await firebaseUpdatePassword(authUser, newPassword);
+
+  try {
+    await updateDoc(doc(db, 'users', authUser.uid), {
+      password: newPassword,
+      updatedAt: serverTimestamp()
+    });
+  } catch (passwordUpdateError) {
+    console.warn('[Firebase] Failed to update stored password', passwordUpdateError);
+  }
+
+  return { ...profile, password: newPassword };
+};
+
+const clearAllSessionsForCurrentUser = async ({ pin } = {}) => {
+  const profile = await verifyCurrentUserPin(pin);
+
+  const sessionsRef = collection(db, 'users', profile.id, 'sessions');
+  const snapshot = await getDocs(sessionsRef);
+
+  if (!snapshot.empty) {
+    const batch = writeBatch(db);
+    snapshot.forEach((docSnap) => batch.delete(docSnap.ref));
+    await batch.commit();
+  }
+
+  clearStoredSessionId();
+
+  return true;
+};
+
 const registerUserSession = async ({ user, profile } = {}) => {
   const authUser = user || auth.currentUser;
   if (!authUser || authUser.isAnonymous) {
@@ -182,6 +386,10 @@ const registerUserSession = async ({ user, profile } = {}) => {
   const sessionRef = doc(db, 'users', userId, 'sessions', sessionId);
   const now = serverTimestamp();
   let profileData = await ensureUserProfile(userId, profile);
+  if (profileData) {
+    const ensuredPinValue = await ensureUserHasPin(userId, profileData);
+    profileData = { ...profileData, appPin: ensuredPinValue };
+  }
 
   const displayName = profileData?.firstName || profileData?.lastName
     ? `${profileData.firstName || ''} ${profileData.lastName || ''}`.trim()
@@ -470,5 +678,10 @@ window.firebase = {
   createUserWithEmailAndPasswordAsAdmin,
   registerUserSession,
   endActiveSession,
-  touchUserSession
+  touchUserSession,
+  fetchCurrentUserProfile,
+  verifyCurrentUserPin,
+  updateCurrentUserProfileWithPin,
+  updateCurrentUserPasswordWithPin,
+  clearAllSessionsForCurrentUser
 };

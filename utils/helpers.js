@@ -183,6 +183,36 @@ const getCurrentUser = () => {
   }
 };
 
+const setCurrentUser = (nextUser) => {
+  try {
+    if (!nextUser) {
+      localStorage.removeItem('currentUser');
+    } else {
+      localStorage.setItem('currentUser', JSON.stringify(nextUser));
+    }
+  } catch (err) {
+    console.warn('Failed to persist currentUser', err);
+  }
+
+  try {
+    window.dispatchEvent(new Event('currentUserUpdated'));
+  } catch (err) {
+    console.warn('currentUserUpdated event dispatch failed', err);
+  }
+};
+
+const mergeCurrentUser = (partial) => {
+  if (partial === null) {
+    setCurrentUser(null);
+    return null;
+  }
+
+  const existing = getCurrentUser() || {};
+  const merged = { ...existing, ...partial };
+  setCurrentUser(merged);
+  return merged;
+};
+
 const isLoggedIn = () => {
   const storedUser = getCurrentUser();
   if (!window.__firebaseAuthReady) {
@@ -282,7 +312,7 @@ const logout = async () => {
       console.warn('Aktif oturum kaydı kapatılırken hata oluştu', sessionError);
     }
     await signOut(auth);
-    localStorage.removeItem('currentUser');
+    setCurrentUser(null);
     toast('Çıkış yapıldı', 'success');
     setTimeout(() => {
       location.hash = '#/';
@@ -304,6 +334,8 @@ window.validateText = validateText;
 window.LoadingSpinner = LoadingSpinner;
 window.Page = Page;
 window.getCurrentUser = getCurrentUser;
+window.setCurrentUser = setCurrentUser;
+window.mergeCurrentUser = mergeCurrentUser;
 window.isLoggedIn = isLoggedIn;
 window.hasRole = hasRole;
 window.isAdmin = isAdmin;

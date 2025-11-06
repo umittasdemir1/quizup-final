@@ -7,8 +7,8 @@ const UserManagement = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
-  const [adminPassword, setAdminPassword] = useState('');
-  const [passwordError, setPasswordError] = useState('');
+  const [adminPin, setAdminPin] = useState('');
+  const [pinError, setPinError] = useState('');
   const [revealedPasswords, setRevealedPasswords] = useState({});
   const [newPassword, setNewPassword] = useState('');
 
@@ -140,6 +140,7 @@ const UserManagement = () => {
           password: form.password, // Store password in Firestore for admin access
           role: form.role,
           position: form.position || null,
+          appPin: '0000',
           createdAt: serverTimestamp(),
           createdBy: adminUser.uid
         });
@@ -254,21 +255,32 @@ const UserManagement = () => {
 
   const requestPasswordReveal = (userId) => {
     setEditingUser(users.find(u => u.id === userId));
-    setAdminPassword('');
-    setPasswordError('');
+    setAdminPin('');
+    setPinError('');
     setNewPassword('');
     setShowPasswordModal(true);
   };
 
-  const verifyAdminPassword = () => {
-    if (adminPassword === 'admin123') {
+  const verifyAdminPin = async () => {
+    const pinValue = adminPin.trim();
+
+    if (!/^\d{4}$/.test(pinValue)) {
+      setPinError('Lütfen 4 haneli PIN girin');
+      return;
+    }
+
+    try {
+      await waitFirebase();
+      await window.firebase.verifyCurrentUserPin(pinValue);
+
       setRevealedPasswords(prev => ({ ...prev, [editingUser.id]: true }));
       setShowPasswordModal(false);
-      setAdminPassword('');
-      setPasswordError('');
+      setAdminPin('');
+      setPinError('');
       toast('Şifre gösteriliyor', 'success');
-    } else {
-      setPasswordError('Hatalı admin şifresi!');
+    } catch (err) {
+      console.error('PIN doğrulaması başarısız', err);
+      setPinError(err.message || 'PIN doğrulanamadı');
     }
   };
 
@@ -673,22 +685,27 @@ const UserManagement = () => {
             {!revealedPasswords[editingUser.id] ? (
               <div className="space-y-4">
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800">
-                  <strong>⚠️ Güvenlik:</strong> Şifreyi görmek için admin şifrenizi girin.
+                  <strong>⚠️ Güvenlik:</strong> Şifreyi görmek için uygulama PIN'inizi girin.
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-dark-700 mb-2">Admin Şifresi</label>
+                  <label className="block text-sm font-semibold text-dark-700 mb-2">Uygulama PIN</label>
                   <input
                     type="password"
                     className="field"
-                    placeholder="admin123"
-                    value={adminPassword}
-                    onChange={(e) => setAdminPassword(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && verifyAdminPassword()}
+                    placeholder="****"
+                    value={adminPin}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 4);
+                      setAdminPin(value);
+                    }}
+                    onKeyPress={(e) => e.key === 'Enter' && verifyAdminPin()}
                     autoFocus
+                    maxLength={4}
+                    inputMode="numeric"
                   />
-                  {passwordError && (
-                    <div className="text-red-600 text-sm mt-2">❌ {passwordError}</div>
+                  {pinError && (
+                    <div className="text-red-600 text-sm mt-2">❌ {pinError}</div>
                   )}
                 </div>
 
@@ -701,7 +718,7 @@ const UserManagement = () => {
                   </button>
                   <button
                     className="btn btn-primary flex-1"
-                    onClick={verifyAdminPassword}
+                    onClick={verifyAdminPin}
                   >
                     Doğrula
                   </button>
