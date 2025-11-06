@@ -465,7 +465,74 @@ const registerActiveSession = async (userId) => {
   return { sessionId, issuedAt };
 };
 
+const sessionRegistrationQueue = [];
+const sessionRegistrationQueuedUsers = new Set();
+let processingSessionRegistrationQueue = false;
+
+const dequeueSessionRegistration = () => {
+  if (!sessionRegistrationQueue.length) {
+    return null;
+  }
+  return sessionRegistrationQueue.shift();
+};
+
+const finalizeSessionRegistrationPayload = (payload) => {
+  if (!payload?.userId) return;
+  sessionRegistrationQueuedUsers.delete(payload.userId);
+  if (typeof window !== 'undefined' && window.__pendingSessionRegistrationUsers) {
+    delete window.__pendingSessionRegistrationUsers[payload.userId];
+  }
+};
+
+const processSessionRegistrationQueue = async () => {
+  if (processingSessionRegistrationQueue) {
+    return;
+  }
+
+  processingSessionRegistrationQueue = true;
+
+  try {
+    let payload = dequeueSessionRegistration();
+
+    while (payload) {
+      try {
+        const result = await registerActiveSession(payload.userId);
+        if (!result) {
+          console.warn('Oturum kaydı gerçekleştirilemedi:', payload);
+        }
+      } catch (err) {
+        console.warn('Oturum kaydı kuyruğu işlenirken hata oluştu:', err);
+      } finally {
+        finalizeSessionRegistrationPayload(payload);
+      }
+
+      payload = dequeueSessionRegistration();
+    }
+  } finally {
+    processingSessionRegistrationQueue = false;
+  }
+};
+
+const enqueueSessionRegistrationProcessing = (payload) => {
+  if (!payload?.userId || sessionRegistrationQueuedUsers.has(payload.userId)) {
+    return;
+  }
+
+  sessionRegistrationQueuedUsers.add(payload.userId);
+  sessionRegistrationQueue.push({ ...payload, queuedAt: Date.now() });
+  processSessionRegistrationQueue();
+};
+
 if (typeof window !== 'undefined') {
+  if (Array.isArray(window.__pendingSessionRegistrations) && window.__pendingSessionRegistrations.length) {
+    const pendingPayloads = window.__pendingSessionRegistrations.splice(0);
+    pendingPayloads.forEach((payload) => enqueueSessionRegistrationProcessing(payload));
+  }
+
+  window.addEventListener('firebase-register-session', (event) => {
+    enqueueSessionRegistrationProcessing(event?.detail || {});
+  });
+
   window.addEventListener('focus', () => sendSessionHeartbeat(true));
 }
 

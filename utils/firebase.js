@@ -186,6 +186,194 @@ const enableSessionSync = () => {
   }
 };
 
+const readStoredSessionId = () => {
+  try {
+    return typeof localStorage !== 'undefined'
+      ? localStorage.getItem(SESSION_ID_STORAGE_KEY)
+      : null;
+  } catch (err) {
+    console.warn('[Firebase] Local session id okunamadı:', err);
+    return null;
+  }
+};
+
+const evaluateSessionRegistrationNeed = (userId, userData) => {
+  const result = {
+    needsRegistration: false,
+    reason: null,
+    storedSessionId: null,
+    hasStoredSession: false,
+    activeSessionKeys: []
+  };
+
+  if (!userId) {
+    return result;
+  }
+
+  const storedSessionId = readStoredSessionId();
+  result.storedSessionId = storedSessionId;
+  result.hasStoredSession = Boolean(storedSessionId);
+
+  const activeSessions = userData?.activeSessions && typeof userData.activeSessions === 'object'
+    ? userData.activeSessions
+    : null;
+
+  if (activeSessions) {
+    try {
+      result.activeSessionKeys = Object.keys(activeSessions);
+    } catch (err) {
+      console.warn('[Firebase] Aktif oturum anahtarları okunamadı:', err);
+    }
+  }
+
+  if (isSessionSyncDisabled()) {
+    result.needsRegistration = true;
+    result.reason = 'session-sync-disabled';
+    return result;
+  }
+
+  if (!storedSessionId) {
+    result.needsRegistration = true;
+    result.reason = 'no-local-session';
+    return result;
+  }
+
+  if (!activeSessions || !activeSessions[storedSessionId]) {
+    result.needsRegistration = true;
+    result.reason = activeSessions ? 'local-session-not-in-firestore' : 'no-active-sessions';
+    return result;
+  }
+
+  return result;
+};
+
+const enqueueSessionRegistration = (payload) => {
+  if (typeof window === 'undefined' || !payload?.userId) {
+    return;
+  }
+
+  if (!Array.isArray(window.__pendingSessionRegistrations)) {
+    window.__pendingSessionRegistrations = [];
+  }
+
+  if (!window.__pendingSessionRegistrationUsers || typeof window.__pendingSessionRegistrationUsers !== 'object') {
+    window.__pendingSessionRegistrationUsers = {};
+  }
+
+  if (window.__pendingSessionRegistrationUsers[payload.userId]) {
+    return;
+  }
+
+  window.__pendingSessionRegistrationUsers[payload.userId] = true;
+  window.__pendingSessionRegistrations.push({
+    ...payload,
+    requestedAt: payload.requestedAt || Date.now()
+  });
+
+  try {
+    window.dispatchEvent(new CustomEvent('firebase-register-session', { detail: payload }));
+  } catch (err) {
+    console.warn('[Firebase] Session register event gönderilemedi:', err);
+  }
+};
+
+const requestActiveSessionRegistration = async (payload) => {
+  if (!payload?.userId) {
+    return;
+  }
+
+  if (typeof window !== 'undefined' && typeof window.registerActiveSession === 'function') {
+    try {
+      const result = await window.registerActiveSession(payload.userId);
+      if (result) {
+        if (window.__pendingSessionRegistrationUsers) {
+          delete window.__pendingSessionRegistrationUsers[payload.userId];
+        }
+        return;
+      }
+      payload.lastError = 'register-returned-null';
+    } catch (err) {
+      payload.lastError = err?.message || String(err);
+      console.warn('[Firebase] registerActiveSession anlık çağrısı başarısız:', err);
+    }
+  }
+
+  enqueueSessionRegistration(payload);
+};
+
+const ensureUserProfileCached = async (authUser) => {
+  if (!authUser) {
+    return null;
+  }
+
+  const userRef = doc(db, 'users', authUser.uid);
+  let snapshot;
+  let userData = {};
+  let exists = false;
+
+  try {
+    snapshot = await getDoc(userRef);
+    if (snapshot.exists()) {
+      exists = true;
+      userData = snapshot.data() || {};
+    }
+  } catch (err) {
+    console.warn('[Firebase] Kullanıcı belgesi okunamadı:', err);
+  }
+
+  if (!userData || typeof userData !== 'object') {
+    userData = {};
+  }
+
+  let applicationPin = userData.applicationPin;
+
+  if (!applicationPin || !/^\d{4}$/.test(applicationPin)) {
+    applicationPin = '0000';
+    try {
+      await updateDoc(userRef, { applicationPin });
+    } catch (pinError) {
+      console.warn('[Firebase] Varsayılan uygulama PIN güncellenemedi:', pinError);
+    }
+  }
+
+  const normalizedData = {
+    ...userData,
+    firstName: userData.firstName || '',
+    lastName: userData.lastName || '',
+    company: userData.company || '',
+    department: userData.department || '',
+    position: userData.position || '',
+    applicationPin
+  };
+
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('currentUser', JSON.stringify({
+        uid: authUser.uid,
+        email: authUser.email || '',
+        ...normalizedData
+      }));
+    }
+  } catch (storageErr) {
+    console.warn('[Firebase] Kullanıcı bilgileri yerel olarak saklanamadı:', storageErr);
+  }
+
+  try {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('user-info-updated'));
+    }
+  } catch (eventErr) {
+    console.warn('[Firebase] user-info-updated olayı gönderilemedi:', eventErr);
+  }
+
+  return {
+    userRef,
+    rawData: userData,
+    normalizedData,
+    exists
+  };
+};
+
 const detachUserSessionListener = () => {
   try {
     userSessionUnsubscribe?.();
@@ -373,6 +561,30 @@ onAuthStateChanged(auth, async (user) => {
 
     detachUserSessionListener();
 
+    let cachedProfile = null;
+
+    try {
+      cachedProfile = await ensureUserProfileCached(user);
+    } catch (profileErr) {
+      console.warn('[Firebase] Kullanıcı profili önbelleğe alınamadı:', profileErr);
+    }
+
+    try {
+      const evaluation = evaluateSessionRegistrationNeed(user.uid, cachedProfile?.rawData || {});
+      if (evaluation.needsRegistration) {
+        await requestActiveSessionRegistration({
+          userId: user.uid,
+          reason: evaluation.reason,
+          storedSessionId: evaluation.storedSessionId,
+          hasStoredSession: evaluation.hasStoredSession,
+          activeSessionKeys: evaluation.activeSessionKeys,
+          requestedFrom: 'auth-state'
+        });
+      }
+    } catch (registrationErr) {
+      console.warn('[Firebase] Oturum kaydı değerlendirmesi tamamlanamadı:', registrationErr);
+    }
+
     startSessionSyncGracePeriod();
 
     if (isSessionSyncDisabled()) {
@@ -381,7 +593,7 @@ onAuthStateChanged(auth, async (user) => {
     }
 
     try {
-      const userRef = doc(db, 'users', user.uid);
+      const userRef = cachedProfile?.userRef || doc(db, 'users', user.uid);
       userSessionUnsubscribe = onSnapshot(userRef, (snapshot) => {
         if (!snapshot.exists()) {
           return;
