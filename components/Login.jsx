@@ -40,6 +40,12 @@ const Login = () => {
         ...userData
       }));
 
+      try {
+        await registerActiveSession(user);
+      } catch (sessionError) {
+        console.warn('Aktif oturum kaydı yapılamadı', sessionError);
+      }
+
       toast('Giriş başarılı!', 'success');
 
       // Role göre yönlendirme

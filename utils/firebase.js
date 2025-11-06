@@ -1,7 +1,7 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js';
 import {
   getFirestore, collection, addDoc, onSnapshot, query, where, orderBy, doc, getDoc, getDocs,
-  setDoc, updateDoc, deleteDoc, serverTimestamp, limit
+  setDoc, updateDoc, deleteDoc, serverTimestamp, limit, writeBatch
 } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js';
 import {
   getAuth,
@@ -269,7 +269,7 @@ onAuthStateChanged(auth, async (user) => {
 window.firebase = {
   app, auth, db, storage,
   collection, addDoc, onSnapshot, query, where, orderBy, doc, getDoc, getDocs,
-  setDoc, updateDoc, deleteDoc, serverTimestamp, limit,
+  setDoc, updateDoc, deleteDoc, serverTimestamp, limit, writeBatch,
   signInAnonymously, signInWithEmailAndPassword, onAuthStateChanged, signOut,
   ref, uploadBytes, getDownloadURL, deleteObject,
   createUserWithEmailAndPassword: firebaseCreateUserWithEmailAndPassword,

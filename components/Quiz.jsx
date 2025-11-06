@@ -34,6 +34,7 @@ const Quiz = ({ sessionId }) => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [passwordChecking, setPasswordChecking] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -207,12 +208,28 @@ const Quiz = ({ sessionId }) => {
     }
   };
   
-  const handlePasswordSubmit = () => {
-    if (password === 'admin123') {
+  const handlePasswordSubmit = async () => {
+    if (!password) {
+      setPasswordError('Şifre girilmedi');
+      return;
+    }
+
+    setPasswordError('');
+    setPasswordChecking(true);
+
+    try {
+      await verifyAdminSecret(password);
       goToPrevQuestion();
-    } else {
-      setPasswordError('Hatalı şifre!');
-      setTimeout(() => setPasswordError(''), 2000);
+    } catch (error) {
+      if (error.code === 'admin-secret/not-set') {
+        setPasswordError('Yönetici şifresi tanımlı değil. Yetkiliye bildiriniz.');
+      } else {
+        setPasswordError('Hatalı şifre!');
+      }
+      setTimeout(() => setPasswordError(''), 3000);
+    } finally {
+      setPasswordChecking(false);
+      setPassword('');
     }
   };
 
@@ -497,14 +514,15 @@ const Quiz = ({ sessionId }) => {
             }}>
               <h3 className="text-lg font-bold text-dark-900 mb-4">🔒 Yönetici Şifresi</h3>
               <p className="text-sm text-dark-600 mb-4">Önceki soruya dönmek için yönetici şifresini girin.</p>
-              <input 
+              <input
                 type="password"
                 className="field mb-2"
                 placeholder="Şifre"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                onKeyPress={e => e.key === 'Enter' && handlePasswordSubmit()}
+                onKeyDown={e => e.key === 'Enter' && handlePasswordSubmit()}
                 autoFocus
+                disabled={passwordChecking}
               />
               {passwordError && (
                 <div className="text-red-600 text-sm mb-3">❌ {passwordError}</div>
@@ -518,7 +536,7 @@ const Quiz = ({ sessionId }) => {
                   İptal
                 </button>
                 <button className="btn btn-primary flex-1" onClick={handlePasswordSubmit}>
-                  Onayla
+                  {passwordChecking ? 'Kontrol ediliyor...' : 'Onayla'}
                 </button>
               </div>
             </div>

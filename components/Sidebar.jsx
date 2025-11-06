@@ -47,6 +47,16 @@ const Sidebar = () => {
     }
   };
 
+  const handleLogoutEverywhere = async () => {
+    try {
+      setShowUserMenu(false);
+      await logoutEverywhere();
+    } catch (err) {
+      console.error('Tüm cihazlardan çıkış hatası:', err);
+      toast('Tüm cihazlardan çıkış yapılamadı: ' + (err.message || err), 'error');
+    }
+  };
+
   const isActive = (path) => {
     if (path === '/') return route === '/';
     // Exact match for conflicting paths
@@ -249,16 +259,22 @@ const Sidebar = () => {
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setShowUserMenu(false)}></div>
                   <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
-                    <div className="p-4 border-b border-gray-200">
-                      <div className="font-semibold text-dark-900">
-                        {currentUser.firstName} {currentUser.lastName}
-                      </div>
-                      <div className="text-sm text-dark-500">{currentUser.email}</div>
-                      {currentUser.position && (
-                        <div className="text-xs text-dark-400 mt-1">{currentUser.position}</div>
-                      )}
+                  <div className="p-4 border-b border-gray-200">
+                    <div className="font-semibold text-dark-900">
+                      {currentUser.firstName} {currentUser.lastName}
                     </div>
-                    <div className="p-2">
+                    <div className="text-sm text-dark-500">{currentUser.email}</div>
+                    {currentUser.position && (
+                      <div className="text-xs text-dark-400 mt-1">{currentUser.position}</div>
+                    )}
+                  </div>
+                    <div className="p-2 space-y-2">
+                      <button
+                        className="w-full text-left px-4 py-2 text-sm text-dark-600 hover:bg-gray-100 rounded-lg transition-colors"
+                        onClick={handleLogoutEverywhere}
+                      >
+                        🔐 Tüm cihazlarda oturumu kapat
+                      </button>
                       <button
                         className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         onClick={() => {

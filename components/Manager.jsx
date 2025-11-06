@@ -1,4 +1,4 @@
-const { useState, useEffect, useRef } = React;
+const { useState, useEffect, useRef, useMemo } = React;
 
 const Manager = () => {
   const [sessions, setSessions] = useState([]);
@@ -32,7 +32,21 @@ const Manager = () => {
       
       const qQuestions = query(collection(db, 'questions'), where('isActive', '==', true));
       const unsubQuestions = onSnapshot(qQuestions, snap => {
-        setQuestions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        const ordered = snap.docs.map((d, index) => {
+          const data = d.data();
+          return {
+            id: d.id,
+            ...data,
+            order: typeof data.order === 'number' ? data.order : null,
+            __originalIndex: index
+          };
+        }).sort((a, b) => {
+          const orderA = typeof a.order === 'number' ? a.order : a.__originalIndex;
+          const orderB = typeof b.order === 'number' ? b.order : b.__originalIndex;
+          return orderA - orderB;
+        }).map(({ __originalIndex, ...rest }) => rest);
+
+        setQuestions(ordered);
         setLoading(false);
       }, (error) => {
         console.error('Error loading questions:', error);
@@ -57,6 +71,25 @@ const Manager = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const orderMap = useMemo(() => {
+    const map = new Map();
+    questions.forEach((q, index) => {
+      map.set(q.id, index);
+    });
+    return map;
+  }, [questions]);
+
+  const sortIdsByOrder = (ids) => {
+    return [...ids].sort((a, b) => {
+      const orderA = orderMap.get(a);
+      const orderB = orderMap.get(b);
+      if (orderA == null && orderB == null) return 0;
+      if (orderA == null) return 1;
+      if (orderB == null) return -1;
+      return orderA - orderB;
+    });
+  };
 
   // Get unique categories from questions
   const uniqueCategories = [...new Set(questions.map(q => q.category).filter(Boolean))].sort();
@@ -108,9 +141,14 @@ const Manager = () => {
   const toggleQ = (id) => {
     const ids = [...form.questionIds];
     const idx = ids.indexOf(id);
-    if (idx > -1) ids.splice(idx, 1);
-    else ids.push(id);
-    setForm(f => ({ ...f, questionIds: ids }));
+    if (idx > -1) {
+      ids.splice(idx, 1);
+      setForm(f => ({ ...f, questionIds: ids }));
+    } else {
+      ids.push(id);
+      const orderedIds = sortIdsByOrder(ids);
+      setForm(f => ({ ...f, questionIds: orderedIds }));
+    }
     if (errors.questions) {
       setErrors(e => {
         const newErrors = { ...e };
@@ -122,7 +160,8 @@ const Manager = () => {
 
   const selectAllQuestions = () => {
     // Select all filtered questions, not all questions
-    setForm(f => ({ ...f, questionIds: filteredQuestions.map(q => q.id) }));
+    const ids = filteredQuestions.map(q => q.id);
+    setForm(f => ({ ...f, questionIds: sortIdsByOrder(ids) }));
     if (errors.questions) {
       setErrors(e => {
         const newErrors = { ...e };
@@ -153,6 +192,7 @@ const Manager = () => {
           fullName: form.employee.fullName.trim(),
           store: form.employee.store.trim()
         },
+        createdBy: window.__firebaseCurrentUser?.uid || null,
         questionIds: form.questionIds,
         status: 'pending',
         createdAt: serverTimestamp()

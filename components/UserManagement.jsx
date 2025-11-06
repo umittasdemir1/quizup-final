@@ -11,6 +11,16 @@ const UserManagement = () => {
   const [passwordError, setPasswordError] = useState('');
   const [revealedPasswords, setRevealedPasswords] = useState({});
   const [newPassword, setNewPassword] = useState('');
+  const [verifyingAdmin, setVerifyingAdmin] = useState(false);
+
+  const [sessionsByUser, setSessionsByUser] = useState({});
+  const [sessionsLoading, setSessionsLoading] = useState(true);
+  const [sessionModalUser, setSessionModalUser] = useState(null);
+  const [forceLogoutState, setForceLogoutState] = useState({});
+
+  const [adminSecretMeta, setAdminSecretMeta] = useState({ status: 'loading', hasSecret: false, updatedAt: null, updatedBy: null });
+  const [adminSecretForm, setAdminSecretForm] = useState({ password: '', confirm: '' });
+  const [adminSecretSaving, setAdminSecretSaving] = useState(false);
 
   const [form, setForm] = useState({
     firstName: '',
@@ -38,6 +48,11 @@ const UserManagement = () => {
 
   useEffect(() => {
     loadUsers();
+  }, []);
+
+  useEffect(() => {
+    loadSessions();
+    loadAdminSecret();
   }, []);
 
   const loadUsers = async () => {
@@ -86,6 +101,143 @@ const UserManagement = () => {
       toast('Kullanıcılar yüklenemedi: ' + e.message, 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadSessions = async () => {
+    setSessionsLoading(true);
+    try {
+      await waitFirebase();
+      const { db, collection, getDocs } = window.firebase;
+
+      const snapshot = await getDocs(collection(db, 'userSessions'));
+      const grouped = {};
+
+      snapshot.docs.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (!data?.userId) return;
+        const session = {
+          id: docSnap.id,
+          ...data,
+          lastLoginAt: data.lastLoginAt || null,
+          lastActiveAt: data.lastActiveAt || null,
+          history: Array.isArray(data.history) ? data.history : []
+        };
+
+        if (!grouped[data.userId]) grouped[data.userId] = [];
+        grouped[data.userId].push(session);
+      });
+
+      Object.keys(grouped).forEach((userId) => {
+        grouped[userId].sort((a, b) => (b.lastActiveAt || 0) - (a.lastActiveAt || 0));
+      });
+
+      setSessionsByUser(grouped);
+    } catch (err) {
+      console.error('Oturumlar yüklenirken hata:', err);
+      toast('Oturum bilgileri yüklenemedi: ' + (err.message || err), 'error');
+    } finally {
+      setSessionsLoading(false);
+    }
+  };
+
+  const loadAdminSecret = async () => {
+    try {
+      setAdminSecretMeta((prev) => ({ ...prev, status: 'loading' }));
+      const meta = await getAdminSecretMeta();
+      if (meta) {
+        setAdminSecretMeta({
+          status: 'ready',
+          hasSecret: Boolean(meta.overridePasswordHash),
+          updatedAt: meta.updatedAt || null,
+          updatedBy: meta.updatedBy || null
+        });
+      } else {
+        setAdminSecretMeta({ status: 'ready', hasSecret: false, updatedAt: null, updatedBy: null });
+      }
+    } catch (err) {
+      console.error('Yönetici şifresi bilgisi alınamadı:', err);
+      setAdminSecretMeta({ status: 'error', hasSecret: false, updatedAt: null, updatedBy: null, error: err.message || String(err) });
+    }
+  };
+
+  const handleAdminSecretSave = async (e) => {
+    e?.preventDefault?.();
+
+    if (!adminSecretForm.password || adminSecretForm.password.length < 6) {
+      toast('Yönetici şifresi en az 6 karakter olmalıdır', 'error');
+      return;
+    }
+
+    if (adminSecretForm.password !== adminSecretForm.confirm) {
+      toast('Şifre doğrulaması eşleşmiyor', 'error');
+      return;
+    }
+
+    setAdminSecretSaving(true);
+    try {
+      const currentAdmin = getCurrentUser();
+      await updateAdminSecret(adminSecretForm.password, { updatedBy: currentAdmin?.uid || null });
+      toast('Yönetici şifresi güncellendi', 'success');
+      setAdminSecretForm({ password: '', confirm: '' });
+      await loadAdminSecret();
+    } catch (err) {
+      console.error('Yönetici şifresi güncellenemedi:', err);
+      toast('Yönetici şifresi güncellenemedi: ' + (err.message || err), 'error');
+    } finally {
+      setAdminSecretSaving(false);
+    }
+  };
+
+  const describeHistoryEntry = (entry) => {
+    if (!entry?.type) return 'Bilinmeyen işlem';
+    switch (entry.type) {
+      case 'login':
+        return 'Giriş yapıldı';
+      case 'logout':
+        return 'Çıkış yapıldı';
+      case 'force-logout':
+        return 'Yönetici oturumu kapattı';
+      case 'force-logout-handled':
+        return 'Yönetici tarafından oturum kapatıldı';
+      default:
+        return entry.type;
+    }
+  };
+
+  const getUserSessions = (userId) => sessionsByUser[userId] || [];
+
+  const getActiveSessionCount = (userId) => getUserSessions(userId).filter((session) => session.active).length;
+
+  const openSessionModal = async (user) => {
+    if (!sessionsByUser[user.id]) {
+      await loadSessions();
+    }
+    setSessionModalUser(user);
+  };
+
+  const closeSessionModal = () => {
+    setSessionModalUser(null);
+  };
+
+  const handleForceLogout = async (user) => {
+    setForceLogoutState((prev) => ({
+      ...prev,
+      [user.id]: { toggled: true, loading: true }
+    }));
+
+    try {
+      await invalidateUserSessions(user.id, { includeCurrent: true });
+      toast(`${user.firstName} ${user.lastName} için tüm oturumlar kapatıldı`, 'success');
+      await loadSessions();
+    } catch (err) {
+      console.error('Oturumlar kapatılamadı:', err);
+      toast('Oturumlar kapatılamadı: ' + (err.message || err), 'error');
+    } finally {
+      setForceLogoutState((prev) => ({
+        ...prev,
+        [user.id]: { toggled: false, loading: false }
+      }));
     }
   };
 
@@ -172,6 +324,7 @@ const UserManagement = () => {
         position: ''
       });
       loadUsers();
+      loadSessions();
 
     } catch (error) {
       console.error('Create user error:', error);
@@ -243,6 +396,7 @@ const UserManagement = () => {
       setShowEditModal(false);
       setEditingUser(null);
       loadUsers();
+      loadSessions();
 
     } catch (error) {
       console.error('Update user error:', error);
@@ -260,15 +414,32 @@ const UserManagement = () => {
     setShowPasswordModal(true);
   };
 
-  const verifyAdminPassword = () => {
-    if (adminPassword === 'admin123') {
+  const verifyAdminPassword = async () => {
+    if (!adminPassword) {
+      setPasswordError('Lütfen yönetici şifresini girin');
+      return;
+    }
+
+    setVerifyingAdmin(true);
+    setPasswordError('');
+
+    try {
+      await verifyAdminSecret(adminPassword);
       setRevealedPasswords(prev => ({ ...prev, [editingUser.id]: true }));
       setShowPasswordModal(false);
       setAdminPassword('');
       setPasswordError('');
       toast('Şifre gösteriliyor', 'success');
-    } else {
-      setPasswordError('Hatalı admin şifresi!');
+    } catch (error) {
+      if (error.code === 'admin-secret/not-set') {
+        setPasswordError('Yönetici şifresi henüz tanımlanmamış. Güvenlik bölümünden oluşturun.');
+      } else if (error.code === 'admin-secret/missing') {
+        setPasswordError('Lütfen şifre girin');
+      } else {
+        setPasswordError('Hatalı admin şifresi!');
+      }
+    } finally {
+      setVerifyingAdmin(false);
     }
   };
 
@@ -292,6 +463,7 @@ const UserManagement = () => {
       setEditingUser(null);
       setNewPassword('');
       loadUsers();
+      loadSessions();
 
     } catch (error) {
       console.error('Update password error:', error);
@@ -309,10 +481,13 @@ const UserManagement = () => {
       const { db, doc, deleteDoc } = window.firebase;
       await deleteDoc(doc(db, 'users', userId));
       toast('Kullanıcı silindi', 'success');
-      loadUsers();
+      await invalidateUserSessions(userId, { includeCurrent: false });
     } catch (e) {
       console.error('Delete user error:', e);
       toast('Kullanıcı silinirken hata oluştu', 'error');
+    } finally {
+      loadUsers();
+      loadSessions();
     }
   };
 
@@ -335,6 +510,72 @@ const UserManagement = () => {
         </button>
       }
     >
+      <div className="grid gap-6 mb-8">
+        <div className="card p-6">
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold text-dark-900">Yönetici Güvenlik Şifresi</h2>
+              <p className="text-sm text-dark-500 mt-2">
+                Kullanıcı şifrelerini görüntülemek veya sınav sırasında geri dönüş izni vermek için kullanılan yönetici şifresini buradan belirleyin.
+              </p>
+            </div>
+            {adminSecretMeta.status === 'loading' ? (
+              <span className="text-sm text-dark-400">Yükleniyor...</span>
+            ) : adminSecretMeta.hasSecret ? (
+              <span className="text-xs font-semibold text-green-700 bg-green-100 px-3 py-1 rounded-full">Aktif</span>
+            ) : (
+              <span className="text-xs font-semibold text-red-700 bg-red-100 px-3 py-1 rounded-full">Tanımlı değil</span>
+            )}
+          </div>
+
+          {adminSecretMeta.status === 'error' && (
+            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3 mt-4">
+              Güvenlik bilgileri yüklenirken hata oluştu: {adminSecretMeta.error}
+            </div>
+          )}
+
+          <form className="mt-6 grid gap-4 md:grid-cols-3" onSubmit={handleAdminSecretSave}>
+            <div className="md:col-span-1">
+              <label className="block text-sm font-semibold text-dark-700 mb-2">Yeni Yönetici Şifresi</label>
+              <input
+                type="password"
+                className="field"
+                placeholder="En az 6 karakter"
+                value={adminSecretForm.password}
+                onChange={(e) => setAdminSecretForm({ ...adminSecretForm, password: e.target.value })}
+              />
+            </div>
+            <div className="md:col-span-1">
+              <label className="block text-sm font-semibold text-dark-700 mb-2">Şifreyi Doğrula</label>
+              <input
+                type="password"
+                className="field"
+                placeholder="Tekrar girin"
+                value={adminSecretForm.confirm}
+                onChange={(e) => setAdminSecretForm({ ...adminSecretForm, confirm: e.target.value })}
+              />
+            </div>
+            <div className="md:col-span-1 flex items-end">
+              <button
+                type="submit"
+                className="btn btn-secondary w-full md:w-auto"
+                disabled={adminSecretSaving}
+              >
+                {adminSecretSaving
+                  ? 'Kaydediliyor...'
+                  : adminSecretMeta.hasSecret ? 'Şifreyi Güncelle' : 'Şifreyi Oluştur'}
+              </button>
+            </div>
+          </form>
+
+          {adminSecretMeta.updatedAt && (
+            <div className="text-xs text-dark-400 mt-4">
+              Son güncelleme: {fmtDate(adminSecretMeta.updatedAt)}
+            </div>
+          )}
+        </div>
+      </div>
+
       {users.length === 0 ? (
         <div className="card p-8 text-center text-dark-500">
           <div className="text-6xl mb-4">👥</div>
@@ -351,6 +592,7 @@ const UserManagement = () => {
                   <th className="px-6 py-3 text-left text-xs font-semibold text-dark-700 uppercase">Rol</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-dark-700 uppercase">Görev</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-dark-700 uppercase">Şifre</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-dark-700 uppercase">Oturumlar</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-dark-700 uppercase">Oluşturulma</th>
                   <th className="px-6 py-3 text-right text-xs font-semibold text-dark-700 uppercase">İşlem</th>
                 </tr>
@@ -381,6 +623,39 @@ const UserManagement = () => {
                         </button>
                       </div>
                     </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm text-dark-600">
+                            {sessionsLoading
+                              ? 'Yükleniyor...'
+                              : getActiveSessionCount(user.id) > 0
+                                ? `${getActiveSessionCount(user.id)} aktif`
+                                : 'Aktif oturum yok'}
+                          </span>
+                          <button
+                            className="text-xs text-blue-600 hover:text-blue-800 font-semibold"
+                            onClick={() => openSessionModal(user)}
+                          >
+                            Oturum geçmişi
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-dark-400">Tüm cihazlarda kapat</span>
+                          <button
+                            type="button"
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${forceLogoutState[user.id]?.toggled ? 'bg-red-500' : 'bg-gray-300'} ${forceLogoutState[user.id]?.loading ? 'opacity-60 pointer-events-none' : 'hover:bg-red-400'}`}
+                            onClick={() => handleForceLogout(user)}
+                            disabled={forceLogoutState[user.id]?.loading}
+                          >
+                            <span className="sr-only">Tüm cihazlardan oturumu kapat</span>
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${forceLogoutState[user.id]?.toggled ? 'translate-x-5' : 'translate-x-1'}`}
+                            ></span>
+                          </button>
+                        </div>
+                      </div>
+                    </td>
                     <td className="px-6 py-4 text-sm text-dark-500">{fmtDate(user.createdAt)}</td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex gap-2 justify-end">
@@ -404,6 +679,118 @@ const UserManagement = () => {
             </table>
           </div>
         </div>
+      )}
+
+      {sessionModalUser && (
+        <>
+          <div className="overlay open" onClick={closeSessionModal} style={{ zIndex: 998 }}></div>
+          <div
+            className="modal-lg open"
+            style={{
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              zIndex: 999,
+              background: 'white',
+              borderRadius: '16px',
+              padding: '32px',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+              maxWidth: '720px',
+              width: '95%',
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}
+          >
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-dark-900">Oturum Geçmişi</h2>
+                <p className="text-sm text-dark-500 mt-1">
+                  {sessionModalUser.firstName} {sessionModalUser.lastName} • {sessionModalUser.email}
+                </p>
+              </div>
+              <button
+                className="text-dark-400 hover:text-dark-900 text-2xl"
+                onClick={closeSessionModal}
+              >
+                ×
+              </button>
+            </div>
+
+            {sessionsLoading ? (
+              <LoadingSpinner text="Oturumlar yükleniyor..." />
+            ) : getUserSessions(sessionModalUser.id).length === 0 ? (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-sm text-dark-500">
+                Henüz oturum kaydı bulunmuyor.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {getUserSessions(sessionModalUser.id).map((session) => (
+                  <div key={session.id} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-semibold text-dark-900 text-lg">{session.deviceLabel || 'Bilinmeyen Cihaz'}</div>
+                        <div className="text-xs text-dark-500 mt-1">MAC: {session.deviceMac || 'Bilinmiyor'}</div>
+                      </div>
+                      <span
+                        className={`text-xs font-semibold px-3 py-1 rounded-full ${session.active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-dark-500'}`}
+                      >
+                        {session.active ? 'Aktif' : 'Pasif'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-dark-600 mt-4">
+                      <div>
+                        <span className="text-xs text-dark-400 uppercase">Son Giriş</span>
+                        <div className="font-medium">{fmtDate(session.lastLoginAt)}</div>
+                      </div>
+                      <div>
+                        <span className="text-xs text-dark-400 uppercase">Son Aktivite</span>
+                        <div className="font-medium">{fmtDate(session.lastActiveAt)}</div>
+                      </div>
+                      <div className="md:col-span-2">
+                        <span className="text-xs text-dark-400 uppercase">Tarayıcı</span>
+                        <div className="text-xs text-dark-500 break-words">
+                          {session.userAgent || 'Bilgi yok'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {Array.isArray(session.history) && session.history.length > 0 && (
+                      <div className="mt-4">
+                        <div className="text-xs text-dark-400 uppercase mb-2">İşlem Geçmişi</div>
+                        <ul className="space-y-1">
+                          {session.history.slice(0, 10).map((entry, idx) => (
+                            <li key={idx} className="flex items-center justify-between text-xs bg-gray-50 rounded px-3 py-2">
+                              <span className="text-dark-600">{describeHistoryEntry(entry)}</span>
+                              <span className="text-dark-400">{fmtDate(entry.at)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                className="btn btn-ghost"
+                onClick={closeSessionModal}
+              >
+                Kapat
+              </button>
+              <button
+                className="btn btn-secondary"
+                onClick={() => handleForceLogout(sessionModalUser)}
+                disabled={forceLogoutState[sessionModalUser.id]?.loading}
+              >
+                {forceLogoutState[sessionModalUser.id]?.loading ? 'Kapatılıyor...' : 'Tüm cihazlarda oturumu kapat'}
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Add User Modal */}
@@ -681,14 +1068,20 @@ const UserManagement = () => {
                   <input
                     type="password"
                     className="field"
-                    placeholder="admin123"
+                    placeholder="Yönetici şifresi"
                     value={adminPassword}
                     onChange={(e) => setAdminPassword(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && verifyAdminPassword()}
+                    onKeyDown={(e) => e.key === 'Enter' && verifyAdminPassword()}
                     autoFocus
+                    disabled={verifyingAdmin}
                   />
                   {passwordError && (
                     <div className="text-red-600 text-sm mt-2">❌ {passwordError}</div>
+                  )}
+                  {adminSecretMeta.status === 'ready' && !adminSecretMeta.hasSecret && (
+                    <div className="text-xs text-red-600 mt-2">
+                      Henüz yönetici şifresi belirlenmemiş. Yukarıdaki güvenlik bölümünden oluşturun.
+                    </div>
                   )}
                 </div>
 
@@ -702,8 +1095,9 @@ const UserManagement = () => {
                   <button
                     className="btn btn-primary flex-1"
                     onClick={verifyAdminPassword}
+                    disabled={verifyingAdmin}
                   >
-                    Doğrula
+                    {verifyingAdmin ? 'Doğrulanıyor...' : 'Doğrula'}
                   </button>
                 </div>
               </div>
