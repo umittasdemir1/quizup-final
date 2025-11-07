@@ -646,31 +646,7 @@ const Sidebar = () => {
           </div>
 
           <div className="header-actions">
-            {isLoggedIn ? (
-              <div className="relative">
-                <button
-                  type="button"
-                  className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                  onClick={() => toggleUserMenu('header')}
-                >
-                  <div className="w-10 h-10 rounded-full bg-primary-500 text-white flex items-center justify-center font-bold">
-                    {avatarInitials}
-                  </div>
-                </button>
-
-                {showUserMenu && userMenuAnchor === 'header' && (
-                  <>
-                    <div className="fixed inset-0 z-10" onClick={closeUserMenu}></div>
-                    <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
-                      {renderUserMenuContent()}
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : (
-              <div className="header-user-placeholder"></div>
-            )}
-
+            <div className="header-user-placeholder"></div>
             <div id="header-timer-slot" className="header-timer-slot" aria-live="polite"></div>
           </div>
         </div>
