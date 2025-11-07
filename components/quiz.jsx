@@ -727,7 +727,7 @@ const Quiz = ({ sessionId }) => {
             ></textarea>
           )}
 
-          <div className="flex flex-col sm:flex-row justify-center items-center gap-3 pt-6">
+          <div className="quiz-nav-group">
             {/* Previous Button - Pill Shaped */}
             <button 
               className="nav-pill nav-pill-prev relative w-full sm:w-auto" 
@@ -739,7 +739,7 @@ const Quiz = ({ sessionId }) => {
                   <polyline points="15 18 9 12 15 6"></polyline>
                 </svg>
               </div>
-              <span className="nav-pill-text">ÖNCEKİ</span>
+              <span className="nav-pill-text">Prev</span>
               {idx > 0 && (
                 <span className="absolute -top-1 -right-1 text-xs bg-white rounded-full w-5 h-5 flex items-center justify-center shadow-md">🔒</span>
               )}
@@ -755,7 +755,7 @@ const Quiz = ({ sessionId }) => {
             {/* Next/Submit Button - Pill Shaped */}
             {idx < questions.length - 1 ? (
               <button className="nav-pill nav-pill-next w-full sm:w-auto" onClick={next}>
-                <span className="nav-pill-text">SONRAKİ</span>
+                <span className="nav-pill-text">Next</span>
                 <div className="nav-pill-icon">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="9 18 15 12 9 6"></polyline>
@@ -768,7 +768,7 @@ const Quiz = ({ sessionId }) => {
                 onClick={() => submit()}
                 disabled={submitting}
               >
-                <span className="nav-pill-text">{submitting ? 'GÖNDERİLİYOR...' : 'GÖNDER'}</span>
+                <span className="nav-pill-text">{submitting ? 'Saving...' : 'Save'}</span>
                 <div className="nav-pill-icon">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20 6 9 17 4 12"></polyline>
