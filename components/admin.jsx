@@ -7,10 +7,9 @@ const Admin = () => {
   const [editId, setEditId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [reordering, setReordering] = useState(false);
   const questionImageRef = useRef(null);
   const optionImageRefs = useRef([]);
-  const [form, setForm] = useState({
+  const blankForm = {
     questionText: '',
     type: 'mcq',
     category: '',
@@ -23,8 +22,10 @@ const Admin = () => {
     questionImageUrl: '',
     imageFile: null,
     hasImageOptions: false,
-    optionImageUrls: ['', '', '', '']
-  });
+    optionImageUrls: ['', '', '', ''],
+    orderNumber: 1
+  };
+  const [form, setForm] = useState(blankForm);
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
@@ -58,21 +59,25 @@ const Admin = () => {
     })();
   }, []);
 
+  const getDisplayOrder = (question, index) => (
+    typeof question.order === 'number' ? question.order + 1 : index + 1
+  );
+
+  const getNextOrderNumber = () => {
+    if (!questions.length) return 1;
+    const numbers = questions.map((q, index) => getDisplayOrder(q, index));
+    return Math.max(...numbers) + 1;
+  };
+
+  const startCreate = () => {
+    setForm({ ...blankForm, orderNumber: getNextOrderNumber() });
+    setEditId(null);
+    setErrors({});
+    setShowForm(true);
+  };
+
   const reset = () => {
-    setForm({
-      questionText: '',
-      type: 'mcq',
-      category: '',
-      difficulty: 'easy',
-      options: ['', '', '', ''],
-      correctAnswer: '',
-      isActive: true,
-      hasTimer: false,
-      timerSeconds: 60,
-      questionImageUrl: '',
-      hasImageOptions: false,
-      optionImageUrls: ['', '', '', '']
-    });
+    setForm({ ...blankForm, orderNumber: getNextOrderNumber() });
     setEditId(null);
     setShowForm(false);
     setErrors({});
@@ -152,6 +157,8 @@ const Admin = () => {
 
   const handleEdit = (q) => {
     setEditId(q.id);
+    const index = questions.findIndex(item => item.id === q.id);
+    const orderNumber = getDisplayOrder(q, index >= 0 ? index : questions.length);
     setForm({
       questionText: q.questionText || '',
       type: q.type || 'mcq',
@@ -163,8 +170,10 @@ const Admin = () => {
       hasTimer: q.hasTimer || false,
       timerSeconds: q.timerSeconds || 60,
       questionImageUrl: q.questionImageUrl || '',
+      imageFile: null,
       hasImageOptions: q.hasImageOptions || false,
-      optionImageUrls: q.optionImageUrls || ['', '', '', '']
+      optionImageUrls: q.optionImageUrls || ['', '', '', ''],
+      orderNumber
     });
     setShowForm(true);
     setErrors({});
@@ -175,6 +184,23 @@ const Admin = () => {
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       toast('Lütfen tüm zorunlu alanları doldurun', 'error');
+      return;
+    }
+
+    const orderNumber = parseInt(form.orderNumber, 10);
+    if (!Number.isFinite(orderNumber) || orderNumber < 1) {
+      setErrors(prev => ({ ...prev, orderNumber: 'Geçerli bir numara giriniz' }));
+      toast('Geçerli bir numara giriniz', 'error');
+      return;
+    }
+
+    const existingNumbers = questions
+      .filter(q => q.id !== editId)
+      .map((q, index) => getDisplayOrder(q, index));
+
+    if (existingNumbers.includes(orderNumber)) {
+      setErrors(prev => ({ ...prev, orderNumber: 'Numara Kullanıldı' }));
+      toast('Numara Kullanıldı', 'error');
       return;
     }
 
@@ -203,15 +229,15 @@ const Admin = () => {
         questionImageUrl: form.questionImageUrl || '',
         hasImageOptions: form.hasImageOptions,
         optionImageUrls: form.hasImageOptions ? form.optionImageUrls.filter(u => u.trim()) : [],
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
+        order: orderNumber - 1
       };
-      
+
       if (editId) {
         await updateDoc(doc(db, 'questions', editId), data);
         toast('Soru güncellendi', 'success');
       } else {
         data.createdAt = serverTimestamp();
-        data.order = questions.length;
         await addDoc(collection(db, 'questions'), data);
         toast('Soru eklendi', 'success');
       }
@@ -221,29 +247,6 @@ const Admin = () => {
       toast('Soru kaydedilirken hata oluştu', 'error');
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleReorder = async (nextQuestions) => {
-    const previous = questions.map(q => ({ ...q }));
-    const withUpdatedOrder = nextQuestions.map((q, index) => ({ ...q, order: index }));
-    setQuestions(withUpdatedOrder);
-    setReordering(true);
-    try {
-      await waitFirebase();
-      const { db, writeBatch, doc } = window.firebase;
-      const batch = writeBatch(db);
-      withUpdatedOrder.forEach((q, index) => {
-        batch.update(doc(db, 'questions', q.id), { order: index });
-      });
-      await batch.commit();
-      toast('Soru sırası güncellendi', 'success');
-    } catch (e) {
-      console.error('Reorder error:', e);
-      setQuestions(previous);
-      toast('Soru sırası kaydedilemedi', 'error');
-    } finally {
-      setReordering(false);
     }
   };
 
@@ -295,7 +298,7 @@ const Admin = () => {
     <Page 
       title="Soru Havuzu" 
       subtitle={`Toplam ${questions.length} soru`}
-      extra={!showForm && <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ Yeni Soru</button>}
+      extra={!showForm && <button className="btn btn-primary" onClick={startCreate}>+ Yeni Soru</button>}
     >
       {showForm ? (
         <AdminForm 
@@ -319,9 +322,7 @@ const Admin = () => {
           handleEdit={handleEdit}
           handleDelete={handleDelete}
           toggleActive={toggleActive}
-          setShowForm={setShowForm}
-          onReorder={handleReorder}
-          reordering={reordering}
+          onCreateNew={startCreate}
         />
       )}
     </Page>

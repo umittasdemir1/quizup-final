@@ -20,7 +20,19 @@ const AdminForm = ({
         {errors.questionText && <div className="error-text">{errors.questionText}</div>}
       </div>
 
-      <div className="grid md:grid-cols-3 gap-4">
+      <div className="grid md:grid-cols-4 gap-4">
+        <div>
+          <label className="block text-sm font-semibold mb-2 text-dark-700">Soru Numarası *</label>
+          <input
+            type="number"
+            min="1"
+            className={`field ${errors.orderNumber ? 'error' : ''}`}
+            value={form.orderNumber}
+            onChange={e => updateField('orderNumber', e.target.value)}
+            placeholder="1"
+          />
+          {errors.orderNumber && <div className="error-text">{errors.orderNumber}</div>}
+        </div>
         <div>
           <label className="block text-sm font-semibold mb-2 text-dark-700">Tip *</label>
           <select className={`field ${errors.type ? 'error' : ''}`} value={form.type} onChange={e => updateField('type', e.target.value)}>

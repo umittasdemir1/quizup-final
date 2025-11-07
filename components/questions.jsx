@@ -9,8 +9,10 @@ const QuestionBank = () => {
     categories: [],
     difficulties: [],
     statuses: [],
-    types: []
+    types: [],
+    timers: []
   });
+  const [sortOption, setSortOption] = useState('order-asc');
   const filterRef = useRef(null);
 
   useEffect(() => {
@@ -106,37 +108,82 @@ const QuestionBank = () => {
   };
 
   const clearFilters = () => {
-    setFilters({ categories: [], difficulties: [], statuses: [], types: [] });
+    setFilters({ categories: [], difficulties: [], statuses: [], types: [], timers: [] });
   };
 
   const resetAll = () => {
     setSearch('');
     clearFilters();
+    setShowFilters(false);
   };
 
-  const activeFilterCount = filters.categories.length + filters.difficulties.length + filters.statuses.length + filters.types.length;
+  const activeFilterCount = filters.categories.length + filters.difficulties.length + filters.statuses.length + filters.types.length + filters.timers.length;
 
-  const filteredQuestions = useMemo(() => {
+  const sortOptions = useMemo(() => ([
+    { value: 'order-asc', label: 'Numara (Artan)' },
+    { value: 'order-desc', label: 'Numara (Azalan)' },
+    { value: 'created-desc', label: 'Oluşturulma (Yeni → Eski)' },
+    { value: 'created-asc', label: 'Oluşturulma (Eski → Yeni)' },
+    { value: 'category-asc', label: 'Kategori (A → Z)' }
+  ]), []);
+
+  const getDisplayOrder = (question, index) => (
+    typeof question.order === 'number' ? question.order + 1 : index + 1
+  );
+
+  const toMillis = (ts) => {
+    try {
+      if (!ts) return 0;
+      if (typeof ts.toMillis === 'function') return ts.toMillis();
+      if (typeof ts.toDate === 'function') return ts.toDate().getTime();
+      if (typeof ts === 'number') return ts;
+      if (ts.seconds) return (ts.seconds * 1000) + Math.round((ts.nanoseconds || 0) / 1e6);
+      return new Date(ts).getTime() || 0;
+    } catch (error) {
+      return 0;
+    }
+  };
+
+  const visibleQuestions = useMemo(() => {
     const term = search.trim().toLowerCase();
+    const wantsTimed = filters.timers.includes('timed');
+    const wantsUntimed = filters.timers.includes('untimed');
 
-    return questions.filter(q => {
-      if (filters.categories.length > 0 && (!q.category || !filters.categories.includes(q.category))) {
+    const base = questions.map((q, index) => ({
+      data: q,
+      originalIndex: index,
+      orderNumber: getDisplayOrder(q, index)
+    }));
+
+    const filtered = base.filter(({ data }) => {
+      if (filters.categories.length > 0 && (!data.category || !filters.categories.includes(data.category))) {
         return false;
       }
 
-      if (filters.difficulties.length > 0 && (!q.difficulty || !filters.difficulties.includes(q.difficulty))) {
+      if (filters.difficulties.length > 0 && (!data.difficulty || !filters.difficulties.includes(data.difficulty))) {
         return false;
       }
 
       if (filters.statuses.length > 0) {
-        const status = q.isActive ? 'active' : 'inactive';
+        const status = data.isActive ? 'active' : 'inactive';
         if (!filters.statuses.includes(status)) {
           return false;
         }
       }
 
-      if (filters.types.length > 0 && (!q.type || !filters.types.includes(q.type))) {
+      if (filters.types.length > 0 && (!data.type || !filters.types.includes(data.type))) {
         return false;
+      }
+
+      if (filters.timers.length > 0) {
+        const isTimed = Boolean(data.hasTimer && Number(data.timerSeconds) > 0);
+        if (wantsTimed && wantsUntimed) {
+          // show all
+        } else if (wantsTimed && !isTimed) {
+          return false;
+        } else if (wantsUntimed && isTimed) {
+          return false;
+        }
       }
 
       if (!term) {
@@ -144,15 +191,33 @@ const QuestionBank = () => {
       }
 
       const haystack = [
-        q.questionText,
-        q.category,
-        q.correctAnswer,
-        ...(Array.isArray(q.options) ? q.options : [])
+        data.questionText,
+        data.category,
+        data.correctAnswer,
+        ...(Array.isArray(data.options) ? data.options : [])
       ].filter(Boolean).map(item => String(item).toLowerCase());
 
       return haystack.some(text => text.includes(term));
     });
-  }, [questions, search, filters]);
+
+    const sorted = [...filtered].sort((a, b) => {
+      switch (sortOption) {
+        case 'order-desc':
+          return b.orderNumber - a.orderNumber || a.originalIndex - b.originalIndex;
+        case 'created-desc':
+          return toMillis(b.data.createdAt) - toMillis(a.data.createdAt);
+        case 'created-asc':
+          return toMillis(a.data.createdAt) - toMillis(b.data.createdAt);
+        case 'category-asc':
+          return (a.data.category || '').localeCompare(b.data.category || '') || (a.orderNumber - b.orderNumber);
+        case 'order-asc':
+        default:
+          return a.orderNumber - b.orderNumber || a.originalIndex - b.originalIndex;
+      }
+    });
+
+    return sorted;
+  }, [questions, search, filters, sortOption]);
 
   if (loading) {
     return (
@@ -165,7 +230,7 @@ const QuestionBank = () => {
   return (
     <Page
       title="Sorular"
-      subtitle={`${filteredQuestions.length} / ${questions.length} soru gösteriliyor`}
+      subtitle={`${visibleQuestions.length} / ${questions.length} soru gösteriliyor`}
       extra={(
         <div className="text-right text-sm text-dark-500 leading-5">
           <div>Aktif: <strong className="text-dark-800">{stats.active}</strong></div>
@@ -175,7 +240,7 @@ const QuestionBank = () => {
       )}
     >
       <div className="card p-4 mb-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="question-toolbar">
           <div className="relative flex-1 w-full">
             <span className="question-search-icon">🔍</span>
             <input
@@ -186,20 +251,137 @@ const QuestionBank = () => {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <div className="flex items-center gap-2 self-end md:self-auto">
-            <button
-              type="button"
-              className="btn btn-secondary px-4 py-2 text-sm flex items-center gap-2"
-              onClick={() => setShowFilters(v => !v)}
-              data-question-filter-toggle="true"
+          <div className="question-toolbar-actions">
+            <select
+              className="field question-sort-select"
+              value={sortOption}
+              onChange={(e) => setSortOption(e.target.value)}
             >
-              🧰 Filtreler
-              {activeFilterCount > 0 && (
-                <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-primary-500 rounded-full">
-                  {activeFilterCount}
-                </span>
+              {sortOptions.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+            <div className="relative" ref={filterRef}>
+              <button
+                type="button"
+                className="btn btn-secondary px-4 py-2 text-sm flex items-center gap-2"
+                onClick={() => setShowFilters(v => !v)}
+                data-question-filter-toggle="true"
+              >
+                🧰 Filtreler
+                {activeFilterCount > 0 && (
+                  <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-primary-500 rounded-full">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+              {showFilters && (
+                <div className="question-filter-panel">
+                  <div className="grid gap-6 md:grid-cols-2">
+                    {uniqueCategories.length > 0 && (
+                      <div>
+                        <h3 className="question-filter-title">📁 Kategoriler</h3>
+                        <div className="question-filter-options">
+                          {uniqueCategories.map(category => (
+                            <label key={category} className="question-filter-option">
+                              <input
+                                type="checkbox"
+                                checked={filters.categories.includes(category)}
+                                onChange={() => toggleFilter('categories', category)}
+                              />
+                              <span>{category}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <h3 className="question-filter-title">⚡ Zorluk</h3>
+                      <div className="question-filter-options">
+                        {difficulties.map(diff => (
+                          <label key={diff.value} className="question-filter-option">
+                            <input
+                              type="checkbox"
+                              checked={filters.difficulties.includes(diff.value)}
+                              onChange={() => toggleFilter('difficulties', diff.value)}
+                            />
+                            <span>{diff.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="question-filter-title">📌 Durum</h3>
+                      <div className="question-filter-options">
+                        <label className="question-filter-option">
+                          <input
+                            type="checkbox"
+                            checked={filters.statuses.includes('active')}
+                            onChange={() => toggleFilter('statuses', 'active')}
+                          />
+                          <span>Aktif</span>
+                        </label>
+                        <label className="question-filter-option">
+                          <input
+                            type="checkbox"
+                            checked={filters.statuses.includes('inactive')}
+                            onChange={() => toggleFilter('statuses', 'inactive')}
+                          />
+                          <span>Pasif</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {uniqueTypes.length > 0 && (
+                      <div>
+                        <h3 className="question-filter-title">🧠 Soru Tipi</h3>
+                        <div className="question-filter-options">
+                          {uniqueTypes.map(type => (
+                            <label key={type} className="question-filter-option">
+                              <input
+                                type="checkbox"
+                                checked={filters.types.includes(type)}
+                                onChange={() => toggleFilter('types', type)}
+                              />
+                              <span>{typeLabel(type)}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <h3 className="question-filter-title">⏱️ Süre</h3>
+                      <div className="question-filter-options">
+                        <label className="question-filter-option">
+                          <input
+                            type="checkbox"
+                            checked={filters.timers.includes('timed')}
+                            onChange={() => toggleFilter('timers', 'timed')}
+                          />
+                          <span>Süreli</span>
+                        </label>
+                        <label className="question-filter-option">
+                          <input
+                            type="checkbox"
+                            checked={filters.timers.includes('untimed')}
+                            onChange={() => toggleFilter('timers', 'untimed')}
+                          />
+                          <span>Süresiz</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                  {(activeFilterCount > 0 || search.trim()) && (
+                    <div className="flex justify-end mt-4">
+                      <button type="button" className="btn btn-ghost text-sm" onClick={resetAll}>Temizle</button>
+                    </div>
+                  )}
+                </div>
               )}
-            </button>
+            </div>
             {(search.trim() || activeFilterCount > 0) && (
               <button
                 type="button"
@@ -211,89 +393,9 @@ const QuestionBank = () => {
             )}
           </div>
         </div>
-
-        {showFilters && (
-          <div className="question-filter-panel" ref={filterRef}>
-            <div className="grid gap-6 md:grid-cols-2">
-              {uniqueCategories.length > 0 && (
-                <div>
-                  <h3 className="question-filter-title">📁 Kategoriler</h3>
-                  <div className="question-filter-options">
-                    {uniqueCategories.map(category => (
-                      <label key={category} className="question-filter-option">
-                        <input
-                          type="checkbox"
-                          checked={filters.categories.includes(category)}
-                          onChange={() => toggleFilter('categories', category)}
-                        />
-                        <span>{category}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <h3 className="question-filter-title">⚡ Zorluk</h3>
-                <div className="question-filter-options">
-                  {difficulties.map(diff => (
-                    <label key={diff.value} className="question-filter-option">
-                      <input
-                        type="checkbox"
-                        checked={filters.difficulties.includes(diff.value)}
-                        onChange={() => toggleFilter('difficulties', diff.value)}
-                      />
-                      <span>{diff.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h3 className="question-filter-title">📌 Durum</h3>
-                <div className="question-filter-options">
-                  <label className="question-filter-option">
-                    <input
-                      type="checkbox"
-                      checked={filters.statuses.includes('active')}
-                      onChange={() => toggleFilter('statuses', 'active')}
-                    />
-                    <span>Aktif</span>
-                  </label>
-                  <label className="question-filter-option">
-                    <input
-                      type="checkbox"
-                      checked={filters.statuses.includes('inactive')}
-                      onChange={() => toggleFilter('statuses', 'inactive')}
-                    />
-                    <span>Pasif</span>
-                  </label>
-                </div>
-              </div>
-
-              {uniqueTypes.length > 0 && (
-                <div>
-                  <h3 className="question-filter-title">🧠 Soru Tipi</h3>
-                  <div className="question-filter-options">
-                    {uniqueTypes.map(type => (
-                      <label key={type} className="question-filter-option">
-                        <input
-                          type="checkbox"
-                          checked={filters.types.includes(type)}
-                          onChange={() => toggleFilter('types', type)}
-                        />
-                        <span>{typeLabel(type)}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
-      {filteredQuestions.length === 0 ? (
+      {visibleQuestions.length === 0 ? (
         <div className="card p-10 text-center text-dark-500">
           <div className="text-5xl mb-4">🔎</div>
           <p>Filtrelere uygun soru bulunamadı.</p>
@@ -305,41 +407,41 @@ const QuestionBank = () => {
         </div>
       ) : (
         <div className="grid gap-4">
-          {filteredQuestions.map(q => (
-            <div key={q.id} className="card p-6 question-bank-card">
+          {visibleQuestions.map(({ data }) => (
+            <div key={data.id} className="card p-6 question-bank-card">
               <div className="flex flex-col gap-4">
                 <div className="flex flex-wrap items-center gap-2">
-                  {q.type && <span className="chip chip-blue">{typeLabel(q.type)}</span>}
-                  {q.category && <span className="chip chip-orange">{q.category}</span>}
-                  {q.difficulty && (
+                  {data.type && <span className="chip chip-blue">{typeLabel(data.type)}</span>}
+                  {data.category && <span className="chip chip-orange">{data.category}</span>}
+                  {data.difficulty && (
                     <span className="chip bg-gray-200 text-gray-600">
-                      {q.difficulty === 'easy' ? 'Kolay' : q.difficulty === 'medium' ? 'Orta' : 'Zor'}
+                      {data.difficulty === 'easy' ? 'Kolay' : data.difficulty === 'medium' ? 'Orta' : 'Zor'}
                     </span>
                   )}
-                  <span className={`chip ${q.isActive ? 'chip-green' : 'chip-orange'}`}>
-                    {q.isActive ? 'Aktif' : 'Pasif'}
+                  <span className={`chip ${data.isActive ? 'chip-green' : 'chip-orange'}`}>
+                    {data.isActive ? 'Aktif' : 'Pasif'}
                   </span>
-                  {q.hasTimer && q.timerSeconds > 0 && (
+                  {data.hasTimer && data.timerSeconds > 0 && (
                     <span className="chip chip-blue">
-                      ⏱️ {q.timerSeconds} sn
+                      ⏱️ {data.timerSeconds} sn
                     </span>
                   )}
                 </div>
 
-                {q.questionImageUrl && (
+                {data.questionImageUrl && (
                   <div className="question-bank-image">
-                    <img src={q.questionImageUrl} alt="Soru görseli" loading="lazy" />
+                    <img src={data.questionImageUrl} alt="Soru görseli" loading="lazy" />
                   </div>
                 )}
 
-                <h2 className="text-xl font-semibold text-dark-900">{q.questionText}</h2>
+                <h2 className="text-xl font-semibold text-dark-900">{data.questionText}</h2>
 
-                {q.type === 'mcq' ? (
+                {data.type === 'mcq' ? (
                   <ul className="question-bank-options">
-                    {(q.options || []).filter(Boolean).map((option, index) => {
-                      const isCorrect = q.correctAnswer && q.correctAnswer === option;
-                      const imageUrl = q.hasImageOptions && Array.isArray(q.optionImageUrls)
-                        ? q.optionImageUrls[index]
+                    {(data.options || []).filter(Boolean).map((option, index) => {
+                      const isCorrect = data.correctAnswer && data.correctAnswer === option;
+                      const imageUrl = data.hasImageOptions && Array.isArray(data.optionImageUrls)
+                        ? data.optionImageUrls[index]
                         : null;
                       return (
                         <li key={index} className={`question-bank-option ${isCorrect ? 'correct' : ''}`}>
@@ -358,21 +460,21 @@ const QuestionBank = () => {
                     })}
                   </ul>
                 ) : (
-                  q.correctAnswer ? (
+                  data.correctAnswer ? (
                     <div className="question-bank-answer">
                       <span className="option-index">✓</span>
                       <div>
                         <div className="option-label">Beklenen Yanıt</div>
-                        <div className="option-text">{q.correctAnswer}</div>
+                        <div className="option-text">{data.correctAnswer}</div>
                       </div>
                     </div>
                   ) : null
                 )}
 
                 <div className="question-bank-meta">
-                  <span>Oluşturulma: <strong>{fmtDate(q.createdAt)}</strong></span>
-                  <span>Güncelleme: <strong>{fmtDate(q.updatedAt || q.createdAt)}</strong></span>
-                  <span>ID: <code>{q.id}</code></span>
+                  <span>Oluşturulma: <strong>{fmtDate(data.createdAt)}</strong></span>
+                  <span>Güncelleme: <strong>{fmtDate(data.updatedAt || data.createdAt)}</strong></span>
+                  <span>ID: <code>{data.id}</code></span>
                 </div>
               </div>
             </div>

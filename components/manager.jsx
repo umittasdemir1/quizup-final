@@ -14,7 +14,11 @@ const Manager = () => {
   const [filters, setFilters] = useState({
     categories: [],
     difficulties: [],
+    types: [],
+    timers: []
   });
+  const [search, setSearch] = useState('');
+  const [sortOption, setSortOption] = useState('order-asc');
   const filterRef = useRef(null);
 
   useEffect(() => {
@@ -91,15 +95,30 @@ const Manager = () => {
     });
   };
 
-  // Get unique categories from questions
-  const uniqueCategories = [...new Set(questions.map(q => q.category).filter(Boolean))].sort();
-  const difficulties = [
+  const uniqueCategories = useMemo(
+    () => [...new Set(questions.map(q => q.category).filter(Boolean))].sort(),
+    [questions]
+  );
+
+  const uniqueTypes = useMemo(
+    () => [...new Set(questions.map(q => q.type).filter(Boolean))],
+    [questions]
+  );
+
+  const difficulties = useMemo(() => ([
     { value: 'easy', label: 'Kolay' },
     { value: 'medium', label: 'Orta' },
     { value: 'hard', label: 'Zor' }
-  ];
+  ]), []);
 
-  // Toggle filter selection
+  const sortOptions = useMemo(() => ([
+    { value: 'order-asc', label: 'Numara (Artan)' },
+    { value: 'order-desc', label: 'Numara (Azalan)' },
+    { value: 'created-desc', label: 'Oluşturulma (Yeni → Eski)' },
+    { value: 'created-asc', label: 'Oluşturulma (Eski → Yeni)' },
+    { value: 'category-asc', label: 'Kategori (A → Z)' }
+  ]), []);
+
   const toggleFilter = (type, value) => {
     setFilters(prev => ({
       ...prev,
@@ -109,33 +128,110 @@ const Manager = () => {
     }));
   };
 
-  // Clear all filters
   const clearFilters = () => {
-    setFilters({ categories: [], difficulties: [] });
+    setFilters({ categories: [], difficulties: [], types: [], timers: [] });
   };
 
-  // Apply filters to questions
-  const filteredQuestions = questions.filter(q => {
-    // Category filter
-    if (filters.categories.length > 0 && !filters.categories.includes(q.category)) {
-      return false;
-    }
-    // Difficulty filter
-    if (filters.difficulties.length > 0 && !filters.difficulties.includes(q.difficulty)) {
-      return false;
-    }
-    return true;
-  });
+  const resetFilters = () => {
+    setSearch('');
+    clearFilters();
+    setShowFilters(false);
+  };
 
-  // Count active filters
-  const activeFilterCount = filters.categories.length + filters.difficulties.length;
+  const activeFilterCount = filters.categories.length + filters.difficulties.length + filters.types.length + filters.timers.length;
+
+  const getDisplayOrder = (question, index) => (
+    typeof question.order === 'number' ? question.order + 1 : index + 1
+  );
+
+  const toMillis = (ts) => {
+    try {
+      if (!ts) return 0;
+      if (typeof ts.toMillis === 'function') return ts.toMillis();
+      if (typeof ts.toDate === 'function') return ts.toDate().getTime();
+      if (typeof ts === 'number') return ts;
+      if (ts.seconds) return (ts.seconds * 1000) + Math.round((ts.nanoseconds || 0) / 1e6);
+      return new Date(ts).getTime() || 0;
+    } catch (error) {
+      return 0;
+    }
+  };
+
+  const visibleQuestions = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    const wantsTimed = filters.timers.includes('timed');
+    const wantsUntimed = filters.timers.includes('untimed');
+
+    const base = questions.map((q, index) => ({
+      data: q,
+      originalIndex: index,
+      orderNumber: getDisplayOrder(q, index)
+    }));
+
+    const filtered = base.filter(({ data }) => {
+      if (filters.categories.length > 0 && (!data.category || !filters.categories.includes(data.category))) {
+        return false;
+      }
+
+      if (filters.difficulties.length > 0 && (!data.difficulty || !filters.difficulties.includes(data.difficulty))) {
+        return false;
+      }
+
+      if (filters.types.length > 0 && (!data.type || !filters.types.includes(data.type))) {
+        return false;
+      }
+
+      if (filters.timers.length > 0) {
+        const isTimed = Boolean(data.hasTimer && Number(data.timerSeconds) > 0);
+        if (wantsTimed && wantsUntimed) {
+          // show all
+        } else if (wantsTimed && !isTimed) {
+          return false;
+        } else if (wantsUntimed && isTimed) {
+          return false;
+        }
+      }
+
+      if (!term) {
+        return true;
+      }
+
+      const haystack = [
+        data.questionText,
+        data.category,
+        data.correctAnswer,
+        ...(Array.isArray(data.options) ? data.options : [])
+      ].filter(Boolean).map(item => String(item).toLowerCase());
+
+      return haystack.some(text => text.includes(term));
+    });
+
+    const sorted = [...filtered].sort((a, b) => {
+      switch (sortOption) {
+        case 'order-desc':
+          return b.orderNumber - a.orderNumber || a.originalIndex - b.originalIndex;
+        case 'created-desc':
+          return toMillis(b.data.createdAt) - toMillis(a.data.createdAt);
+        case 'created-asc':
+          return toMillis(a.data.createdAt) - toMillis(b.data.createdAt);
+        case 'category-asc':
+          return (a.data.category || '').localeCompare(b.data.category || '') || (a.orderNumber - b.orderNumber);
+        case 'order-asc':
+        default:
+          return a.orderNumber - b.orderNumber || a.originalIndex - b.originalIndex;
+      }
+    });
+
+    return sorted;
+  }, [questions, filters, search, sortOption]);
 
   const reset = () => {
     setForm({ employee: { fullName: '', store: '' }, questionIds: [] });
     setShowForm(false);
     setQrUrl('');
     setErrors({});
-    setFilters({ categories: [], difficulties: [] });
+    setFilters({ categories: [], difficulties: [], types: [], timers: [] });
+    setSearch('');
   };
 
   const toggleQ = (id) => {
@@ -160,7 +256,7 @@ const Manager = () => {
 
   const selectAllQuestions = () => {
     // Select all filtered questions, not all questions
-    const ids = filteredQuestions.map(q => q.id);
+    const ids = visibleQuestions.map(({ data }) => data.id);
     setForm(f => ({ ...f, questionIds: sortIdsByOrder(ids) }));
     if (errors.questions) {
       setErrors(e => {
@@ -345,7 +441,7 @@ const Manager = () => {
                   type="button"
                   className="btn btn-ghost text-xs px-3 py-1.5"
                   onClick={selectAllQuestions}
-                  disabled={filteredQuestions.length === 0}
+                  disabled={visibleQuestions.length === 0}
                 >
                   ✓ Tümünü Seç
                 </button>
@@ -360,90 +456,149 @@ const Manager = () => {
               </div>
             </div>
 
-            {/* Filter Section */}
-            <div className="flex justify-between items-center mb-3">
-              <div className="text-xs text-dark-600">
-                {filteredQuestions.length} / {questions.length} soru gösteriliyor
-              </div>
-
-              <div className="relative" ref={filterRef}>
-                <button
-                  type="button"
-                  className="btn btn-secondary text-xs px-3 py-1.5 flex items-center gap-2"
-                  onClick={() => setShowFilters(!showFilters)}
-                >
-                  🔍 Filtrele
-                  {activeFilterCount > 0 && (
-                    <span className="inline-flex items-center justify-center w-4 h-4 text-xs font-bold text-white bg-primary-500 rounded-full">
-                      {activeFilterCount}
-                    </span>
-                  )}
-                </button>
-
-                {/* Filter Dropdown */}
-                {showFilters && (
-                  <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-200 z-50 p-4" style={{ animation: 'fadeIn 0.2s ease-in' }}>
-                    <div className="flex justify-between items-center mb-3">
-                      <h3 className="font-bold text-dark-900 text-sm">Filtreler</h3>
+            <div className="card p-4 mb-4 bg-secondary-50 border border-secondary-200 rounded-2xl">
+              <div className="question-toolbar">
+                <div className="relative flex-1 w-full">
+                  <span className="question-search-icon">🔍</span>
+                  <input
+                    type="search"
+                    className="field w-full pl-10"
+                    placeholder="Soru, kategori ya da doğru cevap ara"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+                <div className="question-toolbar-actions">
+                  <select
+                    className="field question-sort-select"
+                    value={sortOption}
+                    onChange={(e) => setSortOption(e.target.value)}
+                  >
+                    {sortOptions.map(option => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                  <div className="relative" ref={filterRef}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary px-4 py-2 text-sm flex items-center gap-2"
+                      onClick={() => setShowFilters(v => !v)}
+                      data-question-filter-toggle="true"
+                    >
+                      🧰 Filtreler
                       {activeFilterCount > 0 && (
-                        <button
-                          type="button"
-                          className="text-xs text-primary-500 hover:text-primary-600 font-semibold"
-                          onClick={clearFilters}
-                        >
-                          Temizle
-                        </button>
+                        <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-primary-500 rounded-full">
+                          {activeFilterCount}
+                        </span>
                       )}
-                    </div>
+                    </button>
+                    {showFilters && (
+                      <div className="question-filter-panel">
+                        <div className="grid gap-6 md:grid-cols-2">
+                          {uniqueCategories.length > 0 && (
+                            <div>
+                              <h3 className="question-filter-title">📁 Kategoriler</h3>
+                              <div className="question-filter-options">
+                                {uniqueCategories.map(category => (
+                                  <label key={category} className="question-filter-option">
+                                    <input
+                                      type="checkbox"
+                                      checked={filters.categories.includes(category)}
+                                      onChange={() => toggleFilter('categories', category)}
+                                    />
+                                    <span>{category}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          )}
 
-                    {/* Category Filter */}
-                    {uniqueCategories.length > 0 && (
-                      <div className="mb-3">
-                        <h4 className="text-xs font-semibold text-dark-700 mb-2">📁 Kategori</h4>
-                        <div className="space-y-1.5 max-h-32 overflow-y-auto">
-                          {uniqueCategories.map(cat => (
-                            <label key={cat} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
-                              <input
-                                type="checkbox"
-                                checked={filters.categories.includes(cat)}
-                                onChange={() => toggleFilter('categories', cat)}
-                                className="w-3.5 h-3.5 text-primary-500 rounded"
-                              />
-                              <span className="text-xs text-dark-800">{cat}</span>
-                            </label>
-                          ))}
+                          <div>
+                            <h3 className="question-filter-title">⚡ Zorluk</h3>
+                            <div className="question-filter-options">
+                              {difficulties.map(diff => (
+                                <label key={diff.value} className="question-filter-option">
+                                  <input
+                                    type="checkbox"
+                                    checked={filters.difficulties.includes(diff.value)}
+                                    onChange={() => toggleFilter('difficulties', diff.value)}
+                                  />
+                                  <span>{diff.label}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+
+                          {uniqueTypes.length > 0 && (
+                            <div>
+                              <h3 className="question-filter-title">🧠 Soru Tipi</h3>
+                              <div className="question-filter-options">
+                                {uniqueTypes.map(type => (
+                                  <label key={type} className="question-filter-option">
+                                    <input
+                                      type="checkbox"
+                                      checked={filters.types.includes(type)}
+                                      onChange={() => toggleFilter('types', type)}
+                                    />
+                                    <span>{typeLabel(type)}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          <div>
+                            <h3 className="question-filter-title">⏱️ Süre</h3>
+                            <div className="question-filter-options">
+                              <label className="question-filter-option">
+                                <input
+                                  type="checkbox"
+                                  checked={filters.timers.includes('timed')}
+                                  onChange={() => toggleFilter('timers', 'timed')}
+                                />
+                                <span>Süreli</span>
+                              </label>
+                              <label className="question-filter-option">
+                                <input
+                                  type="checkbox"
+                                  checked={filters.timers.includes('untimed')}
+                                  onChange={() => toggleFilter('timers', 'untimed')}
+                                />
+                                <span>Süresiz</span>
+                              </label>
+                            </div>
+                          </div>
                         </div>
+                        {(activeFilterCount > 0 || search.trim()) && (
+                          <div className="flex justify-end mt-4">
+                            <button type="button" className="btn btn-ghost text-sm" onClick={resetFilters}>Temizle</button>
+                          </div>
+                        )}
                       </div>
                     )}
-
-                    {/* Difficulty Filter */}
-                    <div>
-                      <h4 className="text-xs font-semibold text-dark-700 mb-2">⚡ Zorluk</h4>
-                      <div className="space-y-1.5">
-                        {difficulties.map(diff => (
-                          <label key={diff.value} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
-                            <input
-                              type="checkbox"
-                              checked={filters.difficulties.includes(diff.value)}
-                              onChange={() => toggleFilter('difficulties', diff.value)}
-                              className="w-3.5 h-3.5 text-primary-500 rounded"
-                            />
-                            <span className="text-xs text-dark-800">{diff.label}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
                   </div>
-                )}
+                  {(search.trim() || activeFilterCount > 0) && (
+                    <button
+                      type="button"
+                      className="btn btn-ghost px-3 py-2 text-sm"
+                      onClick={resetFilters}
+                    >
+                      Temizle
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="mt-3 text-xs text-dark-600">
+                {visibleQuestions.length} / {questions.length} soru gösteriliyor
               </div>
             </div>
 
             {errors.questions && <div className="error-text mb-2">{errors.questions}</div>}
             <div className="grid gap-3 max-h-96 overflow-y-auto p-2">
-              {filteredQuestions.length === 0 ? (
+              {visibleQuestions.length === 0 ? (
                 <div className="text-center py-8 text-dark-500">
                   <p className="text-sm mb-2">
-                    {questions.length === 0 ? 'Aktif soru bulunmuyor' : 'Filtreye uygun soru bulunamadı'}
+                    {questions.length === 0 ? 'Aktif soru bulunmuyor' : 'Filtrelere uygun soru bulunamadı'}
                   </p>
                   {questions.length === 0 ? (
                     <a href="#/admin" className="btn btn-secondary mt-4">Soru Ekle</a>
@@ -451,29 +606,44 @@ const Manager = () => {
                     <button
                       type="button"
                       className="btn btn-secondary text-xs px-3 py-1.5 mt-2"
-                      onClick={clearFilters}
+                      onClick={resetFilters}
                     >
                       Filtreleri Temizle
                     </button>
                   )}
                 </div>
               ) : (
-                filteredQuestions.map(q => (
-                  <label key={q.id} className={'option-card ' + (form.questionIds.includes(q.id) ? 'selected' : '')} style={{ cursor: 'pointer' }}>
+                visibleQuestions.map(({ data, orderNumber }) => (
+                  <label
+                    key={data.id}
+                    className={'option-card ' + (form.questionIds.includes(data.id) ? 'selected' : '')}
+                    style={{ cursor: 'pointer' }}
+                  >
                     <div className="flex items-start gap-3">
-                      <input 
-                        type="checkbox" 
-                        checked={form.questionIds.includes(q.id)} 
-                        onChange={() => toggleQ(q.id)}
+                      <input
+                        type="checkbox"
+                        checked={form.questionIds.includes(data.id)}
+                        onChange={() => toggleQ(data.id)}
                         className="mt-1 w-5 h-5 flex-shrink-0"
                         style={{ cursor: 'pointer' }}
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap gap-2 mb-2">
-                          <span className="chip chip-blue text-xs">{typeLabel(q.type)}</span>
-                          <span className="chip chip-orange text-xs">{q.category}</span>
+                          <span className="chip bg-gray-200 text-gray-700 text-xs">#{orderNumber}</span>
+                          {data.category && <span className="chip chip-orange text-xs">{data.category}</span>}
+                          <span className="chip chip-blue text-xs">{typeLabel(data.type)}</span>
+                          {data.difficulty && (
+                            <span className="chip bg-gray-200 text-gray-600 text-xs">
+                              {data.difficulty === 'easy' ? 'Kolay' : data.difficulty === 'medium' ? 'Orta' : 'Zor'}
+                            </span>
+                          )}
+                          {data.hasTimer && Number(data.timerSeconds) > 0 ? (
+                            <span className="chip chip-blue text-xs">⏱️ {data.timerSeconds} sn</span>
+                          ) : (
+                            <span className="chip bg-gray-100 text-gray-500 text-xs">Süresiz</span>
+                          )}
                         </div>
-                        <p className="text-sm font-medium text-dark-900 break-words">{q.questionText}</p>
+                        <p className="text-sm font-medium text-dark-900 break-words">{data.questionText}</p>
                       </div>
                     </div>
                   </label>
