@@ -17,8 +17,9 @@ const CircularTimer = ({ timeLeft, totalSeconds, isActive }) => {
 
   const safeTime = Math.max(0, timeLeft ?? totalSeconds);
   const progress = Math.max(0, Math.min(1, safeTime / totalSeconds));
-  const radius = 54;
   const strokeWidth = 12;
+  const size = 160;
+  const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference * (1 - progress);
 
@@ -35,22 +36,18 @@ const CircularTimer = ({ timeLeft, totalSeconds, isActive }) => {
 
   return (
     <div className="floating-timer" aria-live="polite">
-      <div
-        className="circular-timer"
-        style={{
-          boxShadow: `0 12px 28px rgba(61, 168, 156, ${progress > 0.75 ? 0.25 : 0.15})`,
-        }}
-      >
+      <div className="circular-timer">
         <svg
           className="circular-timer-ring"
-          width={(radius + strokeWidth) * 2}
-          height={(radius + strokeWidth) * 2}
+          width="100%"
+          height="100%"
+          viewBox={`0 0 ${size} ${size}`}
         >
           <circle
             className="circular-timer-ring-bg"
             strokeWidth={strokeWidth}
-            cx={radius + strokeWidth}
-            cy={radius + strokeWidth}
+            cx={size / 2}
+            cy={size / 2}
             r={radius}
           />
           <circle
@@ -59,8 +56,8 @@ const CircularTimer = ({ timeLeft, totalSeconds, isActive }) => {
             strokeWidth={strokeWidth}
             strokeDasharray={circumference}
             strokeDashoffset={strokeDashoffset}
-            cx={radius + strokeWidth}
-            cy={radius + strokeWidth}
+            cx={size / 2}
+            cy={size / 2}
             r={radius}
             style={{
               filter: `drop-shadow(0 0 12px ${ringColor}40)`,
