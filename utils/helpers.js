@@ -228,23 +228,53 @@ const generateSessionId = () => {
   return 'sess-' + Math.random().toString(16).slice(2) + Date.now().toString(16);
 };
 
-const deriveDeviceSessionId = () => {
-  if (typeof navigator === 'undefined') {
+const createDeterministicSessionId = (source) => {
+  const normalized = (source || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  if (!normalized) {
     return null;
   }
 
-  const source = `${navigator.userAgent || ''}${navigator.platform || ''}`;
-  if (!source) {
-    return null;
+  const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const chars = [];
+  let hash = 0x811c9dc5; // FNV offset basis
+
+  for (let i = 0; chars.length < 16; i++) {
+    const code = normalized.charCodeAt(i % normalized.length);
+    hash ^= code;
+    hash = Math.imul(hash, 0x01000193) >>> 0; // FNV prime
+    const index = hash % alphabet.length;
+    chars.push(alphabet[index]);
   }
 
-  try {
-    const encoded = btoa(source);
-    return encoded ? encoded.replace(/=/g, '').slice(0, 12) || null : null;
-  } catch (err) {
-    console.warn('Cihaz oturum kimliği oluşturulamadı:', err);
-    return null;
+  const rawId = chars.join('');
+  return rawId.replace(/(.{4})/g, '$1-').replace(/-$/, '');
+};
+
+const deriveDeviceSessionId = (device) => {
+  const fingerprintSource = device?.fingerprint || (device ? JSON.stringify(device) : null);
+  const fingerprintId = createDeterministicSessionId(fingerprintSource);
+  if (fingerprintId) {
+    return fingerprintId;
   }
+
+  let fallbackSource = '';
+  if (device) {
+    fallbackSource = [
+      device.userAgent,
+      device.platform,
+      device.browserName,
+      device.browserVersion,
+      device.language
+    ].filter(Boolean).join('|');
+  }
+
+  if (!fallbackSource && typeof navigator !== 'undefined') {
+    fallbackSource = [navigator.userAgent, navigator.platform, navigator.language]
+      .filter(Boolean)
+      .join('|');
+  }
+
+  return createDeterministicSessionId(fallbackSource);
 };
 
 const resolveUuidFallback = () => {
@@ -421,7 +451,7 @@ const registerActiveSession = async (userId) => {
       console.warn('Kullanıcı oturum bilgileri okunamadı:', err);
     }
 
-    const derivedSessionId = deriveDeviceSessionId();
+    const derivedSessionId = deriveDeviceSessionId(device);
     const sessionId = existingSessionId || derivedSessionId || resolveUuidFallback();
     const previousSessionId = getCurrentSessionId();
 
