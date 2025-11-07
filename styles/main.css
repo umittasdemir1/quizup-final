@@ -515,6 +515,47 @@ main {
 }
 
 /* Floating Circular Timer */
+.header-edge-left {
+  min-width: 40px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-edge-left > .hamburger,
+.header-edge-left > div {
+  margin: 0;
+}
+
+.header-logo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  height: 40px;
+  padding: 0 12px;
+}
+
+.header-actions {
+  min-width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.header-user-placeholder {
+  width: 40px;
+  height: 40px;
+}
+
 .header-timer-slot {
   width: 40px;
   height: 40px;
@@ -616,6 +657,13 @@ main {
 .image-option-card:hover {
   border-color: #FFB5A0;
   transform: scale(1.02);
+}
+
+.image-option-card.disabled {
+  pointer-events: none;
+  opacity: 0.6;
+  border-color: #e5e7eb;
+  transform: none;
 }
 
 .image-option-card.selected {

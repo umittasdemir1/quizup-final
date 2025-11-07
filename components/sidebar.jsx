@@ -510,8 +510,8 @@ const Sidebar = () => {
       )}
 
       <header className="sticky top-0 z-20 bg-white/90 backdrop-blur-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 py-4 grid grid-cols-[auto_1fr_auto] items-center gap-4">
-          <div className="flex items-center justify-start">
+        <div className="max-w-7xl mx-auto px-4 py-4 relative flex items-center justify-between">
+          <div className="header-edge-left">
             {!hideSidebar ? (
               <div
                 className={'hamburger ' + (open ? 'open' : '')}
@@ -522,27 +522,28 @@ const Sidebar = () => {
                 <span></span>
               </div>
             ) : (
-              <div className="w-8 h-8"></div>
+              <div className="w-10 h-10"></div>
             )}
           </div>
 
-          <div className="flex items-center justify-center">
-            <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity" onClick={handleLogoClick}>
+          <div
+            className="header-logo"
+            onClick={handleLogoClick}
+          >
+            <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
               <div className="logo-icon">?</div>
               <span className="font-bold text-xl text-dark-900">QuizUp+</span>
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-4">
-            <div id="header-timer-slot" className="header-timer-slot" aria-live="polite"></div>
-
+          <div className="header-actions">
             {isLoggedIn ? (
               <div className="relative">
                 <button
                   className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 transition-colors"
                   onClick={() => setShowUserMenu(v => !v)}
                 >
-                  <div className="w-8 h-8 rounded-full bg-primary-500 text-white flex items-center justify-center font-bold">
+                  <div className="w-10 h-10 rounded-full bg-primary-500 text-white flex items-center justify-center font-bold">
                     {currentUser.firstName?.[0]}{currentUser.lastName?.[0]}
                   </div>
                 </button>
@@ -585,8 +586,10 @@ const Sidebar = () => {
                 )}
               </div>
             ) : (
-              <div className="w-8 h-8"></div>
+              <div className="header-user-placeholder"></div>
             )}
+
+            <div id="header-timer-slot" className="header-timer-slot" aria-live="polite"></div>
           </div>
         </div>
       </header>

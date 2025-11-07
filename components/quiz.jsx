@@ -91,6 +91,7 @@ const Quiz = ({ sessionId }) => {
   const [loading, setLoading] = useState(true);
   const [idx, setIdx] = useState(0);
   const [answers, setAnswers] = useState({});
+  const [timedOutQuestions, setTimedOutQuestions] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [timeLeft, setTimeLeft] = useState(null);
   const [timerTotal, setTimerTotal] = useState(null);
@@ -273,7 +274,16 @@ const Quiz = ({ sessionId }) => {
     })();
   }, [sessionId]);
 
-  const setAns = (qid, val) => setAnswers(a => ({ ...a, [qid]: val }));
+  const setAns = (qid, val) => {
+    if (timedOutQuestions[qid]) {
+      return;
+    }
+    setAnswers(a => ({ ...a, [qid]: val }));
+  };
+
+  useEffect(() => {
+    setTimedOutQuestions({});
+  }, [sessionId]);
 
   // ⏱️ Start timer for current question
   useEffect(() => {
@@ -326,13 +336,20 @@ const Quiz = ({ sessionId }) => {
               }
             }, 200);
             
+            const questionId = questions[idx].id;
+
+            setTimedOutQuestions(prev => ({
+              ...prev,
+              [questionId]: true
+            }));
+
             // Record timeout (always mark as timeout regardless of selection)
-            recordQuestionTime(questions[idx].id, 'timeout');
+            recordQuestionTime(questionId, 'timeout');
             
             // Clear the answer if it was selected but not confirmed
             setAnswers(prev => {
-              const newAnswers = {...prev};
-              delete newAnswers[questions[idx].id];
+              const newAnswers = { ...prev };
+              delete newAnswers[questionId];
               return newAnswers;
             });
             
@@ -361,14 +378,18 @@ const Quiz = ({ sessionId }) => {
   }, [timerActive, timeLeft, idx, questions.length, answers]);
 
   // ⏱️ Record time spent on question
-  const recordQuestionTime = (questionId, status = 'answered') => {
+  const recordQuestionTime = (questionId, status = null) => {
     if (questionStartTime) {
       const timeSpent = Math.round((Date.now() - questionStartTime) / 1000);
+      const finalStatus = status
+        || (timedOutQuestions[questionId]
+          ? 'timeout'
+          : (answers[questionId] ? 'answered' : 'skipped'));
       setQuestionTimes(prev => ({
         ...prev,
         [questionId]: {
           timeSpent,
-          status,
+          status: finalStatus,
           timestamp: Date.now()
         }
       }));
@@ -377,7 +398,13 @@ const Quiz = ({ sessionId }) => {
 
   const next = () => {
     if (idx < questions.length - 1) {
-      recordQuestionTime(questions[idx].id, answers[questions[idx].id] ? 'answered' : 'skipped');
+      const questionId = questions[idx].id;
+      const wasTimedOut = timedOutQuestions[questionId];
+      const status = wasTimedOut
+        ? 'timeout'
+        : (answers[questionId] ? 'answered' : 'skipped');
+
+      recordQuestionTime(questionId, status);
       setTimerActive(false);
       if (timerRef.current) clearInterval(timerRef.current);
       setIdx(i => i + 1);
@@ -400,7 +427,13 @@ const Quiz = ({ sessionId }) => {
   
   const goToPrevQuestion = () => {
     if (idx > 0) {
-      recordQuestionTime(questions[idx].id, answers[questions[idx].id] ? 'answered' : 'skipped');
+      const questionId = questions[idx].id;
+      const wasTimedOut = timedOutQuestions[questionId];
+      const status = wasTimedOut
+        ? 'timeout'
+        : (answers[questionId] ? 'answered' : 'skipped');
+
+      recordQuestionTime(questionId, status);
       setTimerActive(false);
       if (timerRef.current) clearInterval(timerRef.current);
       setIdx(i => i - 1);
@@ -439,7 +472,8 @@ const Quiz = ({ sessionId }) => {
     const currentQuestionId = questions[idx].id;
     const lastQuestionAnswer = answers[currentQuestionId];
     const lastQuestionAnswered = lastQuestionAnswer != null && lastQuestionAnswer !== '';
-    const lastQuestionStatus = isLastQuestionTimeout ? 'timeout' : (lastQuestionAnswered ? 'answered' : 'skipped');
+    const lastQuestionTimedOut = isLastQuestionTimeout || timedOutQuestions[currentQuestionId];
+    const lastQuestionStatus = lastQuestionTimedOut ? 'timeout' : (lastQuestionAnswered ? 'answered' : 'skipped');
     
     // Record time for last question
     recordQuestionTime(currentQuestionId, lastQuestionStatus);
@@ -451,7 +485,7 @@ const Quiz = ({ sessionId }) => {
 
       let correct = 0;
       questions.forEach(q => {
-        if (q.type === 'mcq' && answers[q.id] === q.correctAnswer) correct++;
+        if (q.type === 'mcq' && !timedOutQuestions[q.id] && answers[q.id] === q.correctAnswer) correct++;
       });
 
       // ⏱️ Calculate total time
@@ -464,15 +498,22 @@ const Quiz = ({ sessionId }) => {
         const isLastQuestion = q.id === currentQuestionId;
         const questionAnswer = answers[q.id];
         const hasAnswer = questionAnswer != null && questionAnswer !== '';
-        
+        const wasTimedOut = timedOutQuestions[q.id];
+
         return {
           questionId: q.id,
           questionText: q.questionText,
           category: q.category,
           timeSpent: questionTimes[q.id]?.timeSpent || 0,
-          status: isLastQuestion ? lastQuestionStatus : (questionTimes[q.id]?.status || (hasAnswer ? 'answered' : 'skipped')),
-          answered: questionAnswer || null,
-          correct: q.type === 'mcq' ? questionAnswer === q.correctAnswer : null
+          status: wasTimedOut
+            ? 'timeout'
+            : (isLastQuestion
+              ? lastQuestionStatus
+              : (questionTimes[q.id]?.status || (hasAnswer ? 'answered' : 'skipped'))),
+          answered: wasTimedOut ? null : (questionAnswer || null),
+          correct: q.type === 'mcq'
+            ? (!wasTimedOut && questionAnswer === q.correctAnswer)
+            : null
         };
       });
 
@@ -548,6 +589,7 @@ const Quiz = ({ sessionId }) => {
 
   const q = questions[idx];
   const progress = ((idx + 1) / questions.length) * 100;
+  const isTimedOut = timedOutQuestions[q.id];
 
   return (
     <Page title="Quiz" subtitle={(session.employee?.fullName || 'Personel') + ' • ' + (session.employee?.store || '')}>
@@ -591,16 +633,17 @@ const Quiz = ({ sessionId }) => {
               <div className="grid grid-cols-2 gap-4">
                 {(q.options || []).map((o, i) => (
                   q.optionImageUrls[i] ? (
-                    <label 
-                      key={i} 
-                      className={'image-option-card ' + (answers[q.id] === o ? 'selected' : '')}
+                    <label
+                      key={i}
+                      className={'image-option-card ' + (answers[q.id] === o ? 'selected' : '') + (isTimedOut ? ' disabled' : '')}
                     >
-                      <input 
-                        type="radio" 
-                        name={'q-' + q.id} 
-                        className="hidden" 
-                        checked={answers[q.id] === o} 
+                      <input
+                        type="radio"
+                        name={'q-' + q.id}
+                        className="hidden"
+                        checked={answers[q.id] === o}
                         onChange={() => setAns(q.id, o)}
+                        disabled={isTimedOut}
                       />
                       <img src={q.optionImageUrls[i]} alt={`Seçenek ${i + 1}`} />
                       <div className="text-center mt-2 font-medium text-dark-900">{o}</div>
@@ -609,21 +652,22 @@ const Quiz = ({ sessionId }) => {
                 ))}
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className={'space-y-3' + (isTimedOut ? ' pointer-events-none opacity-60' : '')}>
                 {(q.options || []).map((o, i) => (
-                  <label 
-                    key={i} 
+                  <label
+                    key={i}
                     className={'option-card ' + (answers[q.id] === o ? 'selected' : '')}
                     style={{ cursor: 'pointer', display: 'block' }}
                   >
                     <div className="flex items-center gap-3">
-                      <input 
-                        type="radio" 
-                        name={'q-' + q.id} 
-                        className="w-5 h-5 flex-shrink-0" 
-                        checked={answers[q.id] === o} 
+                      <input
+                        type="radio"
+                        name={'q-' + q.id}
+                        className="w-5 h-5 flex-shrink-0"
+                        checked={answers[q.id] === o}
                         onChange={() => setAns(q.id, o)}
                         style={{ cursor: 'pointer' }}
+                        disabled={isTimedOut}
                       />
                       <span className="font-medium text-dark-900 flex-1">{o}</span>
                     </div>
@@ -632,11 +676,12 @@ const Quiz = ({ sessionId }) => {
               </div>
             )
           ) : (
-            <textarea 
-              className="field min-h-[200px]" 
-              placeholder="Cevabınızı buraya yazınız..." 
-              value={answers[q.id] || ''} 
+            <textarea
+              className="field min-h-[200px]"
+              placeholder="Cevabınızı buraya yazınız..."
+              value={answers[q.id] || ''}
               onChange={e => setAns(q.id, e.target.value)}
+              disabled={isTimedOut}
             ></textarea>
           )}
 
