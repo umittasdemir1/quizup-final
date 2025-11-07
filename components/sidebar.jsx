@@ -402,6 +402,11 @@ const Sidebar = () => {
                   <span>Soru Havuzu</span>
                 </a>
 
+                <a href="#/questions" className={isActive('/questions') ? 'active' : ''}>
+                  <span>❓</span>
+                  <span>Sorular</span>
+                </a>
+
                 <a href="#/manager" className={isActive('/manager') ? 'active' : ''}>
                   <span>📊</span>
                   <span>Yönetici Paneli</span>
@@ -463,6 +468,11 @@ const Sidebar = () => {
                 <a href="#/manager" className={isActive('/manager') ? 'active' : ''}>
                   <span>📊</span>
                   <span>Yönetici Paneli</span>
+                </a>
+
+                <a href="#/questions" className={isActive('/questions') ? 'active' : ''}>
+                  <span>❓</span>
+                  <span>Sorular</span>
                 </a>
 
                 <a href="#/tests" className={isActive('/tests') ? 'active' : ''}>
