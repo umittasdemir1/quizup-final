@@ -259,18 +259,74 @@ const resolveUuidFallback = () => {
   return generateSessionId();
 };
 
+const deriveBrowserInfo = () => {
+  if (typeof navigator === 'undefined') {
+    return { name: null, version: null };
+  }
+
+  if (navigator.userAgentData?.brands?.length) {
+    const primaryBrand = [...navigator.userAgentData.brands]
+      .sort((a, b) => (b?.version || '').localeCompare(a?.version || ''))[0];
+    if (primaryBrand) {
+      return { name: primaryBrand.brand || null, version: primaryBrand.version || null };
+    }
+  }
+
+  const ua = navigator.userAgent || '';
+  const regexMap = [
+    { name: 'Edge', regex: /Edg(e|A|iOS)?\/(\d+[\.\d]*)/i },
+    { name: 'Chrome', regex: /Chrome\/(\d+[\.\d]*)/i },
+    { name: 'Firefox', regex: /Firefox\/(\d+[\.\d]*)/i },
+    { name: 'Safari', regex: /Version\/(\d+[\.\d]*).*Safari/i }
+  ];
+
+  for (const { name, regex } of regexMap) {
+    const match = ua.match(regex);
+    if (match) {
+      return { name, version: match[2] || match[1] || null };
+    }
+  }
+
+  return { name: ua ? 'Bilinmeyen Tarayıcı' : null, version: null };
+};
+
+const createDeviceFingerprintHash = (sourceObj) => {
+  const source = JSON.stringify(sourceObj || {});
+  if (!source || source === '{}') {
+    return null;
+  }
+
+  try {
+    const encoded = btoa(source);
+    return encoded ? encoded.replace(/=/g, '').slice(0, 24) || null : null;
+  } catch (err) {
+    console.warn('Cihaz parmak izi oluşturulamadı:', err);
+    return null;
+  }
+};
+
 const buildDeviceFingerprint = () => {
   if (typeof navigator === 'undefined') {
     return {};
   }
 
-  return {
+  const browserInfo = deriveBrowserInfo();
+  const colorDepth = typeof screen !== 'undefined' ? (screen.colorDepth || null) : null;
+  const fingerprintSource = {
     userAgent: navigator.userAgent || null,
     language: navigator.language || null,
     platform: navigator.platform || null,
     vendor: navigator.vendor || null,
     deviceMemory: navigator.deviceMemory || null,
-    hardwareConcurrency: navigator.hardwareConcurrency || null
+    hardwareConcurrency: navigator.hardwareConcurrency || null,
+    colorDepth,
+    browserName: browserInfo.name || null,
+    browserVersion: browserInfo.version || null
+  };
+
+  return {
+    ...fingerprintSource,
+    fingerprint: createDeviceFingerprintHash(fingerprintSource)
   };
 };
 
@@ -314,113 +370,131 @@ const startSessionHeartbeat = (userId, sessionId) => {
   sendSessionHeartbeat(true);
 };
 
+const registerActiveSessionPromises = new Map();
+
 const registerActiveSession = async (userId) => {
   if (!userId) return null;
 
-  await waitFirebase();
+  if (registerActiveSessionPromises.has(userId)) {
+    return registerActiveSessionPromises.get(userId);
+  }
 
-  const {
-    db,
-    doc,
-    getDoc,
-    updateDoc,
-    deleteField,
-    serverTimestamp,
-    setDoc
-  } = window.firebase;
+  const registrationPromise = (async () => {
+    await waitFirebase();
 
-  const userRef = doc(db, 'users', userId);
-  const device = buildDeviceFingerprint();
+    const {
+      db,
+      doc,
+      getDoc,
+      updateDoc,
+      deleteField,
+      serverTimestamp,
+      setDoc
+    } = window.firebase;
 
-  let existingSessionId = null;
-  let existingSessionData = null;
+    const userRef = doc(db, 'users', userId);
+    const device = buildDeviceFingerprint();
 
-  try {
-    const snapshot = await getDoc(userRef);
-    if (snapshot.exists()) {
-      const userData = snapshot.data() || {};
-      const activeSessions = userData.activeSessions && typeof userData.activeSessions === 'object'
-        ? userData.activeSessions
-        : {};
+    let existingSessionId = null;
+    let existingSessionData = null;
 
-      for (const [key, value] of Object.entries(activeSessions)) {
-        const sessionDevice = value?.device || {};
-        if (sessionDevice.userAgent === device.userAgent && sessionDevice.platform === device.platform) {
-          existingSessionId = key;
-          existingSessionData = value || {};
-          break;
+    try {
+      const snapshot = await getDoc(userRef);
+      if (snapshot.exists()) {
+        const userData = snapshot.data() || {};
+        const activeSessions = userData.activeSessions && typeof userData.activeSessions === 'object'
+          ? userData.activeSessions
+          : {};
+
+        for (const [key, value] of Object.entries(activeSessions)) {
+          const sessionDevice = value?.device || {};
+          const fingerprintMatches = sessionDevice.fingerprint && device.fingerprint && sessionDevice.fingerprint === device.fingerprint;
+          const legacyMatch = !sessionDevice.fingerprint && sessionDevice.userAgent === device.userAgent && sessionDevice.platform === device.platform;
+          if (fingerprintMatches || legacyMatch) {
+            existingSessionId = key;
+            existingSessionData = value || {};
+            break;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Kullanıcı oturum bilgileri okunamadı:', err);
+    }
+
+    const derivedSessionId = deriveDeviceSessionId();
+    const sessionId = existingSessionId || derivedSessionId || resolveUuidFallback();
+    const previousSessionId = getCurrentSessionId();
+
+    if (previousSessionId && previousSessionId !== sessionId) {
+      try {
+        await updateDoc(userRef, {
+          [`activeSessions.${previousSessionId}`]: deleteField(),
+          lastSessionUpdate: serverTimestamp()
+        });
+      } catch (cleanupErr) {
+        console.warn('Önceki oturum kaydı temizlenemedi:', cleanupErr);
+        if (cleanupErr?.code === 'permission-denied' || /insufficient permissions/i.test(cleanupErr?.message || '')) {
+          clearLocalSessionInfo();
+          return null;
         }
       }
     }
-  } catch (err) {
-    console.warn('Kullanıcı oturum bilgileri okunamadı:', err);
-  }
 
-  const derivedSessionId = deriveDeviceSessionId();
-  const sessionId = existingSessionId || derivedSessionId || resolveUuidFallback();
-  const previousSessionId = getCurrentSessionId();
-
-  if (previousSessionId && previousSessionId !== sessionId) {
-    try {
-      await updateDoc(userRef, {
-        [`activeSessions.${previousSessionId}`]: deleteField(),
-        lastSessionUpdate: serverTimestamp()
-      });
-    } catch (cleanupErr) {
-      console.warn('Önceki oturum kaydı temizlenemedi:', cleanupErr);
-      if (cleanupErr?.code === 'permission-denied' || /insufficient permissions/i.test(cleanupErr?.message || '')) {
-        clearLocalSessionInfo();
-        return null;
-      }
-    }
-  }
-
-  clearLocalSessionInfo();
-
-  const now = Date.now();
-  const issuedAt = existingSessionData?.createdAtMs || now;
-
-  const sessionPayload = {
-    device,
-    lastActiveAt: serverTimestamp(),
-    lastActiveAtMs: now
-  };
-
-  if (!existingSessionId) {
-    sessionPayload.createdAt = serverTimestamp();
-    sessionPayload.createdAtMs = now;
-  }
-
-  let registrationSucceeded = false;
-
-  try {
-    await setDoc(userRef, {
-      activeSessions: {
-        [sessionId]: sessionPayload
-      },
-      lastSessionUpdate: serverTimestamp()
-    }, { merge: true });
-
-    registrationSucceeded = true;
-  } catch (err) {
-    console.warn('Aktif oturum kaydı yapılamadı:', err);
-  }
-
-  if (!registrationSucceeded) {
     clearLocalSessionInfo();
-    return null;
-  }
+
+    const now = Date.now();
+    const issuedAt = existingSessionData?.createdAtMs || now;
+
+    const sessionPayload = {
+      device,
+      lastActiveAt: serverTimestamp(),
+      lastActiveAtMs: now
+    };
+
+    if (!existingSessionId) {
+      sessionPayload.createdAt = serverTimestamp();
+      sessionPayload.createdAtMs = now;
+    }
+
+    let registrationSucceeded = false;
+
+    try {
+      await setDoc(userRef, {
+        activeSessions: {
+          [sessionId]: sessionPayload
+        },
+        lastSessionUpdate: serverTimestamp()
+      }, { merge: true });
+
+      registrationSucceeded = true;
+    } catch (err) {
+      console.warn('Aktif oturum kaydı yapılamadı:', err);
+    }
+
+    if (!registrationSucceeded) {
+      clearLocalSessionInfo();
+      return null;
+    }
+
+    try {
+      localStorage.setItem(SESSION_ID_STORAGE_KEY, sessionId);
+      localStorage.setItem(SESSION_ISSUED_STORAGE_KEY, String(issuedAt));
+    } catch (storageErr) {
+      console.warn('Session bilgileri kaydedilemedi:', storageErr);
+    }
+
+    startSessionHeartbeat(userId, sessionId);
+
+    return { sessionId, issuedAt };
+  })();
+
+  registerActiveSessionPromises.set(userId, registrationPromise);
 
   try {
-    localStorage.setItem(SESSION_ID_STORAGE_KEY, sessionId);
-    localStorage.setItem(SESSION_ISSUED_STORAGE_KEY, String(issuedAt));
-  } catch (storageErr) {
-    console.warn('Session bilgileri kaydedilemedi:', storageErr);
+    return await registrationPromise;
+  } finally {
+    registerActiveSessionPromises.delete(userId);
   }
-
-  startSessionHeartbeat(userId, sessionId);
-
-  return { sessionId, issuedAt };
 };
 
 const sessionRegistrationQueue = [];
