@@ -229,8 +229,12 @@ const generateSessionId = () => {
 };
 
 const createDeterministicSessionId = (source) => {
-  const normalized = (source || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-  if (!normalized) {
+  if (!source) {
+    return null;
+  }
+
+  const input = String(source);
+  if (!input) {
     return null;
   }
 
@@ -239,7 +243,7 @@ const createDeterministicSessionId = (source) => {
   let hash = 0x811c9dc5; // FNV offset basis
 
   for (let i = 0; chars.length < 16; i++) {
-    const code = normalized.charCodeAt(i % normalized.length);
+    const code = input.charCodeAt(i % input.length);
     hash ^= code;
     hash = Math.imul(hash, 0x01000193) >>> 0; // FNV prime
     const index = hash % alphabet.length;
