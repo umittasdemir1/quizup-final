@@ -553,6 +553,9 @@ const Result = ({ sessionId, resultId }) => {
   const fastestQ = sortedByTime[sortedByTime.length - 1];
   const slowestQ = sortedByTime[0];
   const timeoutCount = questionTimes.filter(qt => qt.status === 'timeout').length;
+  const skippedCount = questionTimes.filter(qt => qt.status === 'skipped').length;
+  const totalTimeouts = typeof data.score?.timeouts === 'number' ? data.score.timeouts : timeoutCount;
+  const totalSkipped = typeof data.score?.skipped === 'number' ? data.score.skipped : skippedCount;
 
   return (
     <Page 
@@ -634,14 +637,28 @@ const Result = ({ sessionId, resultId }) => {
             )}
           </div>
           
-          {timeoutCount > 0 && (
-            <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-200">
-              <div className="flex items-center gap-2 text-red-700">
-                <span className="text-xl">⏰</span>
-                <span className="text-sm font-semibold">
-                  {timeoutCount} soruda süre doldu
-                </span>
-              </div>
+          {(totalTimeouts > 0 || totalSkipped > 0) && (
+            <div className="mt-4 space-y-2">
+              {totalTimeouts > 0 && (
+                <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+                  <div className="flex items-center gap-2 text-red-700">
+                    <span className="text-xl">⏰</span>
+                    <span className="text-sm font-semibold">
+                      {totalTimeouts} soruda süre doldu
+                    </span>
+                  </div>
+                </div>
+              )}
+              {totalSkipped > 0 && (
+                <div className="p-3 bg-gray-100 rounded-lg border border-gray-200">
+                  <div className="flex items-center gap-2 text-gray-700">
+                    <span className="text-xl">⭕</span>
+                    <span className="text-sm font-semibold">
+                      {totalSkipped} soru boş bırakıldı
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -656,20 +673,29 @@ const Result = ({ sessionId, resultId }) => {
             const ok = q.type === 'mcq' ? picked === q.correctAnswer : null;
             const qTime = questionTimes.find(qt => qt.questionId === q.id);
             
+            const status = qTime?.status;
+            const leadingIcon = status === 'timeout'
+              ? '⏰'
+              : status === 'skipped'
+                ? '⭕'
+                : ok === true
+                  ? '✓'
+                  : ok === false
+                    ? '✕'
+                    : '📝';
+
             return (
-              <div 
-                key={q.id} 
+              <div
+                key={q.id}
                 className={
-                  'p-4 rounded-xl border-2 ' + 
-                  (ok === true ? 'border-accent-400 bg-accent-50' : 
+                  'p-4 rounded-xl border-2 ' +
+                  (ok === true ? 'border-accent-400 bg-accent-50' :
                    ok === false ? 'border-red-300 bg-red-50' : 
                    'border-secondary-200 bg-secondary-50')
                 }
               >
                 <div className="flex items-start gap-3">
-                  <div className="text-2xl">
-                    {ok === true ? '✓' : ok === false ? '✕' : '📝'}
-                  </div>
+                  <div className="text-2xl">{leadingIcon}</div>
                   <div className="flex-1">
                     <div className="text-sm font-semibold text-dark-900 mb-2">
                       {i + 1}. {q.questionText}
@@ -685,11 +711,11 @@ const Result = ({ sessionId, resultId }) => {
                     {qTime && (
                       <div className="flex gap-3 mt-2 text-xs">
                         <span className="chip chip-blue">⏱️ {qTime.timeSpent} sn</span>
-                        {qTime.status === 'timeout' && (
+                        {status === 'timeout' && (
                           <span className="chip bg-red-100 text-red-700">⏰ Süre Doldu</span>
                         )}
-                        {qTime.status === 'skipped' && (
-                          <span className="chip bg-gray-200 text-gray-700">⏭️ Atlandı</span>
+                        {status === 'skipped' && (
+                          <span className="chip bg-gray-200 text-gray-700">⭕ Boş Bırakıldı</span>
                         )}
                       </div>
                     )}

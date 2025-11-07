@@ -115,11 +115,12 @@ const Quiz = ({ sessionId }) => {
   
   // 📍 Location State
   const [userLocation, setUserLocation] = useState(null);
-  
+
   // 🔒 PIN Lock State
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState('');
+  const [showSkipConfirm, setShowSkipConfirm] = useState(false);
 
   useEffect(() => {
     const syncUser = () => {
@@ -285,6 +286,10 @@ const Quiz = ({ sessionId }) => {
     setTimedOutQuestions({});
   }, [sessionId]);
 
+  useEffect(() => {
+    setShowSkipConfirm(false);
+  }, [idx]);
+
   // ⏱️ Start timer for current question
   useEffect(() => {
     if (questions.length > 0 && questions[idx]) {
@@ -326,16 +331,6 @@ const Quiz = ({ sessionId }) => {
             }
             
             // 🔔 TOAST NOTIFICATION
-            setTimeout(() => {
-              // Check if answer was selected but not confirmed
-              const currentAnswer = answers[questions[idx].id];
-              if (currentAnswer != null && currentAnswer !== '') {
-                toast('⏰ Süre doldu! Seçtiğiniz cevap kaydedilmedi', 'error');
-              } else {
-                toast('⏰ Süre doldu! Cevap verilmedi', 'error');
-              }
-            }, 200);
-            
             const questionId = questions[idx].id;
 
             setTimedOutQuestions(prev => ({
@@ -356,16 +351,14 @@ const Quiz = ({ sessionId }) => {
             // 🔀 AUTO NEXT OR SUBMIT
             setTimeout(() => {
               if (idx < questions.length - 1) {
-                toast('➡️ Sonraki soruya geçiliyor...', 'warning');
                 setIdx(i => i + 1);
               } else {
                 // Son soruda süre bitti - otomatik test sonlandır
-                toast('⏰ Test sonlandırıldı', 'error');
                 setTimeout(() => {
                   submit(true, true); // skip confirmation, mark as timeout
-                }, 1000);
+                }, 200);
               }
-            }, 1500);
+            }, 800);
             return 0;
           }
           return t - 1;
@@ -396,18 +389,34 @@ const Quiz = ({ sessionId }) => {
     }
   };
 
+  const advanceToNextQuestion = (statusOverride = null) => {
+    if (idx >= questions.length - 1) return;
+
+    const questionId = questions[idx].id;
+    const wasTimedOut = timedOutQuestions[questionId];
+    const hasAnswer = answers[questionId] != null && answers[questionId] !== '';
+    const status = statusOverride || (wasTimedOut
+      ? 'timeout'
+      : (hasAnswer ? 'answered' : 'skipped'));
+
+    recordQuestionTime(questionId, status);
+    setTimerActive(false);
+    if (timerRef.current) clearInterval(timerRef.current);
+    setIdx(i => i + 1);
+  };
+
   const next = () => {
     if (idx < questions.length - 1) {
       const questionId = questions[idx].id;
       const wasTimedOut = timedOutQuestions[questionId];
-      const status = wasTimedOut
-        ? 'timeout'
-        : (answers[questionId] ? 'answered' : 'skipped');
+      const hasAnswer = answers[questionId] != null && answers[questionId] !== '';
 
-      recordQuestionTime(questionId, status);
-      setTimerActive(false);
-      if (timerRef.current) clearInterval(timerRef.current);
-      setIdx(i => i + 1);
+      if (!wasTimedOut && !hasAnswer) {
+        setShowSkipConfirm(true);
+        return;
+      }
+
+      advanceToNextQuestion();
     }
   };
 
@@ -429,9 +438,10 @@ const Quiz = ({ sessionId }) => {
     if (idx > 0) {
       const questionId = questions[idx].id;
       const wasTimedOut = timedOutQuestions[questionId];
+      const hasAnswer = answers[questionId] != null && answers[questionId] !== '';
       const status = wasTimedOut
         ? 'timeout'
-        : (answers[questionId] ? 'answered' : 'skipped');
+        : (hasAnswer ? 'answered' : 'skipped');
 
       recordQuestionTime(questionId, status);
       setTimerActive(false);
@@ -463,6 +473,15 @@ const Quiz = ({ sessionId }) => {
       setPinError('Uygulama PIN\'i hatalı!');
       setTimeout(() => setPinError(''), 2000);
     }
+  };
+
+  const confirmSkip = () => {
+    advanceToNextQuestion('skipped');
+    setShowSkipConfirm(false);
+  };
+
+  const cancelSkip = () => {
+    setShowSkipConfirm(false);
   };
 
   const submit = async (skipConfirm = false, isLastQuestionTimeout = false) => {
@@ -517,6 +536,9 @@ const Quiz = ({ sessionId }) => {
         };
       });
 
+      const timeoutCount = questionTimesArray.filter(item => item.status === 'timeout').length;
+      const skippedCount = questionTimesArray.filter(item => item.status === 'skipped').length;
+
       if (!window.__firebaseAuthReady) {
         try {
           await window.__firebaseAuthReadyPromise;
@@ -536,10 +558,12 @@ const Quiz = ({ sessionId }) => {
         sessionId,
         employee: session.employee,
         answers,
-        score: { 
-          correct, 
-          total: questions.length, 
-          percent: Math.round((correct / questions.length) * 100) 
+        score: {
+          correct,
+          total: questions.length,
+          percent: Math.round((correct / questions.length) * 100),
+          timeouts: timeoutCount,
+          skipped: skippedCount
         },
         // ⏱️ Time tracking data
         timeTracking: {
@@ -778,6 +802,36 @@ const Quiz = ({ sessionId }) => {
                 </button>
                 <button className="btn btn-primary flex-1" onClick={handlePinSubmit}>
                   Onayla
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {showSkipConfirm && (
+          <>
+            <div className="overlay open" onClick={cancelSkip}></div>
+            <div className="skip-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="skip-confirm-title">
+              <div className="skip-confirm-icon" aria-hidden="true">⚠️</div>
+              <div id="skip-confirm-title" className="skip-confirm-title">
+                Soru Boş Bırakıldı Olarak İşaretlenecek. Emin Misiniz?
+              </div>
+              <div className="skip-confirm-actions">
+                <button
+                  type="button"
+                  className="skip-confirm-button skip-confirm-cancel"
+                  onClick={cancelSkip}
+                  aria-label="İptal"
+                >
+                  ✕
+                </button>
+                <button
+                  type="button"
+                  className="skip-confirm-button skip-confirm-approve"
+                  onClick={confirmSkip}
+                  aria-label="Onayla"
+                >
+                  ✔
                 </button>
               </div>
             </div>

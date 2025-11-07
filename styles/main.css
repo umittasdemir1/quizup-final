@@ -248,6 +248,81 @@ main {
   pointer-events: auto;
 }
 
+.skip-confirm-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 40;
+  width: min(90vw, 340px);
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 28px 26px 24px;
+  box-shadow: 0 28px 64px rgba(15, 23, 42, 0.25);
+  text-align: center;
+}
+
+.skip-confirm-icon {
+  font-size: 32px;
+  margin-bottom: 12px;
+}
+
+.skip-confirm-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+  line-height: 1.5;
+}
+
+.skip-confirm-actions {
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+
+.skip-confirm-button {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  cursor: pointer;
+  transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
+}
+
+.skip-confirm-button:focus {
+  outline: 3px solid rgba(59, 130, 246, 0.35);
+  outline-offset: 2px;
+}
+
+.skip-confirm-button:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 18px 32px rgba(15, 23, 42, 0.18);
+}
+
+.skip-confirm-cancel {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.skip-confirm-cancel:hover {
+  background: #fecaca;
+}
+
+.skip-confirm-approve {
+  background: #dcfce7;
+  color: #047857;
+}
+
+.skip-confirm-approve:hover {
+  background: #bbf7d0;
+}
+
 /* Option Cards */
 .option-card {
   border: 2px solid #e5e7eb;
