@@ -17,8 +17,8 @@ const CircularTimer = ({ timeLeft, totalSeconds, isActive }) => {
 
   const safeTime = Math.max(0, timeLeft ?? totalSeconds);
   const progress = Math.max(0, Math.min(1, safeTime / totalSeconds));
-  const strokeWidth = 12;
-  const size = 160;
+  const strokeWidth = 4;
+  const size = 36;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference * (1 - progress);

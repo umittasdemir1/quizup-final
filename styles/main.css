@@ -527,8 +527,8 @@ main {
 }
 
 .circular-timer {
-  width: clamp(120px, 15vw, 160px);
-  height: clamp(120px, 15vw, 160px);
+  width: 36px;
+  height: 36px;
   position: relative;
   border-radius: 50%;
   display: block;
@@ -563,7 +563,7 @@ main {
   left: 50%;
   transform: translate(-50%, -50%);
   font-family: 'Inter', sans-serif;
-  font-size: clamp(58px, 12vw, 86px);
+  font-size: 12px;
   font-weight: 400;
   color: #244D5A;
   text-align: center;
@@ -578,11 +578,11 @@ main {
 @keyframes timer-ending {
   0% {
     opacity: 1;
-    transform: scale(1);
+    transform: translate(-50%, -50%) scale(1);
   }
   100% {
     opacity: 0.6;
-    transform: scale(0.92);
+    transform: translate(-50%, -50%) scale(0.92);
   }
 }
 
@@ -595,8 +595,8 @@ main {
   }
 
   .circular-timer {
-    width: 120px;
-    height: 120px;
+    width: 36px;
+    height: 36px;
   }
 }
 
