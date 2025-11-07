@@ -10,6 +10,71 @@ const getAnonymousId = () => {
   return anonId;
 };
 
+const CircularTimer = ({ timeLeft, totalSeconds, isActive }) => {
+  if (!totalSeconds || totalSeconds <= 0) {
+    return null;
+  }
+
+  const safeTime = Math.max(0, timeLeft ?? totalSeconds);
+  const progress = Math.max(0, Math.min(1, safeTime / totalSeconds));
+  const radius = 54;
+  const strokeWidth = 12;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference * (1 - progress);
+
+  let ringColor = '#3DA89C';
+  if (progress <= 0.25) {
+    ringColor = '#DC2626';
+  } else if (progress <= 0.5) {
+    ringColor = '#FF8C00';
+  } else if (progress <= 0.75) {
+    ringColor = '#FFD700';
+  }
+
+  const showEndingAnimation = safeTime <= 5 && isActive;
+
+  return (
+    <div className="floating-timer" aria-live="polite">
+      <div
+        className="circular-timer"
+        style={{
+          boxShadow: `0 12px 28px rgba(61, 168, 156, ${progress > 0.75 ? 0.25 : 0.15})`,
+        }}
+      >
+        <svg
+          className="circular-timer-ring"
+          width={(radius + strokeWidth) * 2}
+          height={(radius + strokeWidth) * 2}
+        >
+          <circle
+            className="circular-timer-ring-bg"
+            strokeWidth={strokeWidth}
+            cx={radius + strokeWidth}
+            cy={radius + strokeWidth}
+            r={radius}
+          />
+          <circle
+            className="circular-timer-ring-progress"
+            stroke={ringColor}
+            strokeWidth={strokeWidth}
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            cx={radius + strokeWidth}
+            cy={radius + strokeWidth}
+            r={radius}
+            style={{
+              filter: `drop-shadow(0 0 12px ${ringColor}40)`,
+            }}
+          />
+        </svg>
+        <div className={`circular-timer-value ${showEndingAnimation ? 'ending' : ''}`}>
+          {safeTime}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Quiz = ({ sessionId }) => {
   const [session, setSession] = useState(null);
   const [questions, setQuestions] = useState([]);
@@ -18,6 +83,7 @@ const Quiz = ({ sessionId }) => {
   const [answers, setAnswers] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [timeLeft, setTimeLeft] = useState(null);
+  const [timerTotal, setTimerTotal] = useState(null);
   const [timerActive, setTimerActive] = useState(false);
   const timerRef = useRef(null);
   const cardRef = useRef(null);
@@ -209,9 +275,11 @@ const Quiz = ({ sessionId }) => {
       
       if (currentQ.hasTimer && currentQ.timerSeconds) {
         setTimeLeft(currentQ.timerSeconds);
+        setTimerTotal(currentQ.timerSeconds);
         setTimerActive(true);
       } else {
         setTimeLeft(null);
+        setTimerTotal(null);
         setTimerActive(false);
       }
     }
@@ -473,6 +541,9 @@ const Quiz = ({ sessionId }) => {
 
   return (
     <Page title="Quiz" subtitle={(session.employee?.fullName || 'Personel') + ' • ' + (session.employee?.store || '')}>
+      {q.hasTimer && q.timerSeconds && (
+        <CircularTimer timeLeft={timeLeft} totalSeconds={timerTotal} isActive={timerActive} />
+      )}
       <div className="max-w-3xl mx-auto">
         <div className="mb-6">
           <div className="flex justify-between text-sm mb-2">
@@ -488,30 +559,6 @@ const Quiz = ({ sessionId }) => {
         </div>
 
         <div className="card p-8 space-y-6" ref={cardRef}>
-          {q.hasTimer && q.timerSeconds && (
-            <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-semibold text-dark-700">⏱️ Süre</span>
-                <span className={`timer-display ${
-                  timeLeft <= 3 ? 'text-red-600 animate-pulse' : 
-                  timeLeft <= 5 ? 'text-orange-500' : 
-                  'text-dark-900'
-                }`}>
-                  {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
-                </span>
-              </div>
-              <div className="timer-bar">
-                <div 
-                  className={`timer-progress ${
-                    timeLeft / q.timerSeconds > 0.5 ? 'green' : 
-                    timeLeft / q.timerSeconds > 0.25 ? 'yellow' : 'red'
-                  }`}
-                  style={{ width: `${(timeLeft / q.timerSeconds) * 100}%` }}
-                ></div>
-              </div>
-            </div>
-          )}
-
           <div>
             <div className="flex gap-2 mb-4">
               <span className="chip chip-blue">{typeLabel(q.type)}</span>

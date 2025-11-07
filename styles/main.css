@@ -514,29 +514,84 @@ main {
   background: #FFE8E0;
 }
 
-/* Timer Progress Bar */
-.timer-bar {
-  height: 6px;
-  background: #e5e7eb;
-  border-radius: 999px;
-  overflow: hidden;
+/* Floating Circular Timer */
+.floating-timer {
+  position: fixed;
+  right: clamp(12px, 5vw, 32px);
+  bottom: clamp(16px, 6vh, 48px);
+  z-index: 40;
+  pointer-events: none;
+}
+
+.circular-timer {
+  width: clamp(96px, 18vw, 148px);
+  height: clamp(96px, 18vw, 148px);
   position: relative;
+  border-radius: 32px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #F0F7F9 0%, #FFF5F2 100%);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  transition: box-shadow 0.4s ease;
 }
 
-.timer-progress {
-  height: 100%;
-  transition: width 1s linear, background-color 0.3s;
-  border-radius: 999px;
+.circular-timer-ring {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
 }
 
-.timer-progress.green { background: linear-gradient(90deg, #5EC5B6, #3DA89C); }
-.timer-progress.yellow { background: linear-gradient(90deg, #FFA500, #FF8C00); }
-.timer-progress.red { background: linear-gradient(90deg, #dc2626, #b91c1c); }
+.circular-timer-ring-bg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.65);
+  opacity: 0.6;
+}
 
-.timer-display {
-  font-size: 1.25rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+.circular-timer-ring-progress {
+  fill: none;
+  stroke-linecap: round;
+  transition: stroke 0.45s ease, stroke-dashoffset 1s linear;
+}
+
+.circular-timer-value {
+  position: relative;
+  font-family: 'Inter', sans-serif;
+  font-size: clamp(58px, 12vw, 86px);
+  font-weight: 400;
+  color: #244D5A;
+  text-align: center;
+  line-height: 1;
+  z-index: 1;
+  transition: transform 0.4s ease, opacity 0.4s ease;
+}
+
+.circular-timer-value.ending {
+  animation: timer-ending 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes timer-ending {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0.6;
+    transform: scale(0.92);
+  }
+}
+
+@media (max-width: 640px) {
+  .floating-timer {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    bottom: 24px;
+  }
+
+  .circular-timer {
+    border-radius: 24px;
+  }
 }
 
 /* Image Option Cards */
