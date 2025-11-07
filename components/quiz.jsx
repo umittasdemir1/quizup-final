@@ -1,4 +1,5 @@
 const { useState, useEffect, useRef, useCallback } = React;
+const { createPortal } = ReactDOM;
 
 // Get or create anonymous user ID
 const getAnonymousId = () => {
@@ -18,7 +19,7 @@ const CircularTimer = ({ timeLeft, totalSeconds, isActive }) => {
   const safeTime = Math.max(0, timeLeft ?? totalSeconds);
   const progress = Math.max(0, Math.min(1, safeTime / totalSeconds));
   const strokeWidth = 4;
-  const size = 36;
+  const size = 40;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference * (1 - progress);
@@ -34,40 +35,52 @@ const CircularTimer = ({ timeLeft, totalSeconds, isActive }) => {
 
   const showEndingAnimation = safeTime <= 5 && isActive;
 
+  const headerSlot = typeof document !== 'undefined'
+    ? document.getElementById('header-timer-slot')
+    : null;
+
+  const timerNode = (
+    <div className="circular-timer" role="timer" aria-label={`Kalan süre: ${safeTime} saniye`}>
+      <svg
+        className="circular-timer-ring"
+        width="100%"
+        height="100%"
+        viewBox={`0 0 ${size} ${size}`}
+      >
+        <circle
+          className="circular-timer-ring-bg"
+          strokeWidth={strokeWidth}
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+        />
+        <circle
+          className="circular-timer-ring-progress"
+          stroke={ringColor}
+          strokeWidth={strokeWidth}
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          style={{
+            filter: `drop-shadow(0 0 12px ${ringColor}40)`,
+          }}
+        />
+      </svg>
+      <div className={`circular-timer-value ${showEndingAnimation ? 'ending' : ''}`}>
+        {safeTime}
+      </div>
+    </div>
+  );
+
+  if (headerSlot) {
+    return createPortal(timerNode, headerSlot);
+  }
+
   return (
     <div className="floating-timer" aria-live="polite">
-      <div className="circular-timer">
-        <svg
-          className="circular-timer-ring"
-          width="100%"
-          height="100%"
-          viewBox={`0 0 ${size} ${size}`}
-        >
-          <circle
-            className="circular-timer-ring-bg"
-            strokeWidth={strokeWidth}
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-          />
-          <circle
-            className="circular-timer-ring-progress"
-            stroke={ringColor}
-            strokeWidth={strokeWidth}
-            strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset}
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            style={{
-              filter: `drop-shadow(0 0 12px ${ringColor}40)`,
-            }}
-          />
-        </svg>
-        <div className={`circular-timer-value ${showEndingAnimation ? 'ending' : ''}`}>
-          {safeTime}
-        </div>
-      </div>
+      {timerNode}
     </div>
   );
 };

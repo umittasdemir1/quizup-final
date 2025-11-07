@@ -510,76 +510,84 @@ const Sidebar = () => {
       )}
 
       <header className="sticky top-0 z-20 bg-white/90 backdrop-blur-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          {!hideSidebar && (
-            <div
-              className={'hamburger ' + (open ? 'open' : '')}
-              onClick={() => setOpen(v => !v)}
-            >
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-          )}
-
-          {hideSidebar && <div className="w-8"></div>}
-
-          <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity" onClick={handleLogoClick}>
-            <div className="logo-icon">?</div>
-            <span className="font-bold text-xl text-dark-900">QuizUp+</span>
+        <div className="max-w-7xl mx-auto px-4 py-4 grid grid-cols-[auto_1fr_auto] items-center gap-4">
+          <div className="flex items-center justify-start">
+            {!hideSidebar ? (
+              <div
+                className={'hamburger ' + (open ? 'open' : '')}
+                onClick={() => setOpen(v => !v)}
+              >
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+            ) : (
+              <div className="w-8 h-8"></div>
+            )}
           </div>
 
-          {isLoggedIn ? (
-            <div className="relative">
-              <button
-                className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                onClick={() => setShowUserMenu(v => !v)}
-              >
-                <div className="w-8 h-8 rounded-full bg-primary-500 text-white flex items-center justify-center font-bold">
-                  {currentUser.firstName?.[0]}{currentUser.lastName?.[0]}
-                </div>
-              </button>
-
-              {showUserMenu && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setShowUserMenu(false)}></div>
-                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
-                    <div className="p-4 border-b border-gray-200">
-                      <div className="font-semibold text-dark-900">
-                        {currentUser.firstName} {currentUser.lastName}
-                      </div>
-                      <div className="text-sm text-dark-500">{currentUser.email}</div>
-                      {currentUser.position && (
-                        <div className="text-xs text-dark-400 mt-1">{currentUser.position}</div>
-                      )}
-                    </div>
-                    <div className="p-2 space-y-1">
-                      <button
-                        className="w-full text-left px-4 py-2 text-sm text-dark-600 hover:bg-gray-100 rounded-lg transition-colors"
-                        onClick={openUserInfoModal}
-                      >
-                        👤 Kullanıcı Bilgileri
-                      </button>
-                      <button
-                        className="w-full text-left px-4 py-2 text-sm text-dark-600 hover:bg-gray-100 rounded-lg transition-colors"
-                        onClick={openSignOutAllModal}
-                      >
-                        🔐 Tüm cihazlarda oturumu kapat
-                      </button>
-                      <button
-                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        onClick={handleLogout}
-                      >
-                        🚪 Çıkış Yap
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
+          <div className="flex items-center justify-center">
+            <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity" onClick={handleLogoClick}>
+              <div className="logo-icon">?</div>
+              <span className="font-bold text-xl text-dark-900">QuizUp+</span>
             </div>
-          ) : (
-            <div className="w-8"></div>
-          )}
+          </div>
+
+          <div className="flex items-center justify-end gap-4">
+            <div id="header-timer-slot" className="header-timer-slot" aria-live="polite"></div>
+
+            {isLoggedIn ? (
+              <div className="relative">
+                <button
+                  className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                  onClick={() => setShowUserMenu(v => !v)}
+                >
+                  <div className="w-8 h-8 rounded-full bg-primary-500 text-white flex items-center justify-center font-bold">
+                    {currentUser.firstName?.[0]}{currentUser.lastName?.[0]}
+                  </div>
+                </button>
+
+                {showUserMenu && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowUserMenu(false)}></div>
+                    <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
+                      <div className="p-4 border-b border-gray-200">
+                        <div className="font-semibold text-dark-900">
+                          {currentUser.firstName} {currentUser.lastName}
+                        </div>
+                        <div className="text-sm text-dark-500">{currentUser.email}</div>
+                        {currentUser.position && (
+                          <div className="text-xs text-dark-400 mt-1">{currentUser.position}</div>
+                        )}
+                      </div>
+                      <div className="p-2 space-y-1">
+                        <button
+                          className="w-full text-left px-4 py-2 text-sm text-dark-600 hover:bg-gray-100 rounded-lg transition-colors"
+                          onClick={openUserInfoModal}
+                        >
+                          👤 Kullanıcı Bilgileri
+                        </button>
+                        <button
+                          className="w-full text-left px-4 py-2 text-sm text-dark-600 hover:bg-gray-100 rounded-lg transition-colors"
+                          onClick={openSignOutAllModal}
+                        >
+                          🔐 Tüm cihazlarda oturumu kapat
+                        </button>
+                        <button
+                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          onClick={handleLogout}
+                        >
+                          🚪 Çıkış Yap
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="w-8 h-8"></div>
+            )}
+          </div>
         </div>
       </header>
 
