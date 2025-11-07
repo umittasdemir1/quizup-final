@@ -121,6 +121,7 @@ const Quiz = ({ sessionId }) => {
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState('');
   const [showSkipConfirm, setShowSkipConfirm] = useState(false);
+  const [skipConfirmAction, setSkipConfirmAction] = useState(null);
 
   useEffect(() => {
     const syncUser = () => {
@@ -412,6 +413,7 @@ const Quiz = ({ sessionId }) => {
       const hasAnswer = answers[questionId] != null && answers[questionId] !== '';
 
       if (!wasTimedOut && !hasAnswer) {
+        setSkipConfirmAction('next');
         setShowSkipConfirm(true);
         return;
       }
@@ -476,22 +478,38 @@ const Quiz = ({ sessionId }) => {
   };
 
   const confirmSkip = () => {
-    advanceToNextQuestion('skipped');
+    const action = skipConfirmAction;
     setShowSkipConfirm(false);
+    setSkipConfirmAction(null);
+
+    if (action === 'submit') {
+      submit(true);
+      return;
+    }
+
+    advanceToNextQuestion('skipped');
   };
 
   const cancelSkip = () => {
     setShowSkipConfirm(false);
+    setSkipConfirmAction(null);
   };
 
   const submit = async (skipConfirm = false, isLastQuestionTimeout = false) => {
-    if (!skipConfirm && !confirm('Quizi göndermek istediğinizden emin misiniz?')) return;
-
     // Determine last question status before recording
     const currentQuestionId = questions[idx].id;
     const lastQuestionAnswer = answers[currentQuestionId];
     const lastQuestionAnswered = lastQuestionAnswer != null && lastQuestionAnswer !== '';
     const lastQuestionTimedOut = isLastQuestionTimeout || timedOutQuestions[currentQuestionId];
+
+    if (!skipConfirm && !lastQuestionTimedOut && !lastQuestionAnswered) {
+      setSkipConfirmAction('submit');
+      setShowSkipConfirm(true);
+      return;
+    }
+
+    if (!skipConfirm && !confirm('Quizi göndermek istediğinizden emin misiniz?')) return;
+
     const lastQuestionStatus = lastQuestionTimedOut ? 'timeout' : (lastQuestionAnswered ? 'answered' : 'skipped');
     
     // Record time for last question
