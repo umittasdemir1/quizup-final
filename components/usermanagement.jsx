@@ -10,7 +10,6 @@ const UserManagement = () => {
   const [adminPin, setAdminPin] = useState('');
   const [pinError, setPinError] = useState('');
   const [revealedPasswords, setRevealedPasswords] = useState({});
-  const [sessionToggleLoading, setSessionToggleLoading] = useState({});
   const [newPassword, setNewPassword] = useState('');
 
   const [form, setForm] = useState({
@@ -44,83 +43,109 @@ const UserManagement = () => {
   }, []);
 
   useEffect(() => {
-    loadUsers();
-  }, []);
+    let unsubscribe = null;
+    let cancelled = false;
 
-  const loadUsers = async () => {
-    console.log('=== LOADING USERS ===');
-    try {
-      await waitFirebase();
+    const subscribeUsers = async () => {
+      console.log('=== SUBSCRIBE USERS REALTIME ===');
+      setLoading(true);
 
-      // Check if user is admin
-      const user = getCurrentUser();
-      console.log('Current user:', user);
-      if (!user || user.role !== 'admin') {
-        console.error('User is not admin, cannot load users');
-        toast('Yetkiniz yok', 'error');
-        setLoading(false);
-        return;
-      }
+      try {
+        await waitFirebase();
 
-      const { db, collection, getDocs, orderBy, query, auth, updateDoc, doc } = window.firebase;
-      console.log('Firebase ready, Firebase Auth user:', auth.currentUser);
+        const user = getCurrentUser();
+        console.log('Current user:', user);
 
-      // Ensure Firebase Auth is ready
-      if (!auth.currentUser) {
-        console.error('Firebase Auth not ready');
-        toast('Lütfen tekrar giriş yapın', 'error');
-        setLoading(false);
-        return;
-      }
-
-      console.log('Querying users collection...');
-      const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
-      const snapshot = await getDocs(q);
-      console.log('Users snapshot size:', snapshot.size);
-
-      const data = await Promise.all(snapshot.docs.map(async (d) => {
-        const rawData = d.data();
-        const normalizedPin = rawData.applicationPin && /^\d{4}$/.test(rawData.applicationPin)
-          ? rawData.applicationPin
-          : '0000';
-
-        if ((!rawData.applicationPin || !/^\d{4}$/.test(rawData.applicationPin)) && auth.currentUser) {
-          try {
-            await updateDoc(doc(db, 'users', d.id), { applicationPin: normalizedPin });
-          } catch (pinError) {
-            console.warn('Kullanıcı PIN güncellenemedi:', pinError);
-          }
+        if (!user || user.role !== 'admin') {
+          console.error('User is not admin, cannot subscribe users');
+          toast('Yetkiniz yok', 'error');
+          setUsers([]);
+          setLoading(false);
+          return;
         }
 
-        const activeSessions = rawData.activeSessions && typeof rawData.activeSessions === 'object'
-          ? rawData.activeSessions
-          : {};
+        const { db, collection, orderBy, query, auth, updateDoc, doc, onSnapshot } = window.firebase;
 
-        const userData = {
-          id: d.id,
-          ...rawData,
-          company: rawData.company || '',
-          department: rawData.department || '',
-          position: rawData.position || '',
-          applicationPin: normalizedPin,
-          sessionsDisabled: Boolean(rawData.sessionsDisabled),
-          activeSessions
-        };
-        console.log('User:', userData);
-        return userData;
-      }));
+        if (!auth.currentUser) {
+          console.error('Firebase Auth not ready');
+          toast('Lütfen tekrar giriş yapın', 'error');
+          setUsers([]);
+          setLoading(false);
+          return;
+        }
 
-      console.log('Total users loaded:', data.length);
-      setUsers(data);
-    } catch (e) {
-      console.error('Load users error:', e);
-      console.error('Error code:', e.code);
-      console.error('Error message:', e.message);
-      toast('Kullanıcılar yüklenemedi: ' + e.message, 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
+        const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
+
+        unsubscribe = onSnapshot(q, async (snapshot) => {
+          console.log('Realtime users snapshot size:', snapshot.size);
+
+          try {
+            const data = await Promise.all(snapshot.docs.map(async (d) => {
+              const rawData = d.data();
+              const normalizedPin = rawData.applicationPin && /^\d{4}$/.test(rawData.applicationPin)
+                ? rawData.applicationPin
+                : '0000';
+
+              if ((!rawData.applicationPin || !/^\d{4}$/.test(rawData.applicationPin)) && auth.currentUser) {
+                try {
+                  await updateDoc(doc(db, 'users', d.id), { applicationPin: normalizedPin });
+                } catch (pinError) {
+                  console.warn('Kullanıcı PIN güncellenemedi:', pinError);
+                }
+              }
+
+              const activeSessions = rawData.activeSessions && typeof rawData.activeSessions === 'object'
+                ? rawData.activeSessions
+                : {};
+
+              const userData = {
+                id: d.id,
+                ...rawData,
+                company: rawData.company || '',
+                department: rawData.department || '',
+                position: rawData.position || '',
+                applicationPin: normalizedPin,
+                sessionsDisabled: Boolean(rawData.sessionsDisabled),
+                activeSessions
+              };
+              console.log('User realtime update:', userData);
+              return userData;
+            }));
+
+            if (cancelled) return;
+
+            setUsers(data);
+            setLoading(false);
+          } catch (processingError) {
+            console.error('Realtime users processing error:', processingError);
+            if (!cancelled) {
+              toast('Kullanıcılar yüklenemedi: ' + (processingError?.message || 'Bilinmeyen hata'), 'error');
+              setLoading(false);
+            }
+          }
+        }, (error) => {
+          console.error('Realtime users subscription error:', error);
+          if (!cancelled) {
+            toast('Kullanıcılar yüklenemedi: ' + (error?.message || 'Bilinmeyen hata'), 'error');
+            setLoading(false);
+          }
+        });
+      } catch (e) {
+        console.error('Subscribe users setup error:', e);
+        toast('Kullanıcılar yüklenemedi: ' + (e?.message || 'Bilinmeyen hata'), 'error');
+        setLoading(false);
+      }
+    };
+
+    subscribeUsers();
+
+    return () => {
+      cancelled = true;
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -217,7 +242,6 @@ const UserManagement = () => {
         department: '',
         applicationPin: ''
       });
-      loadUsers();
 
     } catch (error) {
       console.error('Create user error:', error);
@@ -303,7 +327,6 @@ const UserManagement = () => {
       toast('Kullanıcı başarıyla güncellendi', 'success');
       setShowEditModal(false);
       setEditingUser(null);
-      loadUsers();
 
     } catch (error) {
       console.error('Update user error:', error);
@@ -357,7 +380,6 @@ const UserManagement = () => {
       setShowPasswordModal(false);
       setEditingUser(null);
       setNewPassword('');
-      loadUsers();
 
     } catch (error) {
       console.error('Update password error:', error);
@@ -375,62 +397,19 @@ const UserManagement = () => {
       const { db, doc, deleteDoc } = window.firebase;
       await deleteDoc(doc(db, 'users', userId));
       toast('Kullanıcı silindi', 'success');
-      loadUsers();
     } catch (e) {
       console.error('Delete user error:', e);
       toast('Kullanıcı silinirken hata oluştu', 'error');
     }
   };
 
-  const handleSessionToggle = async (user, enabled) => {
-    if (!user?.id) return;
-
-    setSessionToggleLoading((prev) => ({ ...prev, [user.id]: true }));
-
+  const handleSessionRefresh = () => {
     try {
-      await waitFirebase();
-      const { db, doc, updateDoc, serverTimestamp, deleteField } = window.firebase;
-
-      const userRef = doc(db, 'users', user.id);
-      const updates = {
-        sessionsDisabled: !enabled,
-        lastSessionUpdate: serverTimestamp()
-      };
-
-      if (!enabled) {
-        updates.sessionInvalidationAt = serverTimestamp();
-
-        if (user.activeSessions && typeof user.activeSessions === 'object' && typeof deleteField === 'function') {
-          Object.keys(user.activeSessions).forEach((sessionId) => {
-            updates[`activeSessions.${sessionId}`] = deleteField();
-          });
-        }
-      } else if (typeof deleteField === 'function') {
-        updates.sessionInvalidationAt = deleteField();
+      if (typeof window !== 'undefined' && typeof window.location?.reload === 'function') {
+        window.location.reload();
       }
-
-      await updateDoc(userRef, updates);
-
-      toast(
-        enabled
-          ? `${user.firstName} ${user.lastName} oturum açabilir.`
-          : `${user.firstName} ${user.lastName} için tüm oturumlar kapatıldı.`,
-        enabled ? 'success' : 'warning'
-      );
-
-      setUsers((prev) => prev.map((u) => {
-        if (u.id !== user.id) return u;
-        return {
-          ...u,
-          sessionsDisabled: !enabled,
-          activeSessions: enabled ? u.activeSessions || {} : {}
-        };
-      }));
     } catch (err) {
-      console.error('Oturum durumu güncellenemedi:', err);
-      toast('Oturum durumu güncellenirken hata oluştu', 'error');
-    } finally {
-      setSessionToggleLoading((prev) => ({ ...prev, [user.id]: false }));
+      console.warn('Sayfa yenilemesi başarısız oldu:', err);
     }
   };
 
@@ -507,23 +486,23 @@ const UserManagement = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <label className="toggle-switch">
-                          <input
-                            type="checkbox"
-                            checked={!user.sessionsDisabled}
-                            onChange={(e) => handleSessionToggle(user, e.target.checked)}
-                            disabled={sessionToggleLoading[user.id]}
-                          />
-                          <span className="toggle-slider"></span>
-                        </label>
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <div className="text-sm text-dark-600">
-                          {sessionToggleLoading[user.id]
-                            ? 'Güncelleniyor...'
-                            : (!user.sessionsDisabled ? 'Aktif' : 'Pasif')}
+                          <div className="font-semibold text-dark-700">Aktif oturum</div>
                           <div className="text-xs text-dark-400">
                             {`${Object.keys(user.activeSessions || {}).length} oturum`}
                           </div>
+                        </div>
+                        <div className="flex justify-center">
+                          <button
+                            type="button"
+                            className="session-refresh-button"
+                            onClick={handleSessionRefresh}
+                            title="Oturum bilgilerini yenile"
+                          >
+                            <span className="session-refresh-button__label">Refresh</span>
+                            <span className="session-refresh-button__icon" aria-hidden="true">⟳</span>
+                          </button>
                         </div>
                       </div>
                     </td>
