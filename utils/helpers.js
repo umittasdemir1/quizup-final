@@ -281,6 +281,53 @@ const clearLocalSessionInfo = () => {
   }
 };
 
+const userPinCache = new Map();
+
+const fetchUserApplicationPin = async (userId, options = {}) => {
+  const { forceRefresh = false } = options || {};
+
+  if (!userId || typeof userId !== 'string') {
+    return null;
+  }
+
+  if (!forceRefresh && userPinCache.has(userId)) {
+    return userPinCache.get(userId);
+  }
+
+  await waitFirebase();
+
+  const { db, doc, getDoc } = window.firebase || {};
+
+  if (!db || typeof doc !== 'function' || typeof getDoc !== 'function') {
+    throw new Error('Firebase Firestore hazır değil');
+  }
+
+  const snapshot = await getDoc(doc(db, 'users', userId));
+
+  if (!snapshot.exists()) {
+    userPinCache.set(userId, null);
+    return null;
+  }
+
+  const data = snapshot.data() || {};
+  const pinValue = typeof data.applicationPin === 'string' && /^\d{4}$/.test(data.applicationPin)
+    ? data.applicationPin
+    : null;
+
+  userPinCache.set(userId, pinValue);
+  return pinValue;
+};
+
+const verifyApplicationPin = async (userId, candidatePin, options = {}) => {
+  const normalizedPin = typeof candidatePin === 'string' ? candidatePin.trim() : '';
+  const expectedPin = await fetchUserApplicationPin(userId, options);
+
+  return {
+    valid: Boolean(expectedPin && normalizedPin === expectedPin),
+    expectedPin
+  };
+};
+
 const SESSION_ID_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 const SESSION_ID_GROUP_SIZE = 4;
 const SESSION_ID_TOTAL_LENGTH = 16;
@@ -755,6 +802,7 @@ const logout = async (options = {}) => {
   }
 
   clearLocalSessionInfo();
+  userPinCache.clear();
 
   try {
     window.dispatchEvent(new Event('user-info-updated'));
@@ -797,6 +845,8 @@ window.requireAuth = requireAuth;
 window.registerActiveSession = registerActiveSession;
 window.getCurrentSessionId = getCurrentSessionId;
 window.logout = logout;
+window.fetchUserApplicationPin = fetchUserApplicationPin;
+window.verifyApplicationPin = verifyApplicationPin;
 
 if (typeof window !== 'undefined') {
   window.addEventListener('firebase-force-logout', (event) => {
@@ -807,6 +857,14 @@ if (typeof window !== 'undefined') {
       toastKind: detail.kind || 'warning',
       redirect: detail.redirect ?? '#/login'
     });
+  });
+
+  window.addEventListener('user-info-updated', () => {
+    try {
+      userPinCache.clear();
+    } catch (err) {
+      console.warn('PIN önbelleği temizlenemedi:', err);
+    }
   });
 
   window.addEventListener('fb-auth-state', (event) => {

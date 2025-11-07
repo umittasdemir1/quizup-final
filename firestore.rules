@@ -1,0 +1,101 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function getUser(uid) {
+      return get(/databases/$(database)/documents/users/$(uid));
+    }
+
+    function userRole(uid) {
+      return getUser(uid).data.role;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && userRole(request.auth.uid) == 'admin';
+    }
+
+    function isManager() {
+      return isSignedIn() && userRole(request.auth.uid) == 'manager';
+    }
+
+    function isAdminOrManager() {
+      return isAdmin() || isManager();
+    }
+
+    function isSelf(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function allowUserUpdateFields() {
+      return request.resource.data.keys().hasOnly([
+        'firstName',
+        'lastName',
+        'email',
+        'role',
+        'position',
+        'company',
+        'department',
+        'password',
+        'applicationPin',
+        'activeSessions',
+        'lastSessionUpdate',
+        'sessionInvalidationAt',
+        'sessionsDisabled',
+        'lastLoginAt',
+        'updatedAt',
+        'metadata',
+        'phone',
+        'photoURL',
+        'avatarUrl',
+        'createdAt',
+        'createdBy',
+        'notes'
+      ]);
+    }
+
+    match /users/{userId} {
+      allow read: if isSelf(userId) || isAdminOrManager();
+      allow create: if false;
+      allow delete: if false;
+      allow update: if (isSelf(userId) || isAdminOrManager()) && allowUserUpdateFields();
+    }
+
+    match /results/{resultId} {
+      allow read: if isAdminOrManager() ||
+        (isSignedIn() && (
+          resource.data.userId == request.auth.uid ||
+          resource.data.participantId == request.auth.uid ||
+          resource.data.uid == request.auth.uid
+        ));
+      allow create: if isSignedIn();
+      allow update, delete: if isAdminOrManager();
+    }
+
+    match /quizSessions/{sessionId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdminOrManager();
+    }
+
+    match /questions/{questionId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdminOrManager();
+    }
+
+    match /suggestedQuestions/{suggestionId} {
+      allow create: if isSignedIn();
+      allow read, update, delete: if isAdminOrManager();
+    }
+
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isAdminOrManager();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

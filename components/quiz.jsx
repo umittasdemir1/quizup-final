@@ -21,6 +21,7 @@ const Quiz = ({ sessionId }) => {
   const [timerActive, setTimerActive] = useState(false);
   const timerRef = useRef(null);
   const cardRef = useRef(null);
+  const pinErrorTimeoutRef = useRef(null);
   
   // ⏱️ Time Tracking States
   const [quizStartTime, setQuizStartTime] = useState(null);
@@ -34,42 +35,123 @@ const Quiz = ({ sessionId }) => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState('');
+  const [quizOwnerId, setQuizOwnerId] = useState(null);
+  const [quizOwnerPin, setQuizOwnerPin] = useState(undefined);
+
+  const resolveOwnerPin = async (ownerId, options = {}) => {
+    if (!ownerId) {
+      return null;
+    }
+
+    if (typeof window.fetchUserApplicationPin === 'function') {
+      try {
+        const pinValue = await window.fetchUserApplicationPin(ownerId, options);
+        if (typeof pinValue === 'string' && /^\d{4}$/.test(pinValue)) {
+          return pinValue;
+        }
+      } catch (helperError) {
+        console.error('Oturum sahibi PIN bilgisi alınamadı:', helperError);
+      }
+    }
+
+    try {
+      await waitFirebase();
+      const { db, doc, getDoc } = window.firebase;
+      const ownerSnapshot = await getDoc(doc(db, 'users', ownerId));
+
+      if (!ownerSnapshot.exists()) {
+        return null;
+      }
+
+      const ownerData = ownerSnapshot.data() || {};
+      const pinValue = ownerData.applicationPin;
+
+      if (typeof pinValue === 'string' && /^\d{4}$/.test(pinValue)) {
+        return pinValue;
+      }
+    } catch (fallbackError) {
+      console.error('Oturum sahibi PIN bilgisi okunamadı:', fallbackError);
+    }
+
+    return null;
+  };
 
   useEffect(() => {
+    let cancelled = false;
+
     (async () => {
       await waitFirebase();
       try {
         const { db, doc, getDoc } = window.firebase;
         const s = await getDoc(doc(db, 'quizSessions', sessionId));
         if (!s.exists()) {
-          setLoading(false);
-          toast('Oturum bulunamadı', 'error');
+          if (!cancelled) {
+            setSession(null);
+            setQuestions([]);
+            setQuizOwnerId(null);
+            setQuizOwnerPin(null);
+            setLoading(false);
+            toast('Oturum bulunamadı', 'error');
+          }
           return;
         }
         const sd = { id: s.id, ...s.data() };
+        if (cancelled) return;
         setSession(sd);
+
         const qs = await Promise.all((sd.questionIds || []).map(id => getDoc(doc(db, 'questions', id))));
+        if (cancelled) return;
         setQuestions(qs.filter(d => d.exists()).map(d => ({ id: d.id, ...d.data() })));
-        
+
+        const ownerId = sd.createdBy || null;
+        setQuizOwnerId(ownerId);
+        setQuizOwnerPin(ownerId ? undefined : null);
+
+        if (ownerId) {
+          try {
+            const ownerPin = await resolveOwnerPin(ownerId);
+            if (!cancelled) {
+              setQuizOwnerPin(ownerPin);
+            }
+          } catch (ownerPinError) {
+            console.error('Oturum sahibi PIN bilgisi yüklenemedi:', ownerPinError);
+            if (!cancelled) {
+              setQuizOwnerPin(null);
+            }
+          }
+        }
+
+        if (cancelled) return;
+
         // ⏱️ Start quiz timer
         setQuizStartTime(Date.now());
-        
+
         // 📍 Get location
         if (window.locationUtils) {
           window.locationUtils.getLocation().then(loc => {
-            console.log('Location obtained:', loc);
-            setUserLocation(loc);
+            if (!cancelled) {
+              console.log('Location obtained:', loc);
+              setUserLocation(loc);
+            }
           }).catch(err => {
             console.error('Location error:', err);
           });
         }
       } catch(e) {
         console.error('Quiz load error:', e);
-        toast('Quiz yüklenirken hata oluştu', 'error');
+        if (!cancelled) {
+          toast('Quiz yüklenirken hata oluştu', 'error');
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [sessionId]);
 
   const setAns = (qid, val) => setAnswers(a => ({ ...a, [qid]: val }));
@@ -157,6 +239,15 @@ const Quiz = ({ sessionId }) => {
     };
   }, [timerActive, timeLeft, idx, questions.length, answers]);
 
+  useEffect(() => {
+    return () => {
+      if (pinErrorTimeoutRef.current) {
+        clearTimeout(pinErrorTimeoutRef.current);
+        pinErrorTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   // ⏱️ Record time spent on question
   const recordQuestionTime = (questionId, status = 'answered') => {
     if (questionStartTime) {
@@ -184,17 +275,29 @@ const Quiz = ({ sessionId }) => {
   const prev = () => {
     // Check if user already answered current question or moved forward
     const hasAnsweredCurrent = answers[questions[idx].id] != null;
-    
+
     // If current question was answered or skipped, require application PIN
     if (hasAnsweredCurrent || idx > 0) {
       setShowPasswordModal(true);
       return;
     }
-    
+
     // Otherwise allow free prev (shouldn't normally happen)
     goToPrevQuestion();
   };
-  
+
+  const showPinError = (message) => {
+    if (pinErrorTimeoutRef.current) {
+      clearTimeout(pinErrorTimeoutRef.current);
+    }
+
+    setPinError(message);
+    pinErrorTimeoutRef.current = setTimeout(() => {
+      setPinError('');
+      pinErrorTimeoutRef.current = null;
+    }, 2000);
+  };
+
   const goToPrevQuestion = () => {
     if (idx > 0) {
       recordQuestionTime(questions[idx].id, answers[questions[idx].id] ? 'answered' : 'skipped');
@@ -204,26 +307,72 @@ const Quiz = ({ sessionId }) => {
       setShowPasswordModal(false);
       setPin('');
       setPinError('');
+      if (pinErrorTimeoutRef.current) {
+        clearTimeout(pinErrorTimeoutRef.current);
+        pinErrorTimeoutRef.current = null;
+      }
     }
   };
-  
-  const handlePinSubmit = () => {
-    const currentUser = getCurrentUser();
-    const expectedPin = currentUser?.applicationPin && /^\d{4}$/.test(currentUser.applicationPin)
-      ? currentUser.applicationPin
-      : '0000';
 
-    if (!/^\d{4}$/.test(pin)) {
-      setPinError('PIN 4 haneli olmalıdır!');
-      setTimeout(() => setPinError(''), 2000);
+  const handlePinSubmit = async () => {
+    const normalizedPin = typeof pin === 'string' ? pin.trim() : '';
+
+    if (!/^\d{4}$/.test(normalizedPin)) {
+      showPinError('PIN 4 haneli olmalıdır!');
       return;
     }
 
-    if (pin === expectedPin) {
-      goToPrevQuestion();
-    } else {
-      setPinError('Uygulama PIN\'i hatalı!');
-      setTimeout(() => setPinError(''), 2000);
+    if (!quizOwnerId) {
+      showPinError('Bu oturum için yetkili kullanıcı bulunamadı.');
+      return;
+    }
+
+    if (quizOwnerPin === undefined) {
+      showPinError('PIN bilgisi yükleniyor, lütfen tekrar deneyin.');
+      return;
+    }
+
+    try {
+      let verificationResult = null;
+
+      const shouldForceRefresh = quizOwnerPin === null;
+
+      if (typeof window.verifyApplicationPin === 'function') {
+        verificationResult = await window.verifyApplicationPin(quizOwnerId, normalizedPin, {
+          forceRefresh: shouldForceRefresh
+        });
+      } else {
+        const expected = await resolveOwnerPin(quizOwnerId, {
+          forceRefresh: shouldForceRefresh
+        });
+        verificationResult = {
+          valid: Boolean(expected && expected === normalizedPin),
+          expectedPin: expected
+        };
+      }
+
+      const expectedPin = typeof verificationResult?.expectedPin === 'string' && /^\d{4}$/.test(verificationResult.expectedPin)
+        ? verificationResult.expectedPin
+        : null;
+
+      if (expectedPin && quizOwnerPin !== expectedPin) {
+        setQuizOwnerPin(expectedPin);
+      }
+
+      if (!expectedPin) {
+        showPinError('Bu oturum için PIN tanımlanmamış. Lütfen yöneticinizle iletişime geçin.');
+        return;
+      }
+
+      if (verificationResult?.valid) {
+        goToPrevQuestion();
+        return;
+      }
+
+      showPinError('Uygulama PIN\'i hatalı!');
+    } catch (error) {
+      console.error('PIN doğrulama hatası:', error);
+      showPinError('PIN doğrulanırken bir hata oluştu. Lütfen tekrar deneyin.');
     }
   };
 
