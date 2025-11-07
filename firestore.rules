@@ -1,0 +1,86 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 🔓 Herkes oturum açabiliyor, UID fark etmiyor
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // 👑 Admin kontrolü (opsiyonel)
+    function isAdmin() {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // 👔 Manager veya Admin kontrolü
+    function isManagerOrAdmin() {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'manager'];
+    }
+
+    // --- QUESTIONS ---
+    match /questions/{questionId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // --- SUGGESTED QUESTIONS ---
+    match /suggestedQuestions/{suggestionId} {
+      allow read, create: if isSignedIn();
+      allow update, delete: if isAdmin();
+    }
+
+    // --- QUIZ SESSIONS ---
+    match /quizSessions/{sessionId} {
+      allow read: if true;
+      allow create, delete: if isManagerOrAdmin();
+      allow update: if isManagerOrAdmin() ||
+        (isSignedIn() &&
+         request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['status', 'answers', 'score', 'finishedAt', 'questionCount', 'duration']));
+    }
+
+    // --- RESULTS ---
+    match /results/{resultId} {
+      // 🔓 Herkes sınav sonucu oluşturabilir ancak sadece kendi kaydı için
+      allow create: if isManagerOrAdmin() ||
+        (isSignedIn() &&
+         request.resource.data.ownerUid == request.auth.uid);
+
+      // 🔒 Yalnızca kendi sonucunu veya yönetici yetkisi olanlar tüm sonuçları okuyabilir
+      allow read: if isManagerOrAdmin() ||
+        (isSignedIn() &&
+         (request.auth.uid == resource.data.ownerUid ||
+          request.auth.uid == resource.data.userId));
+
+      // 🚫 Güncelleme devre dışı
+      allow update: if false;
+
+      // 👑 Silme sadece admin veya manager
+      allow delete: if isManagerOrAdmin();
+    }
+
+    // --- USERS ---
+    match /users/{userId} {
+      allow read: if isAdmin() ||
+        (isSignedIn() && request.auth.uid == userId);
+      allow create: if isAdmin() ||
+        (isSignedIn() && request.auth.uid == userId);
+      allow update: if isAdmin() ||
+        (isSignedIn() && request.auth.uid == userId);
+      allow delete: if isAdmin();
+    }
+
+    // --- SETTINGS / BRANDING ---
+    match /settings/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /branding/settings {
+      allow read, write: if isAdmin();
+    }
+  }
+}

@@ -242,7 +242,7 @@ const Quiz = ({ sessionId }) => {
     setSubmitting(true);
     try {
       await waitFirebase();
-      const { db, collection, doc, addDoc, updateDoc, serverTimestamp } = window.firebase;
+      const { db, collection, doc, addDoc, updateDoc, serverTimestamp, auth } = window.firebase;
 
       let correct = 0;
       questions.forEach(q => {
@@ -271,7 +271,22 @@ const Quiz = ({ sessionId }) => {
         };
       });
 
+      if (!window.__firebaseAuthReady) {
+        try {
+          await window.__firebaseAuthReadyPromise;
+        } catch (err) {
+          console.warn('Auth hazır beklenirken hata oluştu:', err);
+        }
+      }
+
+      const ownerUid = auth?.currentUser?.uid || window.__firebaseCurrentUser?.uid || null;
+      if (!ownerUid) {
+        throw new Error('Kullanıcı oturumu doğrulanamadı');
+      }
+      const isAnonymousOwner = auth?.currentUser?.isAnonymous ?? window.__firebaseCurrentUser?.isAnonymous ?? false;
       const result = {
+        ownerUid,
+        ownerType: isAnonymousOwner ? 'anonymous' : 'authenticated',
         sessionId,
         employee: session.employee,
         answers,
@@ -312,7 +327,11 @@ const Quiz = ({ sessionId }) => {
       }, 100);
     } catch(e) {
       console.error('Submit error:', e);
-      toast('Quiz gönderilirken hata oluştu', 'error');
+      if (e?.message === 'Kullanıcı oturumu doğrulanamadı') {
+        toast('Oturum doğrulanamadı. Lütfen sayfayı yenileyin.', 'error');
+      } else {
+        toast('Quiz gönderilirken hata oluştu', 'error');
+      }
     } finally {
       setSubmitting(false);
     }
