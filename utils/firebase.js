@@ -139,14 +139,53 @@ const dispatchReady = (reason = 'unknown') => {
 const SESSION_ID_STORAGE_KEY = 'quizup:session:id';
 const SESSION_ISSUED_STORAGE_KEY = 'quizup:session:issuedAt';
 
-const readStoredSessionId = () => {
+const readSessionScopedValue = (key) => {
+  let sessionStorageAvailable = false;
+
   try {
-    return typeof localStorage !== 'undefined'
-      ? localStorage.getItem(SESSION_ID_STORAGE_KEY)
-      : null;
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorageAvailable = true;
+      const value = sessionStorage.getItem(key);
+      if (value !== null && value !== undefined) {
+        return { value, sessionStorageAvailable, source: 'session' };
+      }
+    }
   } catch (err) {
-    console.warn('[Firebase] Local session id okunamadı:', err);
-    return null;
+    console.warn('[Firebase] sessionStorage okunamadı:', err);
+    sessionStorageAvailable = false;
+  }
+
+  if (!sessionStorageAvailable) {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const value = localStorage.getItem(key);
+        if (value !== null && value !== undefined) {
+          return { value, sessionStorageAvailable, source: 'local' };
+        }
+      }
+    } catch (err) {
+      console.warn('[Firebase] localStorage okunamadı:', err);
+    }
+  }
+
+  return { value: null, sessionStorageAvailable, source: null };
+};
+
+const removeSessionScopedValue = (key) => {
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem(key);
+    }
+  } catch (err) {
+    console.warn('[Firebase] sessionStorage temizlenemedi:', err);
+  }
+
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(key);
+    }
+  } catch (err) {
+    console.warn('[Firebase] localStorage temizlenemedi:', err);
   }
 };
 
@@ -163,9 +202,12 @@ const evaluateSessionRegistrationNeed = (userId, userData) => {
     return result;
   }
 
-  const storedSessionId = readStoredSessionId();
+  const storedSession = readSessionScopedValue(SESSION_ID_STORAGE_KEY);
+  const storedSessionId = storedSession.value;
   result.storedSessionId = storedSessionId;
   result.hasStoredSession = Boolean(storedSessionId);
+  result.sessionStorageAvailable = storedSession.sessionStorageAvailable;
+  result.sessionStorageSource = storedSession.source;
 
   const activeSessions = userData?.activeSessions && typeof userData.activeSessions === 'object'
     ? userData.activeSessions
@@ -177,6 +219,12 @@ const evaluateSessionRegistrationNeed = (userId, userData) => {
     } catch (err) {
       console.warn('[Firebase] Aktif oturum anahtarları okunamadı:', err);
     }
+  }
+
+  if (storedSession.sessionStorageAvailable && !storedSessionId) {
+    result.needsRegistration = true;
+    result.reason = 'no-session-for-tab';
+    return result;
   }
 
   if (!storedSessionId) {
@@ -347,11 +395,11 @@ const triggerForcedLogout = (detail) => {
     console.warn('[Firebase] Force logout event failed, falling back', err);
     try {
       localStorage.removeItem('currentUser');
-      localStorage.removeItem(SESSION_ID_STORAGE_KEY);
-      localStorage.removeItem(SESSION_ISSUED_STORAGE_KEY);
     } catch (storageErr) {
       console.warn('[Firebase] Force logout storage cleanup failed', storageErr);
     }
+    removeSessionScopedValue(SESSION_ID_STORAGE_KEY);
+    removeSessionScopedValue(SESSION_ISSUED_STORAGE_KEY);
     signOut(auth).catch((signOutErr) => {
       console.warn('[Firebase] Force sign-out fallback failed', signOutErr);
     });
@@ -551,17 +599,14 @@ onAuthStateChanged(auth, async (user) => {
         let localSessionId = null;
         let localIssuedAt = 0;
 
-        try {
-          localSessionId = localStorage.getItem(SESSION_ID_STORAGE_KEY);
-        } catch (err) {
-          console.warn('[Firebase] Unable to read local session id', err);
-        }
+        const storedSessionIdResult = readSessionScopedValue(SESSION_ID_STORAGE_KEY);
+        localSessionId = storedSessionIdResult.value;
 
-        try {
-          const issuedRaw = localStorage.getItem(SESSION_ISSUED_STORAGE_KEY);
-          localIssuedAt = issuedRaw ? Number(issuedRaw) : 0;
-        } catch (err) {
-          console.warn('[Firebase] Unable to read local session timestamp', err);
+        const storedIssuedAtResult = readSessionScopedValue(SESSION_ISSUED_STORAGE_KEY);
+        const issuedRaw = storedIssuedAtResult.value;
+        localIssuedAt = issuedRaw ? Number(issuedRaw) : 0;
+        if (!Number.isFinite(localIssuedAt)) {
+          localIssuedAt = 0;
         }
 
         if (!forcedLogoutInProgress) {

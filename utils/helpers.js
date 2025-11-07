@@ -185,6 +185,79 @@ const getCurrentUser = () => {
 
 const SESSION_ID_STORAGE_KEY = 'quizup:session:id';
 const SESSION_ISSUED_STORAGE_KEY = 'quizup:session:issuedAt';
+
+const readSessionScopedValue = (key) => {
+  let sessionStorageAvailable = false;
+
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorageAvailable = true;
+      const value = sessionStorage.getItem(key);
+      if (value !== null && value !== undefined) {
+        return { value, sessionStorageAvailable, source: 'session' };
+      }
+    }
+  } catch (err) {
+    console.warn('sessionStorage okunamadı:', err);
+    sessionStorageAvailable = false;
+  }
+
+  if (!sessionStorageAvailable) {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const value = localStorage.getItem(key);
+        if (value !== null && value !== undefined) {
+          return { value, sessionStorageAvailable, source: 'local' };
+        }
+      }
+    } catch (err) {
+      console.warn('localStorage okunamadı:', err);
+    }
+  }
+
+  return { value: null, sessionStorageAvailable, source: null };
+};
+
+const persistSessionScopedValue = (key, value) => {
+  let persisted = false;
+
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem(key, value);
+      persisted = true;
+    }
+  } catch (err) {
+    console.warn('sessionStorage yazılamadı:', err);
+  }
+
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(key, value);
+    }
+  } catch (err) {
+    console.warn('localStorage yazılamadı:', err);
+  }
+
+  return persisted;
+};
+
+const removeSessionScopedValue = (key) => {
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem(key);
+    }
+  } catch (err) {
+    console.warn('sessionStorage temizlenemedi:', err);
+  }
+
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(key);
+    }
+  } catch (err) {
+    console.warn('localStorage temizlenemedi:', err);
+  }
+};
 const sessionHeartbeatState = {
   userId: null,
   sessionId: null,
@@ -193,21 +266,13 @@ const sessionHeartbeatState = {
 };
 
 const getCurrentSessionId = () => {
-  try {
-    return localStorage.getItem(SESSION_ID_STORAGE_KEY);
-  } catch (err) {
-    console.warn('Session id okunamadı:', err);
-    return null;
-  }
+  const { value } = readSessionScopedValue(SESSION_ID_STORAGE_KEY);
+  return value;
 };
 
 const clearLocalSessionInfo = () => {
-  try {
-    localStorage.removeItem(SESSION_ID_STORAGE_KEY);
-    localStorage.removeItem(SESSION_ISSUED_STORAGE_KEY);
-  } catch (err) {
-    console.warn('Session bilgileri temizlenemedi:', err);
-  }
+  removeSessionScopedValue(SESSION_ID_STORAGE_KEY);
+  removeSessionScopedValue(SESSION_ISSUED_STORAGE_KEY);
   sessionHeartbeatState.userId = null;
   sessionHeartbeatState.sessionId = null;
   if (sessionHeartbeatState.timerId) {
@@ -376,52 +441,90 @@ const registerActiveSession = async (userId) => {
   }
 
   const registrationPromise = (async () => {
+    const existingSession = readSessionScopedValue(SESSION_ID_STORAGE_KEY);
+
+    if (existingSession.value && (existingSession.source === 'session' || !existingSession.sessionStorageAvailable)) {
+      let issuedAt = Date.now();
+      const storedIssued = readSessionScopedValue(SESSION_ISSUED_STORAGE_KEY);
+      if (storedIssued.value) {
+        const parsed = Number(storedIssued.value);
+        if (Number.isFinite(parsed) && parsed > 0) {
+          issuedAt = parsed;
+        }
+      } else {
+        persistSessionScopedValue(SESSION_ISSUED_STORAGE_KEY, String(issuedAt));
+      }
+
+      startSessionHeartbeat(userId, existingSession.value);
+
+      return { sessionId: existingSession.value, issuedAt };
+    }
+
+    clearLocalSessionInfo();
+
     await waitFirebase();
 
     const {
       db,
       doc,
       serverTimestamp,
-      setDoc
+      setDoc,
+      updateDoc
     } = window.firebase;
 
     const userRef = doc(db, 'users', userId);
     const device = buildDeviceFingerprint();
     const sessionId = generateSessionId();
 
-    clearLocalSessionInfo();
-
     const now = Date.now();
     const issuedAt = now;
 
     const sessionPayload = {
       device,
+      sessionId,
       createdAt: serverTimestamp(),
       createdAtMs: now,
       lastActiveAt: serverTimestamp(),
       lastActiveAtMs: now
     };
 
+    let writeSucceeded = false;
+
     try {
-      await setDoc(userRef, {
-        activeSessions: {
-          [sessionId]: sessionPayload
-        },
-        lastSessionUpdate: serverTimestamp(),
-        sessionsDisabled: false
-      }, { merge: true });
-    } catch (err) {
-      console.warn('Aktif oturum kaydı yapılamadı:', err);
+      if (typeof updateDoc === 'function') {
+        await updateDoc(userRef, {
+          [`activeSessions.${sessionId}`]: sessionPayload,
+          lastSessionUpdate: serverTimestamp(),
+          sessionsDisabled: false
+        });
+        writeSucceeded = true;
+      }
+    } catch (updateErr) {
+      console.warn('Aktif oturum kaydı updateDoc ile yapılamadı, setDoc denenecek:', updateErr);
+    }
+
+    if (!writeSucceeded) {
+      try {
+        await setDoc(userRef, {
+          activeSessions: {
+            [sessionId]: sessionPayload
+          },
+          lastSessionUpdate: serverTimestamp(),
+          sessionsDisabled: false
+        }, { merge: true });
+        writeSucceeded = true;
+      } catch (err) {
+        console.warn('Aktif oturum kaydı yapılamadı:', err);
+      }
+    }
+
+    if (!writeSucceeded) {
       clearLocalSessionInfo();
       return null;
     }
 
-    try {
-      localStorage.setItem(SESSION_ID_STORAGE_KEY, sessionId);
-      localStorage.setItem(SESSION_ISSUED_STORAGE_KEY, String(issuedAt));
-    } catch (storageErr) {
-      console.warn('Session bilgileri kaydedilemedi:', storageErr);
-    }
+    persistSessionScopedValue(SESSION_ID_STORAGE_KEY, sessionId);
+    persistSessionScopedValue(SESSION_ISSUED_STORAGE_KEY, String(issuedAt));
 
     startSessionHeartbeat(userId, sessionId);
 
