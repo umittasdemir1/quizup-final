@@ -76,7 +76,13 @@ service cloud.firestore {
 
     match /quizSessions/{sessionId} {
       allow read: if isSignedIn();
-      allow create, update, delete: if isAdminOrManager();
+      allow update: if isAdminOrManager() || (
+        isSignedIn() &&
+        request.resource.data.diff(resource.data).changedKeys().hasOnly(['status']) &&
+        request.resource.data.status == 'completed' &&
+        resource.data.status != 'completed'
+      );
+      allow create, delete: if isAdminOrManager();
     }
 
     match /questions/{questionId} {

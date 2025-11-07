@@ -420,14 +420,21 @@ const Quiz = ({ sessionId }) => {
         };
       });
 
+      const authUser = window.__firebaseCurrentUser || null;
+      const participantId = authUser?.uid || null;
+      const isAnonymousUser = Boolean(authUser?.isAnonymous);
+
       const result = {
         sessionId,
         employee: session.employee,
         answers,
-        score: { 
-          correct, 
-          total: questions.length, 
-          percent: Math.round((correct / questions.length) * 100) 
+        participantId: participantId || null,
+        userId: isAnonymousUser ? null : (participantId || null),
+        participantType: isAnonymousUser ? 'anonymous' : (participantId ? 'authenticated' : 'unknown'),
+        score: {
+          correct,
+          total: questions.length,
+          percent: Math.round((correct / questions.length) * 100)
         },
         // ⏱️ Time tracking data
         timeTracking: {
@@ -443,7 +450,16 @@ const Quiz = ({ sessionId }) => {
       };
 
       const ref = await addDoc(collection(db, 'results'), result);
-      await updateDoc(doc(db, 'quizSessions', sessionId), { status: 'completed' });
+
+      try {
+        await updateDoc(doc(db, 'quizSessions', sessionId), { status: 'completed' });
+      } catch (statusError) {
+        if (statusError?.code === 'permission-denied') {
+          console.warn('Quiz oturumu durumunu güncelleme izni bulunmuyor:', statusError);
+        } else {
+          console.warn('Quiz oturumu durumu güncellenemedi:', statusError);
+        }
+      }
 
       // Save test ID to localStorage for anonymous users
       const anonId = getAnonymousId();
