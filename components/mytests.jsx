@@ -34,22 +34,39 @@ const MyTests = () => {
       await waitFirebase();
       const { db, doc, getDoc } = window.firebase;
 
-      const tests = await Promise.all(
-        myTestIds.map(async (testId) => {
-          try {
-            const resultDoc = await getDoc(doc(db, 'results', testId));
-            if (resultDoc.exists()) {
-              return { id: resultDoc.id, ...resultDoc.data() };
-            }
-            return null;
-          } catch (e) {
-            console.error('Error loading test:', testId, e);
-            return null;
-          }
-        })
-      );
+      const staleIds = new Set();
+      const tests = [];
 
-      setMyTests(tests.filter(t => t !== null).sort((a, b) => {
+      for (const testId of myTestIds) {
+        try {
+          const resultDoc = await getDoc(doc(db, 'results', testId));
+          if (resultDoc.exists()) {
+            tests.push({ id: resultDoc.id, ...resultDoc.data() });
+          } else {
+            staleIds.add(testId);
+          }
+        } catch (e) {
+          const code = e?.code || '';
+          if (code === 'permission-denied') {
+            staleIds.add(testId);
+            console.warn('Erişim izni olmayan test kaydı kaldırılıyor:', testId);
+          } else {
+            console.error('Test yüklenirken hata:', testId, e);
+          }
+        }
+      }
+
+      if (staleIds.size > 0) {
+        const filteredIds = myTestIds.filter(id => !staleIds.has(id));
+        localStorage.setItem(`tests_${anonId}`, JSON.stringify(filteredIds));
+        if (staleIds.size === myTestIds.length) {
+          toast('Eski test kayıtlarına erişilemiyor. Lütfen yeni bir quiz başlatın.', 'warning');
+        } else {
+          toast('Bazı eski test kayıtlarına erişilemiyor ve listeden kaldırıldı.', 'info');
+        }
+      }
+
+      setMyTests(tests.sort((a, b) => {
         const aTime = a.submittedAt?.toMillis?.() || 0;
         const bTime = b.submittedAt?.toMillis?.() || 0;
         return bTime - aTime;
