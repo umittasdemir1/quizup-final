@@ -521,6 +521,9 @@ main {
   bottom: clamp(16px, 6vh, 48px);
   z-index: 40;
   pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .circular-timer {
