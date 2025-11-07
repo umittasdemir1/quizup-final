@@ -216,81 +216,32 @@ const clearLocalSessionInfo = () => {
   }
 };
 
+const SESSION_ID_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+const SESSION_ID_GROUP_SIZE = 4;
+const SESSION_ID_TOTAL_LENGTH = 16;
+
 const generateSessionId = () => {
+  const chars = [];
+  let randomValues = null;
+
   try {
-    if (window.crypto?.randomUUID) {
-      return window.crypto.randomUUID();
+    if (typeof window !== 'undefined' && window.crypto?.getRandomValues) {
+      randomValues = new Uint8Array(SESSION_ID_TOTAL_LENGTH);
+      window.crypto.getRandomValues(randomValues);
     }
   } catch (err) {
-    console.warn('randomUUID kullanılamadı:', err);
+    console.warn('getRandomValues kullanılamadı:', err);
+    randomValues = null;
   }
 
-  return 'sess-' + Math.random().toString(16).slice(2) + Date.now().toString(16);
-};
-
-const createDeterministicSessionId = (source) => {
-  if (!source) {
-    return null;
-  }
-
-  const input = String(source);
-  if (!input) {
-    return null;
-  }
-
-  const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  const chars = [];
-  let hash = 0x811c9dc5; // FNV offset basis
-
-  for (let i = 0; chars.length < 16; i++) {
-    const code = input.charCodeAt(i % input.length);
-    hash ^= code;
-    hash = Math.imul(hash, 0x01000193) >>> 0; // FNV prime
-    const index = hash % alphabet.length;
-    chars.push(alphabet[index]);
+  for (let i = 0; i < SESSION_ID_TOTAL_LENGTH; i++) {
+    const randomValue = randomValues ? randomValues[i] : Math.floor(Math.random() * SESSION_ID_ALPHABET.length);
+    const index = randomValue % SESSION_ID_ALPHABET.length;
+    chars.push(SESSION_ID_ALPHABET[index]);
   }
 
   const rawId = chars.join('');
-  return rawId.replace(/(.{4})/g, '$1-').replace(/-$/, '');
-};
-
-const deriveDeviceSessionId = (device) => {
-  const fingerprintSource = device?.fingerprint || (device ? JSON.stringify(device) : null);
-  const fingerprintId = createDeterministicSessionId(fingerprintSource);
-  if (fingerprintId) {
-    return fingerprintId;
-  }
-
-  let fallbackSource = '';
-  if (device) {
-    fallbackSource = [
-      device.userAgent,
-      device.platform,
-      device.browserName,
-      device.browserVersion,
-      device.language
-    ].filter(Boolean).join('|');
-  }
-
-  if (!fallbackSource && typeof navigator !== 'undefined') {
-    fallbackSource = [navigator.userAgent, navigator.platform, navigator.language]
-      .filter(Boolean)
-      .join('|');
-  }
-
-  return createDeterministicSessionId(fallbackSource);
-};
-
-const resolveUuidFallback = () => {
-  try {
-    if (typeof window !== 'undefined' && typeof window.uuidv4 === 'function') {
-      return window.uuidv4();
-    }
-  } catch (err) {
-    console.warn('uuidv4 yedek çağrısı başarısız oldu:', err);
-  }
-
-  return generateSessionId();
+  return rawId.replace(new RegExp(`(.{${SESSION_ID_GROUP_SIZE}})(?=.)`, 'g'), '$1-');
 };
 
 const deriveBrowserInfo = () => {
@@ -430,78 +381,26 @@ const registerActiveSession = async (userId) => {
     const {
       db,
       doc,
-      getDoc,
-      updateDoc,
-      deleteField,
       serverTimestamp,
       setDoc
     } = window.firebase;
 
     const userRef = doc(db, 'users', userId);
     const device = buildDeviceFingerprint();
-
-    let existingSessionId = null;
-    let existingSessionData = null;
-
-    try {
-      const snapshot = await getDoc(userRef);
-      if (snapshot.exists()) {
-        const userData = snapshot.data() || {};
-        const activeSessions = userData.activeSessions && typeof userData.activeSessions === 'object'
-          ? userData.activeSessions
-          : {};
-
-        for (const [key, value] of Object.entries(activeSessions)) {
-          const sessionDevice = value?.device || {};
-          const fingerprintMatches = sessionDevice.fingerprint && device.fingerprint && sessionDevice.fingerprint === device.fingerprint;
-          const legacyMatch = !sessionDevice.fingerprint && sessionDevice.userAgent === device.userAgent && sessionDevice.platform === device.platform;
-          if (fingerprintMatches || legacyMatch) {
-            existingSessionId = key;
-            existingSessionData = value || {};
-            break;
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('Kullanıcı oturum bilgileri okunamadı:', err);
-    }
-
-    const derivedSessionId = deriveDeviceSessionId(device);
-    const sessionId = existingSessionId || derivedSessionId || resolveUuidFallback();
-    const previousSessionId = getCurrentSessionId();
-
-    if (previousSessionId && previousSessionId !== sessionId) {
-      try {
-        await updateDoc(userRef, {
-          [`activeSessions.${previousSessionId}`]: deleteField(),
-          lastSessionUpdate: serverTimestamp()
-        });
-      } catch (cleanupErr) {
-        console.warn('Önceki oturum kaydı temizlenemedi:', cleanupErr);
-        if (cleanupErr?.code === 'permission-denied' || /insufficient permissions/i.test(cleanupErr?.message || '')) {
-          clearLocalSessionInfo();
-          return null;
-        }
-      }
-    }
+    const sessionId = generateSessionId();
 
     clearLocalSessionInfo();
 
     const now = Date.now();
-    const issuedAt = existingSessionData?.createdAtMs || now;
+    const issuedAt = now;
 
     const sessionPayload = {
       device,
+      createdAt: serverTimestamp(),
+      createdAtMs: now,
       lastActiveAt: serverTimestamp(),
       lastActiveAtMs: now
     };
-
-    if (!existingSessionId) {
-      sessionPayload.createdAt = serverTimestamp();
-      sessionPayload.createdAtMs = now;
-    }
-
-    let registrationSucceeded = false;
 
     try {
       await setDoc(userRef, {
@@ -510,13 +409,8 @@ const registerActiveSession = async (userId) => {
         },
         lastSessionUpdate: serverTimestamp()
       }, { merge: true });
-
-      registrationSucceeded = true;
     } catch (err) {
       console.warn('Aktif oturum kaydı yapılamadı:', err);
-    }
-
-    if (!registrationSucceeded) {
       clearLocalSessionInfo();
       return null;
     }
