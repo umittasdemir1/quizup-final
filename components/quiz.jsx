@@ -763,9 +763,9 @@ const Quiz = ({ sessionId }) => {
                 </div>
               </button>
             ) : (
-              <button 
-                className="nav-pill nav-pill-submit w-full sm:w-auto" 
-                onClick={submit}
+              <button
+                className="nav-pill nav-pill-submit w-full sm:w-auto"
+                onClick={() => submit()}
                 disabled={submitting}
               >
                 <span className="nav-pill-text">{submitting ? 'GÖNDERİLİYOR...' : 'GÖNDER'}</span>
