@@ -407,7 +407,8 @@ const registerActiveSession = async (userId) => {
         activeSessions: {
           [sessionId]: sessionPayload
         },
-        lastSessionUpdate: serverTimestamp()
+        lastSessionUpdate: serverTimestamp(),
+        sessionsDisabled: false
       }, { merge: true });
     } catch (err) {
       console.warn('Aktif oturum kaydı yapılamadı:', err);
