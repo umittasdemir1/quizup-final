@@ -331,8 +331,19 @@ const createDeviceFingerprintHash = (sourceObj) => {
   }
 
   try {
-    const encoded = btoa(source);
-    return encoded ? encoded.replace(/=/g, '').slice(0, 24) || null : null;
+    const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_';
+    const chars = [];
+    let hash = 0x811c9dc5;
+
+    for (let i = 0; chars.length < 32; i++) {
+      const code = source.charCodeAt(i % source.length);
+      hash ^= code;
+      hash = Math.imul(hash, 0x01000193) >>> 0;
+      const index = hash % alphabet.length;
+      chars.push(alphabet[index]);
+    }
+
+    return chars.join('');
   } catch (err) {
     console.warn('Cihaz parmak izi oluşturulamadı:', err);
     return null;
