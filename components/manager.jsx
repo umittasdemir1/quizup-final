@@ -186,13 +186,41 @@ const Manager = () => {
     setSaving(true);
     try {
       await waitFirebase();
-      const { db, collection, addDoc, serverTimestamp } = window.firebase;
+      const { db, collection, addDoc, serverTimestamp, doc, getDoc } = window.firebase;
+
+      const creatorUid = window.__firebaseCurrentUser?.uid || null;
+
+      let creatorPin = '0000';
+      try {
+        const storedUser = getCurrentUser();
+        if (storedUser?.applicationPin && /^\d{4}$/.test(storedUser.applicationPin)) {
+          creatorPin = storedUser.applicationPin;
+        }
+      } catch (err) {
+        console.warn('Yerel kullanıcı bilgisi okunamadı:', err);
+      }
+
+      if (creatorUid && typeof getDoc === 'function' && typeof doc === 'function') {
+        try {
+          const userSnapshot = await getDoc(doc(db, 'users', creatorUid));
+          if (userSnapshot?.exists()) {
+            const userData = userSnapshot.data() || {};
+            if (userData.applicationPin && /^\d{4}$/.test(userData.applicationPin)) {
+              creatorPin = userData.applicationPin;
+            }
+          }
+        } catch (err) {
+          console.warn('Oturum oluşturulurken kullanıcı PIN bilgisi alınamadı:', err);
+        }
+      }
+
       const data = {
         employee: {
           fullName: form.employee.fullName.trim(),
           store: form.employee.store.trim()
         },
-        createdBy: window.__firebaseCurrentUser?.uid || null,
+        createdBy: creatorUid,
+        createdByApplicationPin: creatorPin,
         questionIds: form.questionIds,
         status: 'pending',
         createdAt: serverTimestamp()

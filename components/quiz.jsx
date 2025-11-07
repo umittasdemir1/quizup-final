@@ -29,6 +29,7 @@ const Quiz = ({ sessionId }) => {
       return null;
     }
   });
+  const [sessionOwnerPin, setSessionOwnerPin] = useState(null);
   
   // ⏱️ Time Tracking States
   const [quizStartTime, setQuizStartTime] = useState(null);
@@ -114,6 +115,34 @@ const Quiz = ({ sessionId }) => {
     }
   }, []);
 
+  const refreshSessionOwnerPin = useCallback(async () => {
+    if (!sessionId) {
+      return;
+    }
+
+    try {
+      await waitFirebase();
+      const { db, doc, getDoc } = window.firebase || {};
+      if (!db || !doc || !getDoc) {
+        return;
+      }
+
+      const sessionSnapshot = await getDoc(doc(db, 'quizSessions', sessionId));
+      if (!sessionSnapshot?.exists()) {
+        return;
+      }
+
+      const sessionData = sessionSnapshot.data() || {};
+      if (typeof sessionData.createdByApplicationPin === 'string' && /^\d{4}$/.test(sessionData.createdByApplicationPin)) {
+        setSessionOwnerPin(sessionData.createdByApplicationPin);
+      } else {
+        setSessionOwnerPin(null);
+      }
+    } catch (err) {
+      console.warn('Quiz oturum PIN bilgisi yenilenemedi:', err);
+    }
+  }, [sessionId]);
+
   useEffect(() => {
     refreshActiveUser();
   }, [refreshActiveUser]);
@@ -121,11 +150,13 @@ const Quiz = ({ sessionId }) => {
   useEffect(() => {
     if (showPasswordModal) {
       refreshActiveUser();
+      refreshSessionOwnerPin();
     }
-  }, [showPasswordModal, refreshActiveUser]);
+  }, [showPasswordModal, refreshActiveUser, refreshSessionOwnerPin]);
 
   useEffect(() => {
     (async () => {
+      setSessionOwnerPin(null);
       await waitFirebase();
       try {
         const { db, doc, getDoc } = window.firebase;
@@ -137,6 +168,11 @@ const Quiz = ({ sessionId }) => {
         }
         const sd = { id: s.id, ...s.data() };
         setSession(sd);
+        if (typeof sd.createdByApplicationPin === 'string' && /^\d{4}$/.test(sd.createdByApplicationPin)) {
+          setSessionOwnerPin(sd.createdByApplicationPin);
+        } else {
+          setSessionOwnerPin(null);
+        }
         const qs = await Promise.all((sd.questionIds || []).map(id => getDoc(doc(db, 'questions', id))));
         setQuestions(qs.filter(d => d.exists()).map(d => ({ id: d.id, ...d.data() })));
         
@@ -297,9 +333,12 @@ const Quiz = ({ sessionId }) => {
   };
   
   const handlePinSubmit = () => {
-    const expectedPin = currentUser?.applicationPin && /^\d{4}$/.test(currentUser.applicationPin)
+    const fallbackPin = currentUser?.applicationPin && /^\d{4}$/.test(currentUser.applicationPin)
       ? currentUser.applicationPin
       : '0000';
+    const expectedPin = sessionOwnerPin && /^\d{4}$/.test(sessionOwnerPin)
+      ? sessionOwnerPin
+      : fallbackPin;
 
     if (!/^\d{4}$/.test(pin)) {
       setPinError('PIN 4 haneli olmalıdır!');
