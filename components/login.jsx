@@ -33,6 +33,12 @@ const Login = () => {
 
       const userData = userDoc.data();
 
+      if (userData.sessionsDisabled) {
+        toast('Hesabınız yönetici tarafından geçici olarak devre dışı bırakıldı.', 'error');
+        await auth.signOut();
+        return;
+      }
+
       let applicationPin = userData.applicationPin;
       if (!applicationPin || !/^\d{4}$/.test(applicationPin)) {
         applicationPin = '0000';

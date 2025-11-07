@@ -10,6 +10,7 @@ const UserManagement = () => {
   const [adminPin, setAdminPin] = useState('');
   const [pinError, setPinError] = useState('');
   const [revealedPasswords, setRevealedPasswords] = useState({});
+  const [sessionToggleLoading, setSessionToggleLoading] = useState({});
   const [newPassword, setNewPassword] = useState('');
 
   const [form, setForm] = useState({
@@ -91,13 +92,19 @@ const UserManagement = () => {
           }
         }
 
+        const activeSessions = rawData.activeSessions && typeof rawData.activeSessions === 'object'
+          ? rawData.activeSessions
+          : {};
+
         const userData = {
           id: d.id,
           ...rawData,
           company: rawData.company || '',
           department: rawData.department || '',
           position: rawData.position || '',
-          applicationPin: normalizedPin
+          applicationPin: normalizedPin,
+          sessionsDisabled: Boolean(rawData.sessionsDisabled),
+          activeSessions
         };
         console.log('User:', userData);
         return userData;
@@ -375,6 +382,58 @@ const UserManagement = () => {
     }
   };
 
+  const handleSessionToggle = async (user, enabled) => {
+    if (!user?.id) return;
+
+    setSessionToggleLoading((prev) => ({ ...prev, [user.id]: true }));
+
+    try {
+      await waitFirebase();
+      const { db, doc, updateDoc, serverTimestamp, deleteField } = window.firebase;
+
+      const userRef = doc(db, 'users', user.id);
+      const updates = {
+        sessionsDisabled: !enabled,
+        lastSessionUpdate: serverTimestamp()
+      };
+
+      if (!enabled) {
+        updates.sessionInvalidationAt = serverTimestamp();
+
+        if (user.activeSessions && typeof user.activeSessions === 'object' && typeof deleteField === 'function') {
+          Object.keys(user.activeSessions).forEach((sessionId) => {
+            updates[`activeSessions.${sessionId}`] = deleteField();
+          });
+        }
+      } else if (typeof deleteField === 'function') {
+        updates.sessionInvalidationAt = deleteField();
+      }
+
+      await updateDoc(userRef, updates);
+
+      toast(
+        enabled
+          ? `${user.firstName} ${user.lastName} oturum açabilir.`
+          : `${user.firstName} ${user.lastName} için tüm oturumlar kapatıldı.`,
+        enabled ? 'success' : 'warning'
+      );
+
+      setUsers((prev) => prev.map((u) => {
+        if (u.id !== user.id) return u;
+        return {
+          ...u,
+          sessionsDisabled: !enabled,
+          activeSessions: enabled ? u.activeSessions || {} : {}
+        };
+      }));
+    } catch (err) {
+      console.error('Oturum durumu güncellenemedi:', err);
+      toast('Oturum durumu güncellenirken hata oluştu', 'error');
+    } finally {
+      setSessionToggleLoading((prev) => ({ ...prev, [user.id]: false }));
+    }
+  };
+
   const getRoleBadge = (role) => {
     if (role === 'admin') return <span className="chip bg-red-100 text-red-700">👑 Admin</span>;
     if (role === 'manager') return <span className="chip bg-blue-100 text-blue-700">👔 Yönetici</span>;
@@ -413,6 +472,7 @@ const UserManagement = () => {
                   <th className="px-6 py-3 text-left text-xs font-semibold text-dark-700 uppercase">Görev</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-dark-700 uppercase">Uygulama PIN</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-dark-700 uppercase">Şifre</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-dark-700 uppercase">Oturumlar</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-dark-700 uppercase">Oluşturulma</th>
                   <th className="px-6 py-3 text-right text-xs font-semibold text-dark-700 uppercase">İşlem</th>
                 </tr>
@@ -444,6 +504,27 @@ const UserManagement = () => {
                         >
                           {revealedPasswords[user.id] ? '🔓 Değiştir' : '🔒 Göster'}
                         </button>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <label className="toggle-switch">
+                          <input
+                            type="checkbox"
+                            checked={!user.sessionsDisabled}
+                            onChange={(e) => handleSessionToggle(user, e.target.checked)}
+                            disabled={sessionToggleLoading[user.id]}
+                          />
+                          <span className="toggle-slider"></span>
+                        </label>
+                        <div className="text-sm text-dark-600">
+                          {sessionToggleLoading[user.id]
+                            ? 'Güncelleniyor...'
+                            : (!user.sessionsDisabled ? 'Aktif' : 'Pasif')}
+                          <div className="text-xs text-dark-400">
+                            {`${Object.keys(user.activeSessions || {}).length} oturum`}
+                          </div>
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-dark-500">{fmtDate(user.createdAt)}</td>
