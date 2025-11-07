@@ -1,4 +1,4 @@
-const { useState, useEffect, useRef } = React;
+const { useState, useEffect, useRef, useCallback } = React;
 
 // Get or create anonymous user ID
 const getAnonymousId = () => {
@@ -21,6 +21,14 @@ const Quiz = ({ sessionId }) => {
   const [timerActive, setTimerActive] = useState(false);
   const timerRef = useRef(null);
   const cardRef = useRef(null);
+
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      return getCurrentUser();
+    } catch {
+      return null;
+    }
+  });
   
   // ⏱️ Time Tracking States
   const [quizStartTime, setQuizStartTime] = useState(null);
@@ -34,6 +42,87 @@ const Quiz = ({ sessionId }) => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState('');
+
+  useEffect(() => {
+    const syncUser = () => {
+      try {
+        setCurrentUser(getCurrentUser());
+      } catch (err) {
+        console.warn('Quiz sayfasında kullanıcı bilgisi yenilenemedi:', err);
+      }
+    };
+
+    window.addEventListener('user-info-updated', syncUser);
+    window.addEventListener('fb-auth-state', syncUser);
+    window.addEventListener('storage', syncUser);
+
+    return () => {
+      window.removeEventListener('user-info-updated', syncUser);
+      window.removeEventListener('fb-auth-state', syncUser);
+      window.removeEventListener('storage', syncUser);
+    };
+  }, []);
+
+  const refreshActiveUser = useCallback(async () => {
+    try {
+      await waitFirebase();
+      const { auth, db, doc, getDoc } = window.firebase || {};
+      const authUser = auth?.currentUser || window.__firebaseCurrentUser;
+
+      if (!authUser?.uid || authUser.isAnonymous) {
+        return;
+      }
+
+      const userSnapshot = await getDoc(doc(db, 'users', authUser.uid));
+      if (!userSnapshot?.exists()) {
+        return;
+      }
+
+      const userData = userSnapshot.data() || {};
+      const normalizedPin = userData.applicationPin && /^\d{4}$/.test(userData.applicationPin)
+        ? userData.applicationPin
+        : '0000';
+
+      const storedUser = (() => {
+        try {
+          return getCurrentUser() || {};
+        } catch {
+          return {};
+        }
+      })();
+
+      const normalizedUser = {
+        ...storedUser,
+        uid: authUser.uid,
+        email: storedUser.email || authUser.email || '',
+        ...userData,
+        company: userData.company || '',
+        department: userData.department || '',
+        position: userData.position || '',
+        applicationPin: normalizedPin
+      };
+
+      try {
+        localStorage.setItem('currentUser', JSON.stringify(normalizedUser));
+      } catch (storageErr) {
+        console.warn('Quiz sayfasında kullanıcı bilgisi yerelde saklanamadı:', storageErr);
+      }
+
+      setCurrentUser(normalizedUser);
+    } catch (err) {
+      console.warn('Quiz sayfasında kullanıcı bilgisi güncellenemedi:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshActiveUser();
+  }, [refreshActiveUser]);
+
+  useEffect(() => {
+    if (showPasswordModal) {
+      refreshActiveUser();
+    }
+  }, [showPasswordModal, refreshActiveUser]);
 
   useEffect(() => {
     (async () => {
@@ -208,7 +297,6 @@ const Quiz = ({ sessionId }) => {
   };
   
   const handlePinSubmit = () => {
-    const currentUser = getCurrentUser();
     const expectedPin = currentUser?.applicationPin && /^\d{4}$/.test(currentUser.applicationPin)
       ? currentUser.applicationPin
       : '0000';
