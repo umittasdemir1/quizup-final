@@ -231,6 +231,107 @@ main {
   color: #fff;
 }
 
+.sidebar-user-card {
+  position: relative;
+  padding: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-user-card-inner {
+  position: relative;
+}
+
+.sidebar-user-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: transparent;
+  border: none;
+  color: inherit;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.sidebar-user-button:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 4px;
+}
+
+.sidebar-user-initials {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #fff;
+  background: linear-gradient(135deg, #FF6B4A 0%, #E84A28 100%);
+  box-shadow: 0 10px 25px rgba(255, 107, 74, 0.25);
+}
+
+.sidebar-user-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.sidebar-user-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #f9fafb;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-user-company {
+  font-size: 0.75rem;
+  color: rgba(226, 232, 240, 0.75);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-user-chevron {
+  margin-left: auto;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(226, 232, 240, 0.8);
+  transition: transform 0.2s ease;
+}
+
+.sidebar-user-chevron::before {
+  content: '▾';
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.sidebar-user-chevron.open {
+  transform: rotate(180deg);
+}
+
+.sidebar-user-menu {
+  position: absolute;
+  left: 1.5rem;
+  right: 1.5rem;
+  margin-top: 1rem;
+  background: #ffffff;
+  border-radius: 0.75rem;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.35);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  overflow: hidden;
+  z-index: 50;
+}
+
 /* Overlay */
 .overlay {
   position: fixed;

@@ -3,6 +3,7 @@ const { useState, useEffect } = React;
 const Sidebar = () => {
   const [open, setOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [userMenuAnchor, setUserMenuAnchor] = useState(null);
   const [pendingSuggestions, setPendingSuggestions] = useState(0);
   const route = useHash();
   const [currentUser, setCurrentUser] = useState(getCurrentUser());
@@ -80,10 +81,26 @@ const Sidebar = () => {
     }
   };
 
+  const closeUserMenu = () => {
+    setShowUserMenu(false);
+    setUserMenuAnchor(null);
+  };
+
+  const toggleUserMenu = (anchor) => {
+    setShowUserMenu((prev) => {
+      if (prev && userMenuAnchor === anchor) {
+        setUserMenuAnchor(null);
+        return false;
+      }
+      setUserMenuAnchor(anchor);
+      return true;
+    });
+  };
+
   const openUserInfoModal = async () => {
     if (!currentUser?.uid) return;
 
-    setShowUserMenu(false);
+    closeUserMenu();
     setUserInfoForm({
       firstName: currentUser.firstName || '',
       lastName: currentUser.lastName || '',
@@ -132,7 +149,7 @@ const Sidebar = () => {
   };
 
   const openSignOutAllModal = () => {
-    setShowUserMenu(false);
+    closeUserMenu();
     setSignOutAllPin('');
     setSignOutAllError('');
     setSigningOutAll(false);
@@ -329,7 +346,7 @@ const Sidebar = () => {
   };
 
   const handleLogout = async () => {
-    setShowUserMenu(false);
+    closeUserMenu();
     setShowSignOutAllModal(false);
     setSignOutAllPin('');
     setSignOutAllError('');
@@ -354,6 +371,7 @@ const Sidebar = () => {
     if (open) {
       setOpen(false);
     }
+    closeUserMenu();
     setCurrentUser(getCurrentUser());
   }, [route]);
 
@@ -369,6 +387,63 @@ const Sidebar = () => {
     }
   };
 
+  const firstInitial = (value) => (value?.trim?.() ? value.trim()[0].toUpperCase() : '');
+  const avatarInitials = (() => {
+    if (!isLoggedIn) {
+      return '?';
+    }
+    const initials = `${firstInitial(currentUser?.firstName)}${firstInitial(currentUser?.lastName)}`.trim();
+    if (initials) {
+      return initials;
+    }
+    if (currentUser?.email?.length) {
+      return currentUser.email[0].toUpperCase();
+    }
+    return '?';
+  })();
+
+  const displayName = isLoggedIn
+    ? [currentUser?.firstName, currentUser?.lastName].filter(Boolean).join(' ').trim() || currentUser?.email || 'Kullanıcı'
+    : 'Misafir Kullanıcı';
+
+  const displayCompany = isLoggedIn
+    ? (currentUser?.company?.trim() || 'Şirket bilgisi yok')
+    : 'Oturum açılmadı';
+
+  const renderUserMenuContent = () => (
+    <>
+      <div className="p-4 border-b border-gray-200">
+        <div className="font-semibold text-dark-900">{displayName}</div>
+        {currentUser?.email && (
+          <div className="text-sm text-dark-500">{currentUser.email}</div>
+        )}
+        {currentUser?.position && (
+          <div className="text-xs text-dark-400 mt-1">{currentUser.position}</div>
+        )}
+      </div>
+      <div className="p-2 space-y-1">
+        <button
+          className="w-full text-left px-4 py-2 text-sm text-dark-600 hover:bg-gray-100 rounded-lg transition-colors"
+          onClick={openUserInfoModal}
+        >
+          👤 Kullanıcı Bilgileri
+        </button>
+        <button
+          className="w-full text-left px-4 py-2 text-sm text-dark-600 hover:bg-gray-100 rounded-lg transition-colors"
+          onClick={openSignOutAllModal}
+        >
+          🔐 Tüm cihazlarda oturumu kapat
+        </button>
+        <button
+          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+          onClick={handleLogout}
+        >
+          🚪 Çıkış Yap
+        </button>
+      </div>
+    </>
+  );
+
   return (
     <>
       <div
@@ -378,14 +453,38 @@ const Sidebar = () => {
 
       {!hideSidebar && (
         <div className={'sidebar ' + (open ? 'open' : '')}>
-          <div className="p-6 border-b border-dark-700 cursor-pointer hover:bg-dark-800 transition-colors" onClick={handleLogoClick}>
-            <div className="flex items-center gap-3">
-              <div className="logo-icon">?</div>
-              <div>
-                <div className="text-xl font-bold text-white">QuizUp+</div>
-                <div className="text-xs text-dark-300">Boost Your Knowledge</div>
-              </div>
+          <div className="sidebar-user-card">
+            <div className="sidebar-user-card-inner">
+              <button
+                type="button"
+                className="sidebar-user-button"
+                onClick={() => {
+                  if (isLoggedIn) {
+                    toggleUserMenu('sidebar');
+                  } else {
+                    handleLogoClick();
+                  }
+                }}
+              >
+                <div className="sidebar-user-initials" aria-hidden="true">{avatarInitials}</div>
+                <div className="sidebar-user-meta">
+                  <div className="sidebar-user-name">{displayName}</div>
+                  <div className="sidebar-user-company">{displayCompany}</div>
+                </div>
+                {isLoggedIn && (
+                  <span
+                    className={'sidebar-user-chevron' + (showUserMenu && userMenuAnchor === 'sidebar' ? ' open' : '')}
+                    aria-hidden="true"
+                  ></span>
+                )}
+              </button>
             </div>
+            {isLoggedIn && showUserMenu && userMenuAnchor === 'sidebar' && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={closeUserMenu}></div>
+                <div className="sidebar-user-menu">{renderUserMenuContent()}</div>
+              </>
+            )}
           </div>
 
           <nav className="py-4">
@@ -550,47 +649,20 @@ const Sidebar = () => {
             {isLoggedIn ? (
               <div className="relative">
                 <button
+                  type="button"
                   className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                  onClick={() => setShowUserMenu(v => !v)}
+                  onClick={() => toggleUserMenu('header')}
                 >
                   <div className="w-10 h-10 rounded-full bg-primary-500 text-white flex items-center justify-center font-bold">
-                    {currentUser.firstName?.[0]}{currentUser.lastName?.[0]}
+                    {avatarInitials}
                   </div>
                 </button>
 
-                {showUserMenu && (
+                {showUserMenu && userMenuAnchor === 'header' && (
                   <>
-                    <div className="fixed inset-0 z-10" onClick={() => setShowUserMenu(false)}></div>
+                    <div className="fixed inset-0 z-10" onClick={closeUserMenu}></div>
                     <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
-                      <div className="p-4 border-b border-gray-200">
-                        <div className="font-semibold text-dark-900">
-                          {currentUser.firstName} {currentUser.lastName}
-                        </div>
-                        <div className="text-sm text-dark-500">{currentUser.email}</div>
-                        {currentUser.position && (
-                          <div className="text-xs text-dark-400 mt-1">{currentUser.position}</div>
-                        )}
-                      </div>
-                      <div className="p-2 space-y-1">
-                        <button
-                          className="w-full text-left px-4 py-2 text-sm text-dark-600 hover:bg-gray-100 rounded-lg transition-colors"
-                          onClick={openUserInfoModal}
-                        >
-                          👤 Kullanıcı Bilgileri
-                        </button>
-                        <button
-                          className="w-full text-left px-4 py-2 text-sm text-dark-600 hover:bg-gray-100 rounded-lg transition-colors"
-                          onClick={openSignOutAllModal}
-                        >
-                          🔐 Tüm cihazlarda oturumu kapat
-                        </button>
-                        <button
-                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          onClick={handleLogout}
-                        >
-                          🚪 Çıkış Yap
-                        </button>
-                      </div>
+                      {renderUserMenuContent()}
                     </div>
                   </>
                 )}
