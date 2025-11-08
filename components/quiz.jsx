@@ -741,7 +741,9 @@ const Quiz = ({ sessionId }) => {
               </div>
               <span className="nav-pill-text">Prev</span>
               {idx > 0 && (
-                <span className="absolute -top-1 -right-1 text-xs bg-white rounded-full w-5 h-5 flex items-center justify-center shadow-md">🔒</span>
+                <span className="absolute -top-1 -right-1 text-xs bg-white rounded-full w-5 h-5 flex items-center justify-center shadow-md">
+                  <LockClosedIcon size={12} strokeWidth={2} className="text-gray-600" />
+                </span>
               )}
             </button>
 
@@ -796,7 +798,9 @@ const Quiz = ({ sessionId }) => {
               maxWidth: '400px',
               width: '90%'
             }}>
-              <h3 className="text-lg font-bold text-dark-900 mb-4">🔒 Uygulama PIN</h3>
+              <h3 className="text-lg font-bold text-dark-900 mb-4 flex items-center gap-2">
+                <LockClosedIcon size={20} strokeWidth={2} /> Uygulama PIN
+              </h3>
               <p className="text-sm text-dark-600 mb-4">Önceki soruya dönmek için uygulama PIN'inizi girin.</p>
               <input
                 type="password"
@@ -808,7 +812,9 @@ const Quiz = ({ sessionId }) => {
                 autoFocus
               />
               {pinError && (
-                <div className="text-red-600 text-sm mb-3">❌ {pinError}</div>
+                <div className="text-red-600 text-sm mb-3 flex items-center gap-1">
+                  <XCircleIcon size={16} strokeWidth={2} /> {pinError}
+                </div>
               )}
               <div className="flex gap-2">
                 <button className="btn btn-ghost flex-1" onClick={() => {
@@ -830,7 +836,9 @@ const Quiz = ({ sessionId }) => {
           <>
             <div className="overlay open" onClick={cancelSkip}></div>
             <div className="skip-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="skip-confirm-title">
-              <div className="skip-confirm-icon" aria-hidden="true">⚠️</div>
+              <div className="skip-confirm-icon" aria-hidden="true">
+                <ExclamationTriangleIcon size={48} strokeWidth={1.5} className="text-yellow-600" />
+              </div>
               <div id="skip-confirm-title" className="skip-confirm-title">
                 Soru Boş Bırakıldı Olarak İşaretlenecek. Emin Misiniz?
               </div>
@@ -841,7 +849,7 @@ const Quiz = ({ sessionId }) => {
                   onClick={cancelSkip}
                   aria-label="İptal"
                 >
-                  ✕
+                  <XMarkIcon size={24} strokeWidth={2} />
                 </button>
                 <button
                   type="button"
@@ -849,7 +857,7 @@ const Quiz = ({ sessionId }) => {
                   onClick={confirmSkip}
                   aria-label="Onayla"
                 >
-                  ✔
+                  <CheckIcon size={24} strokeWidth={2} />
                 </button>
               </div>
             </div>

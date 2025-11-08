@@ -311,4 +311,39 @@ window.LinkIcon = ({ className = '', size = 24, strokeWidth = 1.5 }) => (
   </svg>
 );
 
-console.log('✅ Heroicons library loaded - 40 outline icons available');
+// LockClosedIcon (Lock icon)
+window.LockClosedIcon = ({ className = '', size = 24, strokeWidth = 1.5 }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+  </svg>
+);
+
+// XCircleIcon (X in circle)
+window.XCircleIcon = ({ className = '', size = 24, strokeWidth = 1.5 }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
+// XMarkIcon (X mark)
+window.XMarkIcon = ({ className = '', size = 24, strokeWidth = 1.5 }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 18L18 6M6 6l12 12" />
+  </svg>
+);
+
+// CheckIcon (Check mark)
+window.CheckIcon = ({ className = '', size = 24, strokeWidth = 1.5 }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4.5 12.75l6 6 9-13.5" />
+  </svg>
+);
+
+// ExclamationTriangleIcon (Warning triangle)
+window.ExclamationTriangleIcon = ({ className = '', size = 24, strokeWidth = 1.5 }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+  </svg>
+);
+
+console.log('✅ Heroicons library loaded - 46 outline icons available');
