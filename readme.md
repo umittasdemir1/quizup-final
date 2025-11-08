@@ -41,47 +41,91 @@ Modern bir perakende quiz/test platformu. Personel eğitimi ve değerlendirmesi 
 
 ## 🚀 Kurulum
 
-1. `config/runtime-env.sample.js` dosyasını `config/runtime-env.js` olarak kopyalayın ve yerel geliştirme için `VITE_FIREBASE_API_KEY` değerini girin (Netlify dağıtımında bu dosya build sırasında otomatik üretilecektir).
-2. `config/firebase-config.sample.js` dosyasını `config/firebase-config.js` olarak kopyalayıp Firebase projenizin `authDomain`, `projectId`, `storageBucket`, `messagingSenderId`, `appId`, `measurementId` gibi alanlarını doldurun. `apiKey` alanı Netlify ortam değişkeninden otomatik olarak gelecektir.
-3. Dosyaları bir web sunucusuna yükleyin veya yerelde statik sunucu ile çalıştırın.
-4. `index.html` dosyasını açın.
+### Netlify'da Deploy (Önerilen)
 
-### Netlify üzerinde VITE_FIREBASE_API_KEY tanımlama
+Bu proje Netlify üzerinde otomatik deploy için optimize edilmiştir.
 
-1. Netlify panelinde sitenizi açın ve **Site settings → Environment variables** sayfasına gidin.
-2. Yeni değişken ekleyerek adını **`VITE_FIREBASE_API_KEY`** olarak belirleyin ve Firebase projenizdeki API anahtarını değer olarak kaydedin.
-3. Build komutunuzun bir parçası olarak aşağıdaki satırı ekleyin ki Netlify dağıtımı sırasında `config/runtime-env.js` dosyası otomatik üretilebilsin:
+**1. Netlify Environment Variables Ayarları**
+
+Netlify panelinde: **Site settings → Environment variables**
+
+Şu değişkeni ekleyin:
+- **Variable name:** `VITE_FIREBASE_API_KEY`
+- **Value:** Firebase API anahtarınız (Firebase Console → Project Settings → General)
+
+**2. Netlify Build Settings**
+
+Netlify panelinde: **Site settings → Build & deploy → Build settings**
+
+- **Build command:**
+  ```bash
+  mkdir -p config && echo "window.__RUNTIME_CONFIG = { VITE_FIREBASE_API_KEY: '${VITE_FIREBASE_API_KEY}' };" > config/runtime-env.js && echo "window.__FIREBASE_CONFIG = { apiKey: window.__RUNTIME_CONFIG?.VITE_FIREBASE_API_KEY || '${VITE_FIREBASE_API_KEY}', authDomain: 'YOUR_AUTH_DOMAIN', projectId: 'YOUR_PROJECT_ID', storageBucket: 'YOUR_STORAGE_BUCKET', messagingSenderId: 'YOUR_SENDER_ID', appId: 'YOUR_APP_ID', measurementId: 'YOUR_MEASUREMENT_ID' };" > config/firebase-config.js
+  ```
+  ⚠️ **Önemli:** Build command'daki Firebase config değerlerini kendi projenize göre değiştirin!
+
+- **Publish directory:** `.` (root)
+
+**3. Deploy**
+
+Ayarları yaptıktan sonra Netlify otomatik olarak deploy edecektir.
+
+### Yerel Geliştirme (Opsiyonel)
+
+1. Repository'yi clone edin
+2. `config/runtime-env.sample.js` dosyasını `config/runtime-env.js` olarak kopyalayın
+3. `config/firebase-config.sample.js` dosyasını `config/firebase-config.js` olarak kopyalayın
+4. Her iki dosyada `YOUR_*` placeholder'ları Firebase Console'dan aldığınız değerlerle değiştirin
+5. Basit bir HTTP server ile çalıştırın:
    ```bash
-   echo "window.__RUNTIME_CONFIG = { VITE_FIREBASE_API_KEY: '${VITE_FIREBASE_API_KEY}' };" > config/runtime-env.js
+   # Python ile
+   python -m http.server 8000
+   # veya Node.js ile
+   npx http-server
    ```
-4. Yerel geliştirmede aynı dosyayı manuel olarak oluşturarak anahtarı güvenli bir şekilde yönetebilirsiniz; dosya `.gitignore` içinde olduğu için sürüm kontrolüne dahil edilmez.
+6. `http://localhost:8000` adresini açın
+
+**Not:** `config/firebase-config.js` ve `config/runtime-env.js` dosyaları `.gitignore`'da olduğu için commit edilmez.
 
 ## 📁 Dosya Yapısı
 
 ```
-quizup-project/
-├── index.html                  # Ana HTML shell
-├── components/                 # React bileşenleri
-│   ├── Admin.jsx              # Admin paneli
-│   ├── AdminForm.jsx          # Soru formu
-│   ├── QuestionList.jsx       # Soru listesi
-│   ├── Manager.jsx            # Manager paneli
-│   ├── Quiz.jsx               # Quiz arayüzü
-│   ├── Dashboard.jsx          # Dashboard
-│   ├── Tests.jsx              # Test sonuçları
-│   ├── Result.jsx             # Detaylı sonuç
-│   ├── Branding.jsx           # Marka ayarları
-│   ├── Landing.jsx            # Ana sayfa
-│   └── Sidebar.jsx            # Navigasyon
-├── utils/                     # Yardımcı fonksiyonlar
-│   ├── firebase.js            # Firebase yapılandırması
-│   ├── helpers.js             # Genel yardımcılar
-│   └── hooks.js               # React hooks
+quizup-final/
+├── .gitignore                       # Git ignore kuralları
+├── index.html                       # Ana HTML shell
+├── readme.md                        # Bu dosya
+├── components/                      # React bileşenleri
+│   ├── Admin.jsx                   # Admin paneli
+│   ├── AdminForm.jsx               # Soru formu
+│   ├── QuestionList.jsx            # Soru listesi
+│   ├── Manager.jsx                 # Manager paneli
+│   ├── Quiz.jsx                    # Quiz arayüzü
+│   ├── Dashboard.jsx               # Dashboard
+│   ├── Tests.jsx                   # Test sonuçları
+│   ├── Result.jsx                  # Detaylı sonuç
+│   ├── Branding.jsx                # Marka ayarları
+│   ├── Landing.jsx                 # Ana sayfa
+│   ├── Login.jsx                   # Giriş sayfası
+│   ├── UserManagement.jsx          # Kullanıcı yönetimi
+│   ├── SuggestQuestion.jsx         # Soru önerisi formu
+│   ├── SuggestedQuestions.jsx      # Önerilen sorular listesi
+│   ├── MyTests.jsx                 # Kişisel test sonuçları
+│   ├── Questions.jsx               # Soru bankası
+│   ├── LocationMap.jsx             # Konum haritası
+│   └── Sidebar.jsx                 # Navigasyon
+├── utils/                          # Yardımcı fonksiyonlar
+│   ├── firebase.js                 # Firebase yapılandırması ve auth
+│   ├── helpers.js                  # Genel yardımcılar ve utilities
+│   ├── hooks.js                    # Custom React hooks
+│   └── location.js                 # Konum servisleri
 ├── styles/
-│   └── main.css               # Ana stil dosyası
+│   └── main.css                    # Ana stil dosyası (custom CSS)
 └── config/
-    ├── tailwind.config.js           # Tailwind yapılandırması
-    └── firebase-config.sample.js    # Yerel Firebase yapılandırma şablonu
+    ├── tailwind.config.js          # Tailwind yapılandırması
+    ├── pdf-fonts.js                # PDF font yapılandırması
+    ├── firebase-config.sample.js   # Firebase config şablonu (yerel geliştirme)
+    ├── runtime-env.sample.js       # Runtime env şablonu (yerel geliştirme)
+    ├── firebase-config.js          # (Build sırasında oluşturulur - .gitignore'da)
+    └── runtime-env.js              # (Build sırasında oluşturulur - .gitignore'da)
 ```
 
 ## 🛠️ Teknolojiler
