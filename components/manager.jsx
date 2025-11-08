@@ -459,7 +459,7 @@ const Manager = () => {
             <div className="card p-4 mb-4 bg-secondary-50 border border-secondary-200 rounded-2xl">
               <div className="question-toolbar">
                 <div className="relative flex-1 w-full">
-                  <span className="question-search-icon">🔍</span>
+                  <span className="question-search-icon"><MagnifyingGlassIcon size={18} strokeWidth={2} /></span>
                   <input
                     type="search"
                     className="field w-full pl-10"
@@ -638,7 +638,7 @@ const Manager = () => {
                             </span>
                           )}
                           {data.hasTimer && Number(data.timerSeconds) > 0 ? (
-                            <span className="chip chip-blue text-xs">⏱️ {data.timerSeconds} sn</span>
+                            <span className="chip chip-blue text-xs inline-flex items-center gap-1"><ClockIcon size={12} strokeWidth={2} /> {data.timerSeconds} sn</span>
                           ) : (
                             <span className="chip bg-gray-100 text-gray-500 text-xs">Süresiz</span>
                           )}

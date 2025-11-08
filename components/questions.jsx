@@ -242,7 +242,7 @@ const QuestionBank = () => {
       <div className="card p-4 mb-6">
         <div className="question-toolbar">
           <div className="relative flex-1 w-full">
-            <span className="question-search-icon">🔍</span>
+            <span className="question-search-icon"><MagnifyingGlassIcon size={18} strokeWidth={2} /></span>
             <input
               type="search"
               className="field w-full pl-10"
