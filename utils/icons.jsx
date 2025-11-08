@@ -346,4 +346,32 @@ window.ExclamationTriangleIcon = ({ className = '', size = 24, strokeWidth = 1.5
   </svg>
 );
 
-console.log('✅ Heroicons library loaded - 46 outline icons available');
+// ArrowDownTrayIcon (Download icon)
+window.ArrowDownTrayIcon = ({ className = '', size = 24, strokeWidth = 1.5 }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+  </svg>
+);
+
+// BoltIcon (Fast/Lightning icon)
+window.BoltIcon = ({ className = '', size = 24, strokeWidth = 1.5 }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+  </svg>
+);
+
+// MinusCircleIcon (Minus in circle)
+window.MinusCircleIcon = ({ className = '', size = 24, strokeWidth = 1.5 }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
+// PlusCircleIcon (Plus in circle)
+window.PlusCircleIcon = ({ className = '', size = 24, strokeWidth = 1.5 }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
+console.log('✅ Heroicons library loaded - 50 outline icons available');

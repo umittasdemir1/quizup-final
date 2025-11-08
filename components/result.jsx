@@ -561,7 +561,7 @@ const Result = ({ sessionId, resultId }) => {
     <Page 
       title="Sonuç" 
       subtitle={(session?.employee?.fullName || 'Personel') + ' • ' + (session?.employee?.store || '')} 
-      extra={<button className="btn btn-primary" onClick={downloadPDF}>📥 PDF İndir</button>}
+      extra={<button className="btn btn-primary flex items-center gap-2" onClick={downloadPDF}><ArrowDownTrayIcon size={18} strokeWidth={2} /> PDF İndir</button>}
     >
       <div className="grid lg:grid-cols-3 gap-6 mb-6">
         {/* Score Circle - Fixed inline display */}
@@ -614,7 +614,9 @@ const Result = ({ sessionId, resultId }) => {
 
             {fastestQ && (
               <div className="bg-accent-50 p-3 sm:p-4 rounded-xl border border-accent-200 flex flex-col justify-center min-h-[80px]">
-                <div className="text-xs sm:text-sm text-dark-600 mb-1 sm:mb-2">🏃 En Hızlı</div>
+                <div className="text-xs sm:text-sm text-dark-600 mb-1 sm:mb-2 flex items-center gap-1">
+                  <BoltIcon size={16} strokeWidth={2} /> En Hızlı
+                </div>
                 <div className="text-base sm:text-lg md:text-xl font-bold text-accent-600">
                   {fastestQ.timeSpent} sn
                 </div>
@@ -626,7 +628,9 @@ const Result = ({ sessionId, resultId }) => {
 
             {slowestQ && (
               <div className="bg-orange-50 p-3 sm:p-4 rounded-xl border border-orange-200 flex flex-col justify-center min-h-[80px]">
-                <div className="text-xs sm:text-sm text-dark-600 mb-1 sm:mb-2">🐌 En Yavaş</div>
+                <div className="text-xs sm:text-sm text-dark-600 mb-1 sm:mb-2 flex items-center gap-1">
+                  <ClockIcon size={16} strokeWidth={2} /> En Yavaş
+                </div>
                 <div className="text-base sm:text-lg md:text-xl font-bold text-orange-600">
                   {slowestQ.timeSpent} sn
                 </div>
@@ -674,15 +678,19 @@ const Result = ({ sessionId, resultId }) => {
             const qTime = questionTimes.find(qt => qt.questionId === q.id);
             
             const status = qTime?.status;
-            const leadingIcon = status === 'timeout'
-              ? '⏰'
-              : status === 'skipped'
-                ? '⭕'
-                : ok === true
-                  ? '✓'
-                  : ok === false
-                    ? '✕'
-                    : '📝';
+            const getLeadingIcon = () => {
+              if (status === 'timeout') {
+                return <ClockIcon size={28} strokeWidth={1.5} className="text-orange-600" />;
+              } else if (status === 'skipped') {
+                return <MinusCircleIcon size={28} strokeWidth={1.5} className="text-gray-500" />;
+              } else if (ok === true) {
+                return <CheckIcon size={28} strokeWidth={2} className="text-accent-600" />;
+              } else if (ok === false) {
+                return <XMarkIcon size={28} strokeWidth={2} className="text-red-600" />;
+              } else {
+                return <DocumentTextIcon size={28} strokeWidth={1.5} className="text-secondary-500" />;
+              }
+            };
 
             return (
               <div
@@ -690,12 +698,12 @@ const Result = ({ sessionId, resultId }) => {
                 className={
                   'p-4 rounded-xl border-2 ' +
                   (ok === true ? 'border-accent-400 bg-accent-50' :
-                   ok === false ? 'border-red-300 bg-red-50' : 
+                   ok === false ? 'border-red-300 bg-red-50' :
                    'border-secondary-200 bg-secondary-50')
                 }
               >
                 <div className="flex items-start gap-3">
-                  <div className="text-2xl">{leadingIcon}</div>
+                  <div className="flex-shrink-0">{getLeadingIcon()}</div>
                   <div className="flex-1">
                     <div className="text-sm font-semibold text-dark-900 mb-2">
                       {i + 1}. {q.questionText}
@@ -726,8 +734,12 @@ const Result = ({ sessionId, resultId }) => {
           })}
         </div>
         <div className="mt-6 flex justify-end gap-3">
-          <a className="btn btn-secondary" href="#/tests">📊 Tüm Sonuçlar</a>
-          <a className="btn btn-primary" href="#/manager">🆕 Yeni Quiz</a>
+          <a className="btn btn-secondary flex items-center gap-2" href="#/tests">
+            <ChartBarIcon size={18} strokeWidth={2} /> Tüm Sonuçlar
+          </a>
+          <a className="btn btn-primary flex items-center gap-2" href="#/manager">
+            <PlusCircleIcon size={18} strokeWidth={2} /> Yeni Quiz
+          </a>
         </div>
       </div>
     </Page>
