@@ -96,13 +96,7 @@ const Login = () => {
         <div className="card p-8 space-y-6">
           {/* QuizUp+ Logo */}
           <div className="flex justify-center mb-4">
-            <div className="flex items-center gap-3">
-              <div className="logo-icon" style={{ width: '48px', height: '48px', fontSize: '24px' }}>?</div>
-              <div>
-                <div className="text-2xl font-bold text-dark-900">QuizUp+</div>
-                <div className="text-xs text-dark-500">Boost Your Knowledge</div>
-              </div>
-            </div>
+            <img src="assets/logo.svg" alt="QuizUp+" style={{ width: '180px', height: 'auto' }} />
           </div>
 
           {/* Title */}
