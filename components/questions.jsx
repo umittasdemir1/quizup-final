@@ -123,9 +123,14 @@ const QuestionBank = () => {
   const sortOptions = useMemo(() => ([
     { value: 'order-asc', label: 'Numara (Artan)' },
     { value: 'order-desc', label: 'Numara (Azalan)' },
+    { value: 'text-asc', label: 'Soru Metni (A → Z)' },
+    { value: 'text-desc', label: 'Soru Metni (Z → A)' },
     { value: 'created-desc', label: 'Oluşturulma (Yeni → Eski)' },
     { value: 'created-asc', label: 'Oluşturulma (Eski → Yeni)' },
-    { value: 'category-asc', label: 'Kategori (A → Z)' }
+    { value: 'difficulty-easy', label: 'Zorluk (Kolay → Zor)' },
+    { value: 'difficulty-hard', label: 'Zorluk (Zor → Kolay)' },
+    { value: 'category-asc', label: 'Kategori (A → Z)' },
+    { value: 'category-desc', label: 'Kategori (Z → A)' }
   ]), []);
 
   const getDisplayOrder = (question, index) => (
@@ -201,16 +206,28 @@ const QuestionBank = () => {
       return haystack.some(text => text.includes(term));
     });
 
+    const difficultyOrder = { 'easy': 1, 'medium': 2, 'hard': 3 };
+
     const sorted = [...filtered].sort((a, b) => {
       switch (sortOption) {
         case 'order-desc':
           return b.orderNumber - a.orderNumber || a.originalIndex - b.originalIndex;
+        case 'text-asc':
+          return (a.data.questionText || '').localeCompare(b.data.questionText || '') || (a.orderNumber - b.orderNumber);
+        case 'text-desc':
+          return (b.data.questionText || '').localeCompare(a.data.questionText || '') || (a.orderNumber - b.orderNumber);
         case 'created-desc':
           return toMillis(b.data.createdAt) - toMillis(a.data.createdAt);
         case 'created-asc':
           return toMillis(a.data.createdAt) - toMillis(b.data.createdAt);
+        case 'difficulty-easy':
+          return (difficultyOrder[a.data.difficulty] || 2) - (difficultyOrder[b.data.difficulty] || 2) || (a.orderNumber - b.orderNumber);
+        case 'difficulty-hard':
+          return (difficultyOrder[b.data.difficulty] || 2) - (difficultyOrder[a.data.difficulty] || 2) || (a.orderNumber - b.orderNumber);
         case 'category-asc':
           return (a.data.category || '').localeCompare(b.data.category || '') || (a.orderNumber - b.orderNumber);
+        case 'category-desc':
+          return (b.data.category || '').localeCompare(a.data.category || '') || (a.orderNumber - b.orderNumber);
         case 'order-asc':
         default:
           return a.orderNumber - b.orderNumber || a.originalIndex - b.originalIndex;

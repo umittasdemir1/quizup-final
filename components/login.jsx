@@ -33,15 +33,10 @@ const Login = () => {
 
       const userData = userDoc.data();
 
-      let applicationPin = userData.applicationPin;
-      if (!applicationPin || !/^\d{4}$/.test(applicationPin)) {
-        applicationPin = '0000';
-        try {
-          await updateDoc(doc(db, 'users', user.uid), { applicationPin });
-        } catch (pinError) {
-          console.warn('Varsayılan uygulama PIN güncellenemedi:', pinError);
-        }
-      }
+      // Use PIN from Firebase if it exists and is valid, otherwise default to '0000' locally only
+      const applicationPin = userData.applicationPin && /^\d{4}$/.test(userData.applicationPin)
+        ? userData.applicationPin
+        : '0000';
 
       const normalizedUserData = {
         ...userData,

@@ -190,7 +190,7 @@ const SuggestQuestion = () => {
         {/* Anonymous User Info */}
         {isAnonymous && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-            <div className="text-sm font-semibold text-yellow-800 mb-3">🔔 İletişim Bilgileriniz</div>
+            <div className="text-sm font-semibold text-yellow-800 mb-3">İletişim Bilgileriniz</div>
             <div>
               <label className="block text-sm font-semibold mb-2 text-dark-700">Adınız Soyadınız *</label>
               <input
@@ -342,7 +342,7 @@ const SuggestQuestion = () => {
 
           {/* IMAGE SECTION - Matching AdminForm */}
           <div className="card p-4 bg-primary-50 border border-primary-200">
-            <h4 className="font-bold text-dark-900 mb-3">📸 Görsel Ekle</h4>
+            <h4 className="font-bold text-dark-900 mb-3">Görsel Ekle</h4>
 
             {/* Question Image */}
             <div className="mb-4">
@@ -370,7 +370,7 @@ const SuggestQuestion = () => {
                     onClick={() => questionImageRef.current?.click()}
                     disabled={uploading}
                   >
-                    {uploading ? 'Yükleniyor...' : '📤 Görsel Yükle'}
+                    {uploading ? 'Yükleniyor...' : 'Görsel Yükle'}
                   </button>
                   <input
                     ref={questionImageRef}
@@ -432,7 +432,7 @@ const SuggestQuestion = () => {
                               onClick={() => optionImageRefs.current[i]?.click()}
                               disabled={uploading}
                             >
-                              📤 Yükle
+                              Yükle
                             </button>
                             <input
                               ref={el => optionImageRefs.current[i] = el}
@@ -453,7 +453,7 @@ const SuggestQuestion = () => {
 
           <div className="flex gap-3 pt-2">
             <button className="btn btn-primary" onClick={handleSubmit} disabled={saving || uploading}>
-              {saving ? 'Gönderiliyor...' : '📤 Soru Öner'}
+              {saving ? 'Gönderiliyor...' : 'Soru Öner'}
             </button>
           </div>
         </div>
