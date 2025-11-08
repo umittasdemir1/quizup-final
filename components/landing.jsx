@@ -7,8 +7,8 @@ const Landing = () => {
         {/* Left Side */}
         <div className="space-y-6 flex flex-col items-center md:items-start text-center md:text-left">
           {/* Logo */}
-          <div className="flex justify-center md:justify-start">
-            <img src="assets/logo.svg" alt="QuizUp+" style={{ width: '120px', height: '120px' }} />
+          <div className="flex justify-center md:justify-start mb-2">
+            <img src="assets/logo.svg" alt="QuizUp+" style={{ width: '250px', height: 'auto' }} />
           </div>
 
           <h2 className="display-medium text-dark-900 hero-subtitle">
