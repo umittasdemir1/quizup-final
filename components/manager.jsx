@@ -464,7 +464,7 @@ const Manager = () => {
                   <span className="question-search-icon"><MagnifyingGlassIcon size={18} strokeWidth={2} /></span>
                   <input
                     type="search"
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-full bg-white body-medium focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-all"
+                    className="w-full pl-10 pr-4 py-3 border rounded-full bg-white body-medium focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-all"
                     placeholder={animatedPlaceholder}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -488,7 +488,7 @@ const Manager = () => {
                   </select>
                   <button
                     type="button"
-                    className="w-12 h-12 flex items-center justify-center rounded-full border border-gray-300 bg-white hover:bg-black hover:text-white transition-all duration-200"
+                    className="p-3 flex items-center justify-center rounded-full border bg-white hover:bg-black hover:text-white transition-all duration-200"
                     onClick={() => document.getElementById('managerSortSelect').click()}
                     style={{ borderColor: '#E0E0E0' }}
                   >
@@ -500,7 +500,7 @@ const Manager = () => {
                 <div className="relative" ref={filterRef} title="Filtrele">
                   <button
                     type="button"
-                    className="w-12 h-12 flex items-center justify-center rounded-full border border-gray-300 bg-white hover:bg-black hover:text-white transition-all duration-200 relative"
+                    className="p-3 flex items-center justify-center rounded-full border bg-white hover:bg-black hover:text-white transition-all duration-200 relative"
                     onClick={() => setShowFilters(v => !v)}
                     data-question-filter-toggle="true"
                     style={{ borderColor: '#E0E0E0' }}

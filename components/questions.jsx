@@ -247,7 +247,7 @@ const QuestionBank = () => {
             <span className="question-search-icon"><MagnifyingGlassIcon size={18} strokeWidth={2} /></span>
             <input
               type="search"
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-full bg-white body-medium focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-all"
+              className="w-full pl-10 pr-4 py-3 border rounded-full bg-white body-medium focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-all"
               placeholder={animatedPlaceholder}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -271,7 +271,7 @@ const QuestionBank = () => {
             </select>
             <button
               type="button"
-              className="w-12 h-12 flex items-center justify-center rounded-full border border-gray-300 bg-white hover:bg-black hover:text-white transition-all duration-200"
+              className="p-3 flex items-center justify-center rounded-full border bg-white hover:bg-black hover:text-white transition-all duration-200"
               onClick={() => document.getElementById('sortSelect').click()}
               style={{ borderColor: '#E0E0E0' }}
             >
@@ -283,7 +283,7 @@ const QuestionBank = () => {
           <div className="relative" ref={filterRef} title="Filtrele">
             <button
               type="button"
-              className="w-12 h-12 flex items-center justify-center rounded-full border border-gray-300 bg-white hover:bg-black hover:text-white transition-all duration-200 relative"
+              className="p-3 flex items-center justify-center rounded-full border bg-white hover:bg-black hover:text-white transition-all duration-200 relative"
               onClick={() => setShowFilters(v => !v)}
               data-question-filter-toggle="true"
               style={{ borderColor: '#E0E0E0' }}
@@ -373,7 +373,7 @@ const QuestionBank = () => {
                     )}
 
                     <div>
-                      <h3 className="question-filter-title">⏱️ Süre</h3>
+                      <h3 className="title-small">Süre</h3>
                       <div className="question-filter-options">
                         <label className="question-filter-option">
                           <input
@@ -417,7 +417,7 @@ const QuestionBank = () => {
 
       {visibleQuestions.length === 0 ? (
         <div className="card p-10 text-center text-dark-500">
-          <div className="text-5xl mb-4">🔎</div>
+          <div className="mb-4"><MagnifyingGlassIcon size={64} strokeWidth={1.5} className="inline text-dark-400" /></div>
           <p>Filtrelere uygun soru bulunamadı.</p>
           {(search.trim() || activeFilterCount > 0) && (
             <button type="button" className="btn btn-secondary mt-4" onClick={resetAll}>
@@ -442,8 +442,8 @@ const QuestionBank = () => {
                     {data.isActive ? 'Aktif' : 'Pasif'}
                   </span>
                   {data.hasTimer && data.timerSeconds > 0 && (
-                    <span className="chip chip-blue">
-                      ⏱️ {data.timerSeconds} sn
+                    <span className="chip chip-blue inline-flex items-center gap-1">
+                      <ClockIcon size={14} strokeWidth={2} /> {data.timerSeconds} sn
                     </span>
                   )}
                 </div>
@@ -468,7 +468,7 @@ const QuestionBank = () => {
                           <div className="question-bank-option-header">
                             <span className="option-index">{String.fromCharCode(65 + index)}</span>
                             <span className="option-text">{option}</span>
-                            {isCorrect && <span className="option-correct">✓ Doğru</span>}
+                            {isCorrect && <span className="option-correct inline-flex items-center gap-1"><CheckIcon size={14} strokeWidth={2} /> Doğru</span>}
                           </div>
                           {imageUrl && (
                             <div className="option-image">
@@ -482,7 +482,7 @@ const QuestionBank = () => {
                 ) : (
                   data.correctAnswer ? (
                     <div className="question-bank-answer">
-                      <span className="option-index">✓</span>
+                      <span className="option-index"><CheckIcon size={18} strokeWidth={2} /></span>
                       <div>
                         <div className="option-label">Beklenen Yanıt</div>
                         <div className="option-text">{data.correctAnswer}</div>

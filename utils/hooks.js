@@ -68,6 +68,8 @@ const useAnimatedPlaceholder = () => {
     if (placeholderWords.length === 0) return;
 
     const currentWord = placeholderWords[wordIndex];
+    if (!currentWord) return; // Safety check
+
     const typingSpeed = 100; // ms per character when typing
     const deletingSpeed = 50; // ms per character when deleting
     const pauseAfterTyping = 2000; // ms pause after fully typing a word
