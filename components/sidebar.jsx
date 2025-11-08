@@ -492,37 +492,37 @@ const Sidebar = () => {
             {hasRole('admin') && (
               <>
                 <a href="#/dashboard" className={isActive('/dashboard') ? 'active' : ''}>
-                  <span>📈</span>
+                  <ChartBarIcon size={20} strokeWidth={2} />
                   <span>Dashboard</span>
                 </a>
 
                 <a href="#/admin" className={isActive('/admin') ? 'active' : ''}>
-                  <span>⚙️</span>
+                  <CogIcon size={20} strokeWidth={2} />
                   <span>Soru Havuzu</span>
                 </a>
 
                 <a href="#/questions" className={isActive('/questions') ? 'active' : ''}>
-                  <span>❓</span>
+                  <QuestionMarkCircleIcon size={20} strokeWidth={2} />
                   <span>Sorular</span>
                 </a>
 
                 <a href="#/manager" className={isActive('/manager') ? 'active' : ''}>
-                  <span>📊</span>
+                  <ClipboardIcon size={20} strokeWidth={2} />
                   <span>Yönetici Paneli</span>
                 </a>
 
                 <a href="#/tests" className={isActive('/tests') ? 'active' : ''}>
-                  <span>📝</span>
+                  <DocumentTextIcon size={20} strokeWidth={2} />
                   <span>Testler</span>
                 </a>
 
                 <a href="#/suggest" className={isActive('/suggest') ? 'active' : ''}>
-                  <span>💡</span>
+                  <LightBulbIcon size={20} strokeWidth={2} />
                   <span>Soru Öner</span>
                 </a>
 
                 <a href="#/suggestions" className={isActive('/suggestions') ? 'active' : ''} style={{ position: 'relative' }}>
-                  <span>📬</span>
+                  <InformationCircleIcon size={20} strokeWidth={2} />
                   <span>Soru Önerileri</span>
                   {pendingSuggestions > 0 && (
                     <span style={{
@@ -545,12 +545,12 @@ const Sidebar = () => {
                 </a>
 
                 <a href="#/branding" className={isActive('/branding') ? 'active' : ''}>
-                  <span>🎨</span>
+                  <SparklesIcon size={20} strokeWidth={2} />
                   <span>Marka Ayarları</span>
                 </a>
 
                 <a href="#/users" className={isActive('/users') ? 'active' : ''}>
-                  <span>👥</span>
+                  <UsersIcon size={20} strokeWidth={2} />
                   <span>Kullanıcı Yönetimi</span>
                 </a>
               </>
@@ -560,27 +560,27 @@ const Sidebar = () => {
             {hasRole('manager') && (
               <>
                 <a href="#/dashboard" className={isActive('/dashboard') ? 'active' : ''}>
-                  <span>📈</span>
+                  <ChartBarIcon size={20} strokeWidth={2} />
                   <span>Dashboard</span>
                 </a>
 
                 <a href="#/manager" className={isActive('/manager') ? 'active' : ''}>
-                  <span>📊</span>
+                  <ClipboardIcon size={20} strokeWidth={2} />
                   <span>Yönetici Paneli</span>
                 </a>
 
                 <a href="#/questions" className={isActive('/questions') ? 'active' : ''}>
-                  <span>❓</span>
+                  <QuestionMarkCircleIcon size={20} strokeWidth={2} />
                   <span>Sorular</span>
                 </a>
 
                 <a href="#/tests" className={isActive('/tests') ? 'active' : ''}>
-                  <span>📝</span>
+                  <DocumentTextIcon size={20} strokeWidth={2} />
                   <span>Testler</span>
                 </a>
 
                 <a href="#/suggest" className={isActive('/suggest') ? 'active' : ''}>
-                  <span>💡</span>
+                  <LightBulbIcon size={20} strokeWidth={2} />
                   <span>Soru Öner</span>
                 </a>
               </>
@@ -590,12 +590,12 @@ const Sidebar = () => {
             {hasRole('tester') && (
               <>
                 <a href="#/tests" className={isActive('/tests') ? 'active' : ''}>
-                  <span>📝</span>
+                  <DocumentTextIcon size={20} strokeWidth={2} />
                   <span>Testler</span>
                 </a>
 
                 <a href="#/suggest" className={isActive('/suggest') ? 'active' : ''}>
-                  <span>💡</span>
+                  <LightBulbIcon size={20} strokeWidth={2} />
                   <span>Soru Öner</span>
                 </a>
               </>
@@ -605,11 +605,11 @@ const Sidebar = () => {
             {!isLoggedIn && (
               <>
                 <a href="#/mytests" className={isActive('/mytests') ? 'active' : ''}>
-                  <span>📝</span>
+                  <DocumentTextIcon size={20} strokeWidth={2} />
                   <span>Testlerim</span>
                 </a>
                 <a href="#/suggest" className={isActive('/suggest') ? 'active' : ''}>
-                  <span>💡</span>
+                  <LightBulbIcon size={20} strokeWidth={2} />
                   <span>Soru Öner</span>
                 </a>
               </>
