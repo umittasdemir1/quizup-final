@@ -146,7 +146,7 @@ const SuggestQuestion = () => {
       const docRef = await addDoc(collection(db, 'suggestedQuestions'), suggestion);
 
       console.log('SUCCESS! Document ID:', docRef.id);
-      toast('Soru öneriniz gönderildi! Teşekkürler 🎉', 'success');
+      toast('Soru öneriniz gönderildi! Teşekkürler', 'success');
 
       // Reset form
       setForm({
@@ -180,11 +180,11 @@ const SuggestQuestion = () => {
   };
 
   return (
-    <Page title="💡 Soru Öner" subtitle="Soru havuzuna katkıda bulunun!">
+    <Page title="Soru Öner" subtitle="Soru havuzuna katkıda bulunun!">
       <div className="max-w-3xl mx-auto">
         {/* Info Box */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800 mb-6">
-          <strong>📝 Not:</strong> Önerdiğiniz sorular admin tarafından incelendikten sonra soru havuzuna eklenecektir.
+          <strong><DocumentTextIcon size={16} strokeWidth={2} className="inline" /> Not:</strong> Önerdiğiniz sorular admin tarafından incelendikten sonra soru havuzuna eklenecektir.
         </div>
 
         {/* Anonymous User Info */}
@@ -318,7 +318,9 @@ const SuggestQuestion = () => {
                 />
                 <span className="toggle-slider"></span>
               </label>
-              <span className="font-semibold text-dark-900">⏱️ Süre Sınırı Ekle</span>
+              <span className="font-semibold text-dark-900 flex items-center gap-1">
+                <ClockIcon size={18} strokeWidth={2} /> Süre Sınırı Ekle
+              </span>
             </div>
 
             {form.hasTimer && (
@@ -352,7 +354,7 @@ const SuggestQuestion = () => {
                     className="text-xs text-red-600 hover:text-red-800"
                     onClick={() => updateField('questionImageUrl', '')}
                   >
-                    ✕ Kaldır
+                    <XMarkIcon size={16} strokeWidth={2} className="inline" /> Kaldır
                   </button>
                 )}
               </div>
@@ -412,14 +414,14 @@ const SuggestQuestion = () => {
                             </div>
                             <button
                               type="button"
-                              className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 text-xs"
+                              className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 text-xs flex items-center justify-center"
                               onClick={() => {
                                 const newUrls = [...form.optionImageUrls];
                                 newUrls[i] = '';
                                 updateField('optionImageUrls', newUrls);
                               }}
                             >
-                              ✕
+                              <XMarkIcon size={16} strokeWidth={2} />
                             </button>
                           </div>
                         ) : (
