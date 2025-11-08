@@ -373,6 +373,9 @@ const Sidebar = () => {
     }
     closeUserMenu();
     setCurrentUser(getCurrentUser());
+
+    // Scroll to top on route change
+    window.scrollTo(0, 0);
   }, [route]);
 
   // Hide sidebar on landing and login pages
@@ -618,10 +621,10 @@ const Sidebar = () => {
         </div>
       )}
 
-      <header className="sticky top-0 z-20 bg-white/90 backdrop-blur-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 py-4 relative flex items-center justify-between">
-          <div className="header-edge-left">
-            {!hideSidebar ? (
+      {!hideSidebar && (
+        <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-sm border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 py-4 relative flex items-center justify-between">
+            <div className="header-edge-left">
               <div
                 className={'hamburger ' + (open ? 'open' : '')}
                 onClick={() => setOpen(v => !v)}
@@ -630,26 +633,24 @@ const Sidebar = () => {
                 <span></span>
                 <span></span>
               </div>
-            ) : (
-              <div className="w-10 h-10"></div>
-            )}
-          </div>
+            </div>
 
-          <div
-            className="header-logo"
-            onClick={handleLogoClick}
-          >
-            <div className="flex items-center cursor-pointer hover:opacity-80 transition-opacity">
-              <img src="assets/logo.svg" alt="QuizUp+" style={{ width: '180px', height: 'auto' }} />
+            <div
+              className="header-logo"
+              onClick={handleLogoClick}
+            >
+              <div className="flex items-center cursor-pointer hover:opacity-80 transition-opacity">
+                <img src="assets/logo.svg" alt="QuizUp+" style={{ width: '180px', height: 'auto' }} />
+              </div>
+            </div>
+
+            <div className="header-actions">
+              <div className="header-user-placeholder"></div>
+              <div id="header-timer-slot" className="header-timer-slot" aria-live="polite"></div>
             </div>
           </div>
-
-          <div className="header-actions">
-            <div className="header-user-placeholder"></div>
-            <div id="header-timer-slot" className="header-timer-slot" aria-live="polite"></div>
-          </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       {showSignOutAllModal && (
         <>
