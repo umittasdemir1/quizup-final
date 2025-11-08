@@ -413,7 +413,6 @@ const QuestionBank = () => {
             )}
           </div>
         </div>
-      </div>
 
       {visibleQuestions.length === 0 ? (
         <div className="card p-10 text-center text-dark-500">
