@@ -491,7 +491,7 @@ const QuestionBank = () => {
                 <h2 className="text-xl font-semibold text-dark-900">{data.questionText}</h2>
 
                 {data.type === 'mcq' ? (
-                  <ul className="question-bank-options">
+                  <ul className={`question-bank-options ${data.hasImageOptions ? 'has-image-options' : ''}`}>
                     {(data.options || []).filter(Boolean).map((option, index) => {
                       const isCorrect = data.correctAnswer && data.correctAnswer === option;
                       const imageUrl = data.hasImageOptions && Array.isArray(data.optionImageUrls)
