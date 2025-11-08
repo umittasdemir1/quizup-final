@@ -174,7 +174,7 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="card p-6">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-3xl">📚</span>
+            <BookOpenIcon size={32} strokeWidth={1.5} className="text-primary-500" />
             <span className="text-xs text-dark-500">Soru Havuzu</span>
           </div>
           <div className="dashboard-kpi-number text-dark-900">{totalQuestions}</div>
@@ -183,7 +183,7 @@ const Dashboard = () => {
 
         <div className="card p-6">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-3xl">📊</span>
+            <ChartBarIcon size={32} strokeWidth={1.5} className="text-secondary-500" />
             <span className="text-xs text-dark-500">Quiz Oturumları</span>
           </div>
           <div className="dashboard-kpi-number text-dark-900">{totalSessions}</div>
@@ -192,7 +192,7 @@ const Dashboard = () => {
 
         <div className="card p-6">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-3xl">⏱️</span>
+            <ClockIcon size={32} strokeWidth={1.5} className="text-accent-500" />
             <span className="text-xs text-dark-500">Ortalama Süre</span>
           </div>
           <div className="dashboard-kpi-number text-secondary-600">{formatTime(avgQuizTime)}</div>
@@ -201,7 +201,7 @@ const Dashboard = () => {
 
         <div className="card p-6">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-3xl">🎯</span>
+            <TrophyIcon size={32} strokeWidth={1.5} className="text-primary-600" />
             <span className="text-xs text-dark-500">Ortalama Başarı</span>
           </div>
           <div className="dashboard-kpi-number" style={{ color: avgScore >= 70 ? '#5EC5B6' : avgScore >= 50 ? '#FF6B4A' : '#dc2626' }}>
@@ -213,14 +213,14 @@ const Dashboard = () => {
 
       {/* Location Map - Full Width */}
       <div className="mb-6">
-        <h3 className="dashboard-section-title text-dark-900 mb-4">🗺️ Lokasyon Dağılımı</h3>
+        <h3 className="dashboard-section-title text-dark-900 mb-4 flex items-center gap-2"><MapPinIcon size={20} strokeWidth={2} /> Lokasyon Dağılımı</h3>
         <LocationMap results={results} />
       </div>
 
       {/* City Performance */}
       {topCities.length > 0 && (
         <div className="card p-6 mb-6">
-          <h3 className="dashboard-section-title text-dark-900 mb-4">📍 Şehirlere Göre Performans</h3>
+          <h3 className="dashboard-section-title text-dark-900 mb-4 flex items-center gap-2"><MapPinIcon size={20} strokeWidth={2} /> Şehirlere Göre Performans</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {topCities.map((city, idx) => (
               <div key={city.name} className="p-4 rounded-lg bg-gradient-to-br from-primary-50 to-accent-50 border border-primary-200">
@@ -245,7 +245,7 @@ const Dashboard = () => {
       <div className="grid lg:grid-cols-2 gap-6 mb-6">
         {/* Category Performance */}
         <div className="card p-6">
-          <h3 className="dashboard-section-title text-dark-900 mb-4">📊 Kategori Performansı</h3>
+          <h3 className="dashboard-section-title text-dark-900 mb-4 flex items-center gap-2"><ChartBarIcon size={20} strokeWidth={2} /> Kategori Performansı</h3>
           {categoryStats.length === 0 ? (
             <p className="text-dark-500 text-center py-8">Henüz veri yok</p>
           ) : (
@@ -281,7 +281,7 @@ const Dashboard = () => {
 
         {/* Most Failed Categories */}
         <div className="card p-6">
-          <h3 className="dashboard-section-title text-dark-900 mb-4">🚨 En Çok Yanlış Yapılan Konular</h3>
+          <h3 className="dashboard-section-title text-dark-900 mb-4 flex items-center gap-2"><ExclamationTriangleIcon size={20} strokeWidth={2} /> En Çok Yanlış Yapılan Konular</h3>
           {failedCategories.length === 0 ? (
             <p className="text-dark-500 text-center py-8">Henüz veri yok</p>
           ) : (
@@ -308,7 +308,7 @@ const Dashboard = () => {
       <div className="grid lg:grid-cols-2 gap-6 mb-6">
         {/* Slowest Categories */}
         <div className="card p-6">
-          <h3 className="dashboard-section-title text-dark-900 mb-4">⏱️ En Çok Süre Harcanan Konular</h3>
+          <h3 className="dashboard-section-title text-dark-900 mb-4 flex items-center gap-2"><ClockIcon size={20} strokeWidth={2} /> En Çok Süre Harcanan Konular</h3>
           {slowestCategories.length === 0 ? (
             <p className="text-dark-500 text-center py-8">Henüz veri yok</p>
           ) : (
@@ -333,7 +333,7 @@ const Dashboard = () => {
 
         {/* Difficulty Distribution */}
         <div className="card p-6">
-          <h3 className="dashboard-section-title text-dark-900 mb-4">⚡ Zorluk Dağılımı</h3>
+          <h3 className="dashboard-section-title text-dark-900 mb-4 flex items-center gap-2"><RocketLaunchIcon size={20} strokeWidth={2} /> Zorluk Dağılımı</h3>
           <div className="grid grid-cols-3 gap-4">
             <div className="text-center p-4 rounded-xl bg-accent-50 border-2 border-accent-200">
               <div className="text-3xl font-black text-accent-600">{difficultyCount.easy}</div>
@@ -360,7 +360,7 @@ const Dashboard = () => {
       <div className="grid lg:grid-cols-2 gap-6 mb-6">
         {/* Top Stores */}
         <div className="card p-6">
-          <h3 className="dashboard-section-title text-dark-900 mb-4">🏪 En Başarılı Mağazalar</h3>
+          <h3 className="dashboard-section-title text-dark-900 mb-4 flex items-center gap-2"><HomeIcon size={20} strokeWidth={2} /> En Başarılı Mağazalar</h3>
           {stores.length === 0 ? (
             <p className="text-dark-500 text-center py-8">Henüz veri yok</p>
           ) : (
@@ -385,7 +385,7 @@ const Dashboard = () => {
 
         {/* Top Performers */}
         <div className="card p-6">
-          <h3 className="dashboard-section-title text-dark-900 mb-4">🌟 En Başarılı Personeller</h3>
+          <h3 className="dashboard-section-title text-dark-900 mb-4 flex items-center gap-2"><SparklesIcon size={20} strokeWidth={2} /> En Başarılı Personeller</h3>
           {topPerformers.length === 0 ? (
             <p className="text-dark-500 text-center py-8">Henüz veri yok</p>
           ) : (
@@ -411,7 +411,7 @@ const Dashboard = () => {
 
       {/* Recent Activity */}
       <div className="card p-6">
-        <h3 className="dashboard-section-title text-dark-900 mb-4">🕒 Son Aktiviteler</h3>
+        <h3 className="dashboard-section-title text-dark-900 mb-4 flex items-center gap-2"><ClockIcon size={20} strokeWidth={2} /> Son Aktiviteler</h3>
         {recentResults.length === 0 ? (
           <p className="text-dark-500 text-center py-8">Henüz aktivite yok</p>
         ) : (
@@ -425,10 +425,10 @@ const Dashboard = () => {
                   <div className="font-semibold text-dark-900">{r.employee?.fullName || 'Personel'}</div>
                   <div className="text-xs text-dark-500">
                     {r.employee?.store || '-'} 
-                    {r.location?.city && <span className="ml-2">📍 {r.location.city}</span>}
+                    {r.location?.city && <span className="ml-2 inline-flex items-center gap-1"><MapPinIcon size={14} strokeWidth={2} /> {r.location.city}</span>}
                     {' • '} {fmtDate(r.submittedAt)}
                     {r.timeTracking?.totalTime && (
-                      <span className="ml-2">⏱️ {formatTime(r.timeTracking.totalTime)}</span>
+                      <span className="ml-2 inline-flex items-center gap-1"><ClockIcon size={14} strokeWidth={2} /> {formatTime(r.timeTracking.totalTime)}</span>
                     )}
                   </div>
                 </div>

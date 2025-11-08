@@ -58,7 +58,7 @@ const Tests = () => {
       <div className="grid gap-4">
         {results.length === 0 ? (
           <div className="card p-12 text-center">
-            <div className="text-6xl mb-4">📝</div>
+            <div className="text-6xl mb-4"><DocumentTextIcon size={64} strokeWidth={1.5} /></div>
             <p className="text-dark-500 text-lg">Henüz tamamlanan test yok</p>
           </div>
         ) : (
@@ -88,14 +88,14 @@ const Tests = () => {
                       href={`#/result?sessionId=${r.sessionId}&resultId=${r.id}`} 
                       className="btn btn-primary text-sm px-4 py-2"
                     >
-                      📊 Detay
+                      <ChartBarIcon size={16} strokeWidth={2} className="inline" /> Detay
                     </a>
                     <button 
                       className="btn btn-danger text-sm px-3 py-2" 
                       onClick={() => handleDelete(r.id, r.sessionId)}
                       title="Sil"
                     >
-                      🗑️
+                      <TrashIcon size={16} strokeWidth={2} />
                     </button>
                   </div>
                 </div>
