@@ -2,8 +2,10 @@ const { useState, useEffect, useRef } = React;
 
 const Branding = () => {
   const [logoUrl, setLogoUrl] = useState('');
+  const [searchPlaceholderWords, setSearchPlaceholderWords] = useState('');
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -13,7 +15,9 @@ const Branding = () => {
         const { db, doc, getDoc } = window.firebase;
         const settingsDoc = await getDoc(doc(db, 'settings', 'branding'));
         if (settingsDoc.exists()) {
-          setLogoUrl(settingsDoc.data()?.logoUrl || '');
+          const data = settingsDoc.data();
+          setLogoUrl(data?.logoUrl || '');
+          setSearchPlaceholderWords(data?.searchPlaceholderWords || '');
         }
       } catch (e) {
         console.error('Settings load error:', e);
@@ -55,6 +59,7 @@ const Branding = () => {
       // Save URL to Firestore
       await setDoc(doc(db, 'settings', 'branding'), {
         logoUrl: url,
+        searchPlaceholderWords: searchPlaceholderWords,
         updatedAt: new Date()
       });
       
@@ -76,21 +81,43 @@ const Branding = () => {
 
   const deleteLogo = async () => {
     if (!confirm('Logo\'yu silmek istediğinizden emin misiniz?')) return;
-    
+
     try {
       await waitFirebase();
       const { db, doc, setDoc } = window.firebase;
-      
+
       await setDoc(doc(db, 'settings', 'branding'), {
         logoUrl: '',
+        searchPlaceholderWords: searchPlaceholderWords,
         updatedAt: new Date()
       });
-      
+
       setLogoUrl('');
       toast('Logo silindi', 'success');
     } catch (e) {
       console.error('Delete error:', e);
       toast('Logo silinirken hata oluştu', 'error');
+    }
+  };
+
+  const saveSearchPlaceholderWords = async () => {
+    setSaving(true);
+    try {
+      await waitFirebase();
+      const { db, doc, setDoc } = window.firebase;
+
+      await setDoc(doc(db, 'settings', 'branding'), {
+        logoUrl: logoUrl,
+        searchPlaceholderWords: searchPlaceholderWords,
+        updatedAt: new Date()
+      });
+
+      toast('Arama placeholder kelimeleri kaydedildi', 'success');
+    } catch (e) {
+      console.error('Save error:', e);
+      toast('Kaydetme sırasında hata oluştu', 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -132,14 +159,16 @@ const Branding = () => {
                 <LoadingSpinner text="Yükleniyor..." />
               ) : (
                 <>
-                  <div className="text-5xl mb-3">📤</div>
+                  <div className="text-5xl mb-3">
+                    <ArrowUpTrayIcon size={64} strokeWidth={1.5} className="inline text-primary-500" />
+                  </div>
                   <p className="font-semibold text-dark-900 mb-1">
                     Dosya seçin veya sürükleyin
                   </p>
                   <p className="text-sm text-dark-600 mb-3">
                     PNG, JPG, SVG (Max 2MB)
                   </p>
-                  <button 
+                  <button
                     type="button"
                     className="btn btn-primary"
                   >
@@ -158,8 +187,9 @@ const Branding = () => {
             />
 
             <div className="mt-4 p-4 bg-secondary-50 rounded-lg border border-secondary-200">
-              <p className="text-sm text-dark-700">
-                <b>💡 İpucu:</b> Logo transparan arka plana sahip olmalı ve kare formatında olmalıdır (örn: 512x512px).
+              <p className="text-sm text-dark-700 flex items-start gap-2">
+                <LightBulbIcon size={18} strokeWidth={2} className="flex-shrink-0 text-primary-500 mt-0.5" />
+                <span><b>İpucu:</b> Logo transparan arka plana sahip olmalı ve kare formatında olmalıdır (örn: 512x512px).</span>
               </p>
             </div>
           </div>
@@ -176,8 +206,9 @@ const Branding = () => {
                 <p className="text-sm text-dark-600 text-center mb-4">
                   Ana sayfada böyle görünecek
                 </p>
-                <button className="btn btn-danger w-full" onClick={deleteLogo}>
-                  🗑️ Logo'yu Sil
+                <button className="btn btn-danger w-full flex items-center justify-center gap-2" onClick={deleteLogo}>
+                  <TrashIcon size={18} strokeWidth={2} />
+                  Logo'yu Sil
                 </button>
               </>
             ) : (
@@ -188,21 +219,57 @@ const Branding = () => {
           </div>
         </div>
 
+        {/* Search Placeholder Settings */}
+        <div className="card p-6 mt-6">
+          <h3 className="headline-small text-dark-900 mb-2">Arama Placeholder Kelimeleri</h3>
+          <p className="body-small text-dark-600 mb-4">
+            Search placeholder'da görünecek kelimeleri buraya virgülle ayırarak yazın. Örneğin: <b>COLM, BM WATCH OCEANIC, NEVILLE</b>. Virgülle ayrılmış her kelime sırayla placeholder animasyonunda kullanılacaktır.
+          </p>
+
+          <div className="mb-4">
+            <label className="block text-sm font-semibold mb-2 text-dark-700">
+              Placeholder Kelimeleri (virgülle ayırın)
+            </label>
+            <input
+              type="text"
+              className="field w-full body-medium"
+              placeholder="COLM, BM WATCH OCEANIC, NEVILLE"
+              value={searchPlaceholderWords}
+              onChange={(e) => setSearchPlaceholderWords(e.target.value)}
+            />
+            <p className="text-xs text-dark-500 mt-1">
+              Her kelime animasyonda sırayla yazılıp silinecektir.
+            </p>
+          </div>
+
+          <button
+            className="btn btn-primary"
+            onClick={saveSearchPlaceholderWords}
+            disabled={saving}
+          >
+            {saving ? 'Kaydediliyor...' : 'Kaydet'}
+          </button>
+        </div>
+
         {/* Info Cards */}
         <div className="grid md:grid-cols-2 gap-4 mt-6">
           <div className="card p-4">
             <div className="flex gap-3">
-              <div className="text-2xl">✅</div>
+              <div className="text-2xl">
+                <CheckCircleIcon size={32} strokeWidth={1.5} className="text-green-600" />
+              </div>
               <div>
                 <h4 className="font-semibold text-dark-900 mb-1">Önerilen Format</h4>
                 <p className="text-sm text-dark-600">PNG veya SVG, transparan arka plan</p>
               </div>
             </div>
           </div>
-          
+
           <div className="card p-4">
             <div className="flex gap-3">
-              <div className="text-2xl">📐</div>
+              <div className="text-2xl">
+                <PhotoIcon size={32} strokeWidth={1.5} className="text-primary-500" />
+              </div>
               <div>
                 <h4 className="font-semibold text-dark-900 mb-1">Önerilen Boyut</h4>
                 <p className="text-sm text-dark-600">512x512px - 1024x1024px (Kare)</p>
