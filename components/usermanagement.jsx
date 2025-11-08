@@ -376,9 +376,9 @@ const UserManagement = () => {
   };
 
   const getRoleBadge = (role) => {
-    if (role === 'admin') return <span className="chip bg-red-100 text-red-700">👑 Admin</span>;
-    if (role === 'manager') return <span className="chip bg-blue-100 text-blue-700">👔 Yönetici</span>;
-    if (role === 'tester') return <span className="chip bg-green-100 text-green-700">✏️ Test Kullanıcısı</span>;
+    if (role === 'admin') return <span className="chip bg-red-100 text-red-700 inline-flex items-center gap-1"><TrophyIcon size={14} strokeWidth={2} /> Admin</span>;
+    if (role === 'manager') return <span className="chip bg-blue-100 text-blue-700 inline-flex items-center gap-1"><UserIcon size={14} strokeWidth={2} /> Yönetici</span>;
+    if (role === 'tester') return <span className="chip bg-green-100 text-green-700 inline-flex items-center gap-1"><PencilSquareIcon size={14} strokeWidth={2} /> Test Kullanıcısı</span>;
     return <span className="chip">{role}</span>;
   };
 
@@ -390,7 +390,7 @@ const UserManagement = () => {
       subtitle={`Toplam ${users.length} kullanıcı`}
       extra={
         <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-          ➕ Yeni Kullanıcı
+          <PlusIcon size={16} strokeWidth={2} className="inline" /> Yeni Kullanıcı
         </button>
       }
     >
@@ -453,13 +453,13 @@ const UserManagement = () => {
                           className="text-blue-600 hover:text-blue-800 font-semibold text-sm"
                           onClick={() => openEditModal(user)}
                         >
-                          ✏️ Düzenle
+                          <PencilSquareIcon size={14} strokeWidth={2} className="inline" /> Düzenle
                         </button>
                         <button
                           className="text-red-600 hover:text-red-800 font-semibold text-sm"
                           onClick={() => deleteUser(user.id, user.email)}
                         >
-                          🗑️ Sil
+                          <TrashIcon size={14} strokeWidth={2} className="inline" /> Sil
                         </button>
                       </div>
                     </td>
@@ -494,7 +494,7 @@ const UserManagement = () => {
             }}
           >
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-dark-900">➕ Yeni Kullanıcı Ekle</h2>
+              <h2 className="headline-small text-dark-900 flex items-center gap-2"><PlusIcon size={24} strokeWidth={2} /> Yeni Kullanıcı Ekle</h2>
               <button
                 className="text-dark-400 hover:text-dark-900 text-2xl"
                 onClick={() => setShowModal(false)}
@@ -655,7 +655,7 @@ const UserManagement = () => {
             }}
           >
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-dark-900">✏️ Kullanıcı Düzenle</h2>
+              <h2 className="headline-small text-dark-900 flex items-center gap-2"><PencilSquareIcon size={24} strokeWidth={2} /> Kullanıcı Düzenle</h2>
               <button
                 className="text-dark-400 hover:text-dark-900 text-2xl"
                 onClick={() => setShowEditModal(false)}
@@ -755,7 +755,7 @@ const UserManagement = () => {
               </div>
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
-                <strong>💡 Not:</strong> Şifre değiştirmek için tablodaki "Göster" butonunu kullanın.
+                <strong className="inline-flex items-center gap-1"><LightBulbIcon size={16} strokeWidth={2} /> Not:</strong> Şifre değiştirmek için tablodaki "Göster" butonunu kullanın.
               </div>
 
               <div className="flex gap-3 pt-4">
@@ -823,7 +823,7 @@ const UserManagement = () => {
                     autoFocus
                   />
                   {pinError && (
-                    <div className="text-red-600 text-sm mt-2">❌ {pinError}</div>
+                    <div className="text-red-600 body-small mt-2 flex items-center gap-1"><XCircleIcon size={16} strokeWidth={2} /> {pinError}</div>
                   )}
                 </div>
 
