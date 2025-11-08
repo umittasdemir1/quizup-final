@@ -2,6 +2,7 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, onCre
   const { useState, useEffect, useRef, useMemo } = React;
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [showSort, setShowSort] = useState(false);
   const [filters, setFilters] = useState({
     categories: [],
     difficulties: [],
@@ -11,20 +12,26 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, onCre
   });
   const [sortOption, setSortOption] = useState('order-asc');
   const filterRef = useRef(null);
+  const sortRef = useRef(null);
   const animatedPlaceholder = useAnimatedPlaceholder();
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (!showFilters) return;
       if (event.target.closest('[data-question-filter-toggle]')) return;
-      if (filterRef.current && !filterRef.current.contains(event.target)) {
+      if (event.target.closest('[data-question-sort-toggle]')) return;
+
+      if (showFilters && filterRef.current && !filterRef.current.contains(event.target)) {
         setShowFilters(false);
+      }
+
+      if (showSort && sortRef.current && !sortRef.current.contains(event.target)) {
+        setShowSort(false);
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showFilters]);
+  }, [showFilters, showSort]);
 
   const uniqueCategories = useMemo(
     () => [...new Set(questions.map(q => q.category).filter(Boolean))].sort(),
@@ -269,23 +276,40 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, onCre
           </div>
 
           {/* Sort Button - Circular */}
-          <div className="relative" title="Sırala">
-            <select
-              className="appearance-none absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
-              value={sortOption}
-              onChange={(e) => setSortOption(e.target.value)}
-            >
-              {sortOptions.map(option => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
+          <div className="relative" ref={sortRef} title="Sırala">
             <button
               type="button"
-              className="p-3 flex items-center justify-center rounded-full border bg-white hover:bg-primary-500 hover:text-white transition-all duration-200 pointer-events-none"
+              className="p-3 flex items-center justify-center rounded-full border bg-white hover:bg-primary-500 hover:text-white transition-all duration-200 relative"
+              onClick={() => setShowSort(v => !v)}
+              data-question-sort-toggle="true"
               style={{ borderColor: '#E0E0E0' }}
             >
               <BarsArrowUpIcon size={20} strokeWidth={2} />
             </button>
+            {showSort && (
+              <div className="question-filter-panel">
+                <h3 className="title-small mb-3">Sırala</h3>
+                <div className="flex flex-col gap-2">
+                  {sortOptions.map(option => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={`px-4 py-2 text-left rounded-lg transition-all ${
+                        sortOption === option.value
+                          ? 'bg-primary-500 text-white font-semibold'
+                          : 'bg-gray-50 hover:bg-gray-100 text-dark-700'
+                      }`}
+                      onClick={() => {
+                        setSortOption(option.value);
+                        setShowSort(false);
+                      }}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Filter Button - Circular */}
