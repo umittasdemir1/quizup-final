@@ -283,4 +283,18 @@ window.ArrowsRightLeftIcon = ({ className = '', size = 24, strokeWidth = 1.5 }) 
   </svg>
 );
 
-console.log('✅ Heroicons library loaded - 36 outline icons available');
+// BarsArrowUpIcon (Sort icon)
+window.BarsArrowUpIcon = ({ className = '', size = 24, strokeWidth = 1.5 }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 4.5h14.25M3 9h9.75M3 13.5h9.75m4.5-4.5v12m0 0l-3.75-3.75M17.25 21l3.75-3.75" />
+  </svg>
+);
+
+// FunnelIcon (Filter icon)
+window.FunnelIcon = ({ className = '', size = 24, strokeWidth = 1.5 }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
+  </svg>
+);
+
+console.log('✅ Heroicons library loaded - 38 outline icons available');
