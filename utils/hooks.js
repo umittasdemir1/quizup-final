@@ -3,13 +3,17 @@ const { useState, useEffect } = React;
 // Hash routing hook
 const useHash = () => {
   const [h, setH] = useState(location.hash || '#/');
-  
+
   useEffect(() => {
-    const on = () => setH(location.hash || '#/');
+    const on = () => {
+      setH(location.hash || '#/');
+      // Scroll to top on route change
+      window.scrollTo(0, 0);
+    };
     addEventListener('hashchange', on);
     return () => removeEventListener('hashchange', on);
   }, []);
-  
+
   return h.replace(/^#/, '');
 };
 

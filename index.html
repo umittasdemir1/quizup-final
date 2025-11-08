@@ -54,6 +54,12 @@
   <link rel="stylesheet" href="styles/main.css">
 </head>
 <body class="min-h-screen text-dark-900">
+  <script>
+    // Prevent browser from restoring scroll position on navigation
+    if ('scrollRestoration' in history) {
+      history.scrollRestoration = 'manual';
+    }
+  </script>
   <div id="toast-container" class="toast-container"></div>
   <div id="root"></div>
 

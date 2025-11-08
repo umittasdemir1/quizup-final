@@ -373,9 +373,6 @@ const Sidebar = () => {
     }
     closeUserMenu();
     setCurrentUser(getCurrentUser());
-
-    // Scroll to top on route change
-    window.scrollTo(0, 0);
   }, [route]);
 
   // Hide sidebar on landing and login pages
