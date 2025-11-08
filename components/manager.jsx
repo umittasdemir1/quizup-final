@@ -11,6 +11,7 @@ const Manager = () => {
   const [qrUrl, setQrUrl] = useState('');
   const qrRef = useRef(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [showSort, setShowSort] = useState(false);
   const [filters, setFilters] = useState({
     categories: [],
     difficulties: [],
@@ -20,6 +21,7 @@ const Manager = () => {
   const [search, setSearch] = useState('');
   const [sortOption, setSortOption] = useState('order-asc');
   const filterRef = useRef(null);
+  const sortRef = useRef(null);
   const animatedPlaceholder = useAnimatedPlaceholder();
 
   useEffect(() => {
@@ -69,13 +71,20 @@ const Manager = () => {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (filterRef.current && !filterRef.current.contains(e.target)) {
+      if (e.target.closest('[data-question-filter-toggle]')) return;
+      if (e.target.closest('[data-question-sort-toggle]')) return;
+
+      if (showFilters && filterRef.current && !filterRef.current.contains(e.target)) {
         setShowFilters(false);
+      }
+
+      if (showSort && sortRef.current && !sortRef.current.contains(e.target)) {
+        setShowSort(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [showFilters, showSort]);
 
   const orderMap = useMemo(() => {
     const map = new Map();
@@ -115,9 +124,14 @@ const Manager = () => {
   const sortOptions = useMemo(() => ([
     { value: 'order-asc', label: 'Numara (Artan)' },
     { value: 'order-desc', label: 'Numara (Azalan)' },
+    { value: 'text-asc', label: 'Soru Metni (A → Z)' },
+    { value: 'text-desc', label: 'Soru Metni (Z → A)' },
     { value: 'created-desc', label: 'Oluşturulma (Yeni → Eski)' },
     { value: 'created-asc', label: 'Oluşturulma (Eski → Yeni)' },
-    { value: 'category-asc', label: 'Kategori (A → Z)' }
+    { value: 'difficulty-easy', label: 'Zorluk (Kolay → Zor)' },
+    { value: 'difficulty-hard', label: 'Zorluk (Zor → Kolay)' },
+    { value: 'category-asc', label: 'Kategori (A → Z)' },
+    { value: 'category-desc', label: 'Kategori (Z → A)' }
   ]), []);
 
   const toggleFilter = (type, value) => {
@@ -207,16 +221,28 @@ const Manager = () => {
       return haystack.some(text => text.includes(term));
     });
 
+    const difficultyOrder = { 'easy': 1, 'medium': 2, 'hard': 3 };
+
     const sorted = [...filtered].sort((a, b) => {
       switch (sortOption) {
         case 'order-desc':
           return b.orderNumber - a.orderNumber || a.originalIndex - b.originalIndex;
+        case 'text-asc':
+          return (a.data.questionText || '').localeCompare(b.data.questionText || '');
+        case 'text-desc':
+          return (b.data.questionText || '').localeCompare(a.data.questionText || '');
         case 'created-desc':
           return toMillis(b.data.createdAt) - toMillis(a.data.createdAt);
         case 'created-asc':
           return toMillis(a.data.createdAt) - toMillis(b.data.createdAt);
+        case 'difficulty-easy':
+          return (difficultyOrder[a.data.difficulty] || 2) - (difficultyOrder[b.data.difficulty] || 2);
+        case 'difficulty-hard':
+          return (difficultyOrder[b.data.difficulty] || 2) - (difficultyOrder[a.data.difficulty] || 2);
         case 'category-asc':
           return (a.data.category || '').localeCompare(b.data.category || '') || (a.orderNumber - b.orderNumber);
+        case 'category-desc':
+          return (b.data.category || '').localeCompare(a.data.category || '') || (a.orderNumber - b.orderNumber);
         case 'order-asc':
         default:
           return a.orderNumber - b.orderNumber || a.originalIndex - b.originalIndex;
@@ -475,32 +501,47 @@ const Manager = () => {
                 </div>
 
                 {/* Sort Button - Circular */}
-                <div className="relative" title="Sırala">
-                  <select
-                    className="hidden"
-                    id="managerSortSelect"
-                    value={sortOption}
-                    onChange={(e) => setSortOption(e.target.value)}
-                  >
-                    {sortOptions.map(option => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
+                <div className="relative" ref={sortRef} title="Sırala">
                   <button
                     type="button"
-                    className="p-3 flex items-center justify-center rounded-full border bg-white hover:bg-black hover:text-white transition-all duration-200"
-                    onClick={() => document.getElementById('managerSortSelect').click()}
+                    className="p-3 flex items-center justify-center rounded-full border bg-white hover:bg-primary-500 hover:text-white transition-all duration-200 relative"
+                    onClick={() => setShowSort(v => !v)}
+                    data-question-sort-toggle="true"
                     style={{ borderColor: '#E0E0E0' }}
                   >
                     <BarsArrowUpIcon size={20} strokeWidth={2} />
                   </button>
+                  {showSort && (
+                    <div className="question-filter-panel">
+                      <h3 className="title-small mb-3">Sırala</h3>
+                      <div className="flex flex-col gap-2">
+                        {sortOptions.map(option => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            className={`px-4 py-2 text-left rounded-lg transition-all ${
+                              sortOption === option.value
+                                ? 'bg-primary-500 text-white font-semibold'
+                                : 'bg-gray-50 hover:bg-gray-100 text-dark-700'
+                            }`}
+                            onClick={() => {
+                              setSortOption(option.value);
+                              setShowSort(false);
+                            }}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Filter Button - Circular */}
                 <div className="relative" ref={filterRef} title="Filtrele">
                   <button
                     type="button"
-                    className="p-3 flex items-center justify-center rounded-full border bg-white hover:bg-black hover:text-white transition-all duration-200 relative"
+                    className="p-3 flex items-center justify-center rounded-full border bg-white hover:bg-primary-500 hover:text-white transition-all duration-200 relative"
                     onClick={() => setShowFilters(v => !v)}
                     data-question-filter-toggle="true"
                     style={{ borderColor: '#E0E0E0' }}

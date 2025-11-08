@@ -177,8 +177,8 @@ const Dashboard = () => {
             <BookOpenIcon size={32} strokeWidth={1.5} className="text-primary-500" />
             <span className="text-xs text-dark-500">Soru Havuzu</span>
           </div>
-          <div className="dashboard-kpi-number text-dark-900">{totalQuestions}</div>
-          <div className="text-sm text-dark-600 mt-1">{activeQuestions} aktif</div>
+          <div className="dashboard-kpi-number text-primary-500">{totalQuestions}</div>
+          <div className="text-sm text-primary-600 mt-1">{activeQuestions} aktif</div>
         </div>
 
         <div className="card p-6">
@@ -186,8 +186,8 @@ const Dashboard = () => {
             <ChartBarIcon size={32} strokeWidth={1.5} className="text-secondary-500" />
             <span className="text-xs text-dark-500">Quiz Oturumları</span>
           </div>
-          <div className="dashboard-kpi-number text-dark-900">{totalSessions}</div>
-          <div className="text-sm text-dark-600 mt-1">{completedSessions} tamamlandı</div>
+          <div className="dashboard-kpi-number text-secondary-500">{totalSessions}</div>
+          <div className="text-sm text-secondary-600 mt-1">{completedSessions} tamamlandı</div>
         </div>
 
         <div className="card p-6">
