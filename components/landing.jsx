@@ -6,15 +6,15 @@ const Landing = () => {
       <div className="max-w-7xl mx-auto px-4 py-16 grid md:grid-cols-2 gap-12 items-center relative z-10">
         {/* Left Side */}
         <div className="space-y-6 flex flex-col items-center md:items-start text-center md:text-left">
-          {/* QuizUp+ Logo */}
-          <div className="hero-title flex items-center gap-4 mb-2">
-            <div className="logo-icon" style={{ width: '64px', height: '64px' }}>
-              <img src="assets/logo.svg" alt="QuizUp+ Logo" style={{ width: '100%', height: '100%' }} />
-            </div>
-            <div className="text-left">
-              <div className="display-small text-dark-900">QuizUp+</div>
-              <div className="body-medium text-dark-600">Boost Your Knowledge</div>
-            </div>
+          {/* Logo Only */}
+          <div className="flex justify-center md:justify-start">
+            <div className="logo-icon" style={{ width: '80px', height: '80px', fontSize: '40px' }}>?</div>
+          </div>
+
+          {/* Brand Text */}
+          <div className="text-center md:text-left">
+            <h1 className="display-small text-dark-900 mb-2">QuizUp+</h1>
+            <p className="body-medium text-dark-600 mb-6">Boost Your Knowledge</p>
           </div>
 
           <h2 className="display-medium text-dark-900 hero-subtitle">

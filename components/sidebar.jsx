@@ -456,11 +456,7 @@ const Sidebar = () => {
           {/* Logo Section */}
           <div className="sidebar-logo" onClick={handleLogoClick} style={{ cursor: 'pointer', padding: '20px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <img
-                src="assets/logo.svg"
-                alt="QuizUp+ Logo"
-                style={{ width: '48px', height: '48px' }}
-              />
+              <div className="logo-icon" style={{ width: '48px', height: '48px', fontSize: '24px' }}>?</div>
               <div>
                 <div style={{ fontSize: '20px', fontWeight: '700', color: '#1A2332' }}>QuizUp+</div>
                 <div style={{ fontSize: '12px', color: '#47576B' }}>Boost Your Knowledge</div>
