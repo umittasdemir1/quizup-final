@@ -8,38 +8,40 @@ const Landing = () => {
         <div className="space-y-6 flex flex-col items-center md:items-start text-center md:text-left">
           {/* QuizUp+ Logo */}
           <div className="hero-title flex items-center gap-4 mb-2">
-            <div className="logo-icon" style={{ width: '64px', height: '64px', fontSize: '32px' }}>?</div>
+            <div className="logo-icon" style={{ width: '64px', height: '64px' }}>
+              <QuestionMarkCircleIcon size={40} strokeWidth={2.5} />
+            </div>
             <div className="text-left">
-              <div className="text-4xl font-bold text-dark-900">QuizUp+</div>
-              <div className="text-sm text-dark-600">Boost Your Knowledge</div>
+              <div className="display-small text-dark-900">QuizUp+</div>
+              <div className="body-medium text-dark-600">Boost Your Knowledge</div>
             </div>
           </div>
 
-          <h2 className="text-4xl md:text-5xl font-bold text-dark-900 leading-tight hero-subtitle">
+          <h2 className="display-medium text-dark-900 hero-subtitle">
             Test. Learn.<br/>Level Up.
           </h2>
-          
+
           <div className="flex gap-4 hero-btn">
             <button
-              className="btn btn-primary text-lg px-8 py-4"
+              className="btn btn-primary px-8 py-4"
               onClick={() => location.hash = '#/login'}
             >
               Get Started
             </button>
           </div>
-          
+
           <div className="flex gap-8 pt-6">
             <div>
-              <div className="text-3xl font-bold text-primary-500">1000+</div>
-              <div className="text-sm text-dark-600">Sorular</div>
+              <div className="headline-large text-primary-500">1000+</div>
+              <div className="body-medium text-dark-600">Sorular</div>
             </div>
             <div>
-              <div className="text-3xl font-bold text-secondary-500">500+</div>
-              <div className="text-sm text-dark-600">Kullanıcı</div>
+              <div className="headline-large text-secondary-500">500+</div>
+              <div className="body-medium text-dark-600">Kullanıcı</div>
             </div>
             <div>
-              <div className="text-3xl font-bold text-accent-500">95%</div>
-              <div className="text-sm text-dark-600">Başarı Oranı</div>
+              <div className="headline-large text-accent-500">95%</div>
+              <div className="body-medium text-dark-600">Başarı Oranı</div>
             </div>
           </div>
         </div>
