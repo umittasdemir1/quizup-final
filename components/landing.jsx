@@ -9,7 +9,7 @@ const Landing = () => {
           {/* QuizUp+ Logo */}
           <div className="hero-title flex items-center gap-4 mb-2">
             <div className="logo-icon" style={{ width: '64px', height: '64px' }}>
-              <QuestionMarkCircleIcon size={40} strokeWidth={2.5} />
+              <img src="assets/logo.svg" alt="QuizUp+ Logo" style={{ width: '100%', height: '100%' }} />
             </div>
             <div className="text-left">
               <div className="display-small text-dark-900">QuizUp+</div>
