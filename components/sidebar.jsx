@@ -453,13 +453,6 @@ const Sidebar = () => {
 
       {!hideSidebar && (
         <div className={'sidebar ' + (open ? 'open' : '')}>
-          {/* Logo Section */}
-          <div className="sidebar-logo" onClick={handleLogoClick} style={{ cursor: 'pointer', padding: '20px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <img src="assets/logo.svg" alt="QuizUp+" style={{ width: '160px', height: 'auto' }} />
-            </div>
-          </div>
-
           <div className="sidebar-user-card">
             <div className="sidebar-user-card-inner">
               <button
@@ -647,7 +640,7 @@ const Sidebar = () => {
             onClick={handleLogoClick}
           >
             <div className="flex items-center cursor-pointer hover:opacity-80 transition-opacity">
-              <img src="assets/logo.svg" alt="QuizUp+" style={{ width: '120px', height: 'auto' }} />
+              <img src="assets/logo.svg" alt="QuizUp+" style={{ width: '180px', height: 'auto' }} />
             </div>
           </div>
 
