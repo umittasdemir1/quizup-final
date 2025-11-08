@@ -114,7 +114,10 @@
 
       // Scroll to top on route change - AFTER React render completes
       useEffect(() => {
-        window.scrollTo(0, 0);
+        // Use setTimeout to ensure DOM is fully updated
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+        }, 0);
       }, [route]);
 
       useEffect(() => {
@@ -143,7 +146,7 @@
       return (
         <>
           <Sidebar />
-          <main>
+          <main key={route}>
             {route === '/' || route === '' ? <Landing />
               : route.startsWith('/login') ? <Login />
               : route.startsWith('/users') ? (isLoggedIn() && hasRole('admin') ? <UserManagement /> : (() => { requireAuth('admin'); return null; })())
