@@ -216,7 +216,7 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, onCre
                 {question.isActive ? 'Aktif' : 'Pasif'}
               </span>
               {question.hasTimer && Number(question.timerSeconds) > 0 && (
-                <span className="chip chip-blue">⏱️ {question.timerSeconds} sn</span>
+                <span className="chip chip-blue">{question.timerSeconds} sn</span>
               )}
             </div>
             <p className="font-semibold text-lg text-dark-900 mb-2 break-words">{question.questionText}</p>
@@ -233,16 +233,16 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, onCre
           </div>
         </div>
         <div className="flex items-center gap-4 flex-shrink-0">
-          <div className="flex flex-col items-center gap-1">
+          <div className="flex flex-col items-center gap-1 justify-center">
             <label className="toggle-switch">
               <input type="checkbox" checked={question.isActive} onChange={() => toggleActive(question.id, question.isActive)} />
               <span className="toggle-slider"></span>
             </label>
             <span className="text-xs text-dark-500">{question.isActive ? 'Aktif' : 'Pasif'}</span>
           </div>
-          <div className="flex gap-2">
-            <button className="btn btn-ghost text-sm px-3 py-2" onClick={() => handleEdit(question)}>✏️ Düzenle</button>
-            <button className="btn btn-danger text-sm px-3 py-2" onClick={() => handleDelete(question.id)}>🗑️</button>
+          <div className="flex flex-col gap-2 items-stretch">
+            <button className="btn btn-ghost text-sm px-3 py-2" onClick={() => handleEdit(question)}>Düzenle</button>
+            <button className="btn btn-danger text-sm px-3 py-2" onClick={() => handleDelete(question.id)}>Sil</button>
           </div>
         </div>
       </div>
@@ -271,8 +271,7 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, onCre
           {/* Sort Button - Circular */}
           <div className="relative" title="Sırala">
             <select
-              className="hidden"
-              id="sortSelect"
+              className="appearance-none absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
               value={sortOption}
               onChange={(e) => setSortOption(e.target.value)}
             >
@@ -282,8 +281,7 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, onCre
             </select>
             <button
               type="button"
-              className="p-3 flex items-center justify-center rounded-full border bg-white hover:bg-black hover:text-white transition-all duration-200"
-              onClick={() => document.getElementById('sortSelect').click()}
+              className="p-3 flex items-center justify-center rounded-full border bg-white hover:bg-primary-500 hover:text-white transition-all duration-200 pointer-events-none"
               style={{ borderColor: '#E0E0E0' }}
             >
               <BarsArrowUpIcon size={20} strokeWidth={2} />
@@ -294,7 +292,7 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, onCre
           <div className="relative" ref={filterRef} title="Filtrele">
             <button
               type="button"
-              className="p-3 flex items-center justify-center rounded-full border bg-white hover:bg-black hover:text-white transition-all duration-200 relative"
+              className="p-3 flex items-center justify-center rounded-full border bg-white hover:bg-primary-500 hover:text-white transition-all duration-200 relative"
               onClick={() => setShowFilters(v => !v)}
               data-question-filter-toggle="true"
               style={{ borderColor: '#E0E0E0' }}

@@ -277,8 +277,7 @@ const QuestionBank = () => {
           {/* Sort Button - Circular */}
           <div className="relative" title="Sırala">
             <select
-              className="hidden"
-              id="sortSelect"
+              className="appearance-none absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
               value={sortOption}
               onChange={(e) => setSortOption(e.target.value)}
             >
@@ -288,8 +287,7 @@ const QuestionBank = () => {
             </select>
             <button
               type="button"
-              className="p-3 flex items-center justify-center rounded-full border bg-white hover:bg-black hover:text-white transition-all duration-200"
-              onClick={() => document.getElementById('sortSelect').click()}
+              className="p-3 flex items-center justify-center rounded-full border bg-white hover:bg-primary-500 hover:text-white transition-all duration-200 pointer-events-none"
               style={{ borderColor: '#E0E0E0' }}
             >
               <BarsArrowUpIcon size={20} strokeWidth={2} />
@@ -300,7 +298,7 @@ const QuestionBank = () => {
           <div className="relative" ref={filterRef} title="Filtrele">
             <button
               type="button"
-              className="p-3 flex items-center justify-center rounded-full border bg-white hover:bg-black hover:text-white transition-all duration-200 relative"
+              className="p-3 flex items-center justify-center rounded-full border bg-white hover:bg-primary-500 hover:text-white transition-all duration-200 relative"
               onClick={() => setShowFilters(v => !v)}
               data-question-filter-toggle="true"
               style={{ borderColor: '#E0E0E0' }}
