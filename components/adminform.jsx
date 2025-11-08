@@ -131,7 +131,9 @@ const AdminForm = ({
             />
             <span className="toggle-slider"></span>
           </label>
-          <span className="font-semibold text-dark-900">⏱️ Süre Sınırı Ekle</span>
+          <span className="font-semibold text-dark-900 flex items-center gap-1">
+            <ClockIcon size={18} strokeWidth={2} /> Süre Sınırı Ekle
+          </span>
         </div>
         
         {form.hasTimer && (
@@ -165,7 +167,7 @@ const AdminForm = ({
                 className="text-xs text-red-600 hover:text-red-800"
                 onClick={() => updateField('questionImageUrl', '')}
               >
-                ✕ Kaldır
+                <XMarkIcon size={16} strokeWidth={2} className="inline" /> Kaldır
               </button>
             )}
           </div>
@@ -225,14 +227,14 @@ const AdminForm = ({
                         </div>
                         <button
                           type="button"
-                          className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 text-xs"
+                          className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 text-xs flex items-center justify-center"
                           onClick={() => {
                             const newUrls = [...form.optionImageUrls];
                             newUrls[i] = '';
                             updateField('optionImageUrls', newUrls);
                           }}
                         >
-                          ✕
+                          <XMarkIcon size={16} strokeWidth={2} />
                         </button>
                       </div>
                     ) : (

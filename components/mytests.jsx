@@ -82,10 +82,12 @@ const MyTests = () => {
   if (loading) return <Page title="Testlerim"><LoadingSpinner /></Page>;
 
   return (
-    <Page title="📝 Testlerim" subtitle={`${myTests.length} test tamamlandı`}>
+    <Page title="Testlerim" subtitle={`${myTests.length} test tamamlandı`}>
       {myTests.length === 0 ? (
         <div className="card p-12 text-center">
-          <div className="text-6xl mb-4">📝</div>
+          <div className="text-6xl mb-4">
+            <DocumentTextIcon size={64} strokeWidth={1.5} className="inline text-primary-500" />
+          </div>
           <p className="text-dark-500 text-lg mb-4">Henüz test tamamlamadınız</p>
           <a href="#/" className="btn btn-primary">
             Quiz'e Başla
@@ -129,7 +131,7 @@ const MyTests = () => {
                     {test.timeTracking && (
                       <div className="flex gap-3 mt-2 text-sm">
                         <span className="chip chip-blue">
-                          ⏱️ {Math.floor(test.timeTracking.totalTime / 60)}dk {test.timeTracking.totalTime % 60}sn
+                          <ClockIcon size={14} strokeWidth={2} className="inline" /> {Math.floor(test.timeTracking.totalTime / 60)}dk {test.timeTracking.totalTime % 60}sn
                         </span>
                         <span className="chip bg-gray-100 text-gray-700">
                           {test.score?.total || 0} soru
@@ -142,7 +144,7 @@ const MyTests = () => {
                     href={`#/result?sessionId=${test.sessionId}&resultId=${test.id}`}
                     className="btn btn-sm bg-blue-500 text-white hover:bg-blue-600"
                   >
-                    📊 Detay
+                    <ChartBarIcon size={16} strokeWidth={2} className="inline mr-1" /> Detay
                   </a>
                 </div>
               </div>
