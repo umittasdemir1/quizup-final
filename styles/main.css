@@ -456,8 +456,8 @@ main {
 
 .sidebar-user-chevron {
   margin-left: auto;
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 2rem;
+  height: 2rem;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
@@ -468,8 +468,9 @@ main {
 
 .sidebar-user-chevron::before {
   content: '▾';
-  font-size: 0.75rem;
+  font-size: 1rem;
   line-height: 1;
+  font-weight: 600;
 }
 
 .sidebar-user-chevron.open {
