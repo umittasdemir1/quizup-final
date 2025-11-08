@@ -11,6 +11,7 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, onCre
   });
   const [sortOption, setSortOption] = useState('order-asc');
   const filterRef = useRef(null);
+  const animatedPlaceholder = useAnimatedPlaceholder();
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -236,11 +237,11 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, onCre
       <div className="card p-4">
         <div className="question-toolbar">
           <div className="relative flex-1 w-full">
-            <span className="question-search-icon">🔍</span>
+            <span className="question-search-icon"><MagnifyingGlassIcon size={18} strokeWidth={2} /></span>
             <input
               type="search"
               className="field w-full pl-10"
-              placeholder="Soru, kategori ya da doğru cevap ara"
+              placeholder={animatedPlaceholder}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />

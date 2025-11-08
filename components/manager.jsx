@@ -20,6 +20,7 @@ const Manager = () => {
   const [search, setSearch] = useState('');
   const [sortOption, setSortOption] = useState('order-asc');
   const filterRef = useRef(null);
+  const animatedPlaceholder = useAnimatedPlaceholder();
 
   useEffect(() => {
     (async () => {
@@ -464,7 +465,7 @@ const Manager = () => {
                   <input
                     type="search"
                     className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-full bg-white body-medium focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-all"
-                    placeholder="Soru, kategori ya da doğru cevap ara"
+                    placeholder={animatedPlaceholder}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     style={{
