@@ -251,21 +251,28 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, onCre
 
   return (
     <div className="grid gap-4">
-      <div className="card p-4">
-        <div className="question-toolbar">
-          <div className="relative flex-1 w-full">
+      <div className="card p-4 mb-6">
+        <div className="flex items-center gap-3">
+          {/* Search Bar - Oval Design */}
+          <div className="relative flex-1">
             <span className="question-search-icon"><MagnifyingGlassIcon size={18} strokeWidth={2} /></span>
             <input
               type="search"
-              className="field w-full pl-10"
+              className="w-full pl-10 pr-4 py-3 border rounded-full bg-white body-medium focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-all"
               placeholder={animatedPlaceholder}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              style={{
+                borderColor: '#E0E0E0'
+              }}
             />
           </div>
-          <div className="question-toolbar-actions">
+
+          {/* Sort Button - Circular */}
+          <div className="relative" title="Sırala">
             <select
-              className="field question-sort-select"
+              className="hidden"
+              id="sortSelect"
               value={sortOption}
               onChange={(e) => setSortOption(e.target.value)}
             >
@@ -273,137 +280,148 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, onCre
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
-            <div className="relative" ref={filterRef}>
-              <button
-                type="button"
-                className="btn btn-secondary px-4 py-2 text-sm flex items-center gap-2"
-                onClick={() => setShowFilters(v => !v)}
-                data-question-filter-toggle="true"
-              >
-                🧰 Filtreler
-                {activeFilterCount > 0 && (
-                  <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-primary-500 rounded-full">
-                    {activeFilterCount}
-                  </span>
-                )}
-              </button>
-              {showFilters && (
-                <div className="question-filter-panel">
-                  <div className="grid gap-6 md:grid-cols-2">
-                    {uniqueCategories.length > 0 && (
-                      <div>
-                        <h3 className="question-filter-title">📁 Kategoriler</h3>
-                        <div className="question-filter-options">
-                          {uniqueCategories.map(category => (
-                            <label key={category} className="question-filter-option">
-                              <input
-                                type="checkbox"
-                                checked={filters.categories.includes(category)}
-                                onChange={() => toggleFilter('categories', category)}
-                              />
-                              <span>{category}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+            <button
+              type="button"
+              className="p-3 flex items-center justify-center rounded-full border bg-white hover:bg-black hover:text-white transition-all duration-200"
+              onClick={() => document.getElementById('sortSelect').click()}
+              style={{ borderColor: '#E0E0E0' }}
+            >
+              <BarsArrowUpIcon size={20} strokeWidth={2} />
+            </button>
+          </div>
 
+          {/* Filter Button - Circular */}
+          <div className="relative" ref={filterRef} title="Filtrele">
+            <button
+              type="button"
+              className="p-3 flex items-center justify-center rounded-full border bg-white hover:bg-black hover:text-white transition-all duration-200 relative"
+              onClick={() => setShowFilters(v => !v)}
+              data-question-filter-toggle="true"
+              style={{ borderColor: '#E0E0E0' }}
+            >
+              <FunnelIcon size={20} strokeWidth={2} />
+              {activeFilterCount > 0 && (
+                <span className="absolute -top-1 -right-1 inline-flex items-center justify-center w-5 h-5 text-xs label-small text-white bg-primary-500 rounded-full">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+            {showFilters && (
+              <div className="question-filter-panel">
+                <div className="grid gap-6 md:grid-cols-2">
+                  {uniqueCategories.length > 0 && (
                     <div>
-                      <h3 className="question-filter-title">⚡ Zorluk</h3>
+                      <h3 className="title-small">Kategoriler</h3>
                       <div className="question-filter-options">
-                        {difficulties.map(diff => (
-                          <label key={diff.value} className="question-filter-option">
+                        {uniqueCategories.map(category => (
+                          <label key={category} className="question-filter-option">
                             <input
                               type="checkbox"
-                              checked={filters.difficulties.includes(diff.value)}
-                              onChange={() => toggleFilter('difficulties', diff.value)}
+                              checked={filters.categories.includes(category)}
+                              onChange={() => toggleFilter('categories', category)}
                             />
-                            <span>{diff.label}</span>
+                            <span>{category}</span>
                           </label>
                         ))}
                       </div>
                     </div>
+                  )}
 
-                    <div>
-                      <h3 className="question-filter-title">📊 Durum</h3>
-                      <div className="question-filter-options">
-                        <label className="question-filter-option">
+                  <div>
+                    <h3 className="title-small">Zorluk</h3>
+                    <div className="question-filter-options">
+                      {difficulties.map(diff => (
+                        <label key={diff.value} className="question-filter-option">
                           <input
                             type="checkbox"
-                            checked={filters.statuses.includes('active')}
-                            onChange={() => toggleFilter('statuses', 'active')}
+                            checked={filters.difficulties.includes(diff.value)}
+                            onChange={() => toggleFilter('difficulties', diff.value)}
                           />
-                          <span>Aktif</span>
+                          <span>{diff.label}</span>
                         </label>
-                        <label className="question-filter-option">
-                          <input
-                            type="checkbox"
-                            checked={filters.statuses.includes('inactive')}
-                            onChange={() => toggleFilter('statuses', 'inactive')}
-                          />
-                          <span>Pasif</span>
-                        </label>
-                      </div>
-                    </div>
-
-                    {uniqueTypes.length > 0 && (
-                      <div>
-                        <h3 className="question-filter-title">🧠 Soru Tipi</h3>
-                        <div className="question-filter-options">
-                          {uniqueTypes.map(type => (
-                            <label key={type} className="question-filter-option">
-                              <input
-                                type="checkbox"
-                                checked={filters.types.includes(type)}
-                                onChange={() => toggleFilter('types', type)}
-                              />
-                              <span>{typeLabel(type)}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    <div>
-                      <h3 className="question-filter-title">⏱️ Süre</h3>
-                      <div className="question-filter-options">
-                        <label className="question-filter-option">
-                          <input
-                            type="checkbox"
-                            checked={filters.timers.includes('timed')}
-                            onChange={() => toggleFilter('timers', 'timed')}
-                          />
-                          <span>Süreli</span>
-                        </label>
-                        <label className="question-filter-option">
-                          <input
-                            type="checkbox"
-                            checked={filters.timers.includes('untimed')}
-                            onChange={() => toggleFilter('timers', 'untimed')}
-                          />
-                          <span>Süresiz</span>
-                        </label>
-                      </div>
+                      ))}
                     </div>
                   </div>
-                  {(activeFilterCount > 0 || search.trim()) && (
-                    <div className="flex justify-end mt-4">
-                      <button type="button" className="btn btn-ghost text-sm" onClick={resetAll}>Temizle</button>
+
+                  <div>
+                    <h3 className="title-small">Durum</h3>
+                    <div className="question-filter-options">
+                      <label className="question-filter-option">
+                        <input
+                          type="checkbox"
+                          checked={filters.statuses.includes('active')}
+                          onChange={() => toggleFilter('statuses', 'active')}
+                        />
+                        <span>Aktif</span>
+                      </label>
+                      <label className="question-filter-option">
+                        <input
+                          type="checkbox"
+                          checked={filters.statuses.includes('inactive')}
+                          onChange={() => toggleFilter('statuses', 'inactive')}
+                        />
+                        <span>Pasif</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {uniqueTypes.length > 0 && (
+                    <div>
+                      <h3 className="title-small">Soru Tipi</h3>
+                      <div className="question-filter-options">
+                        {uniqueTypes.map(type => (
+                          <label key={type} className="question-filter-option">
+                            <input
+                              type="checkbox"
+                              checked={filters.types.includes(type)}
+                              onChange={() => toggleFilter('types', type)}
+                            />
+                            <span>{typeLabel(type)}</span>
+                          </label>
+                        ))}
+                      </div>
                     </div>
                   )}
+
+                  <div>
+                    <h3 className="title-small">Süre</h3>
+                    <div className="question-filter-options">
+                      <label className="question-filter-option">
+                        <input
+                          type="checkbox"
+                          checked={filters.timers.includes('timed')}
+                          onChange={() => toggleFilter('timers', 'timed')}
+                        />
+                        <span>Süreli</span>
+                      </label>
+                      <label className="question-filter-option">
+                        <input
+                          type="checkbox"
+                          checked={filters.timers.includes('untimed')}
+                          onChange={() => toggleFilter('timers', 'untimed')}
+                        />
+                        <span>Süresiz</span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
-              )}
-            </div>
-            {(search.trim() || activeFilterCount > 0) && (
-              <button
-                type="button"
-                className="btn btn-ghost px-3 py-2 text-sm"
-                onClick={resetAll}
-              >
-                Temizle
-              </button>
+                {(activeFilterCount > 0 || search.trim()) && (
+                  <div className="flex justify-end mt-4">
+                    <button type="button" className="btn btn-ghost text-sm" onClick={resetAll}>Temizle</button>
+                  </div>
+                )}
+              </div>
             )}
           </div>
+          {(search.trim() || activeFilterCount > 0) && (
+            <button
+              type="button"
+              className="btn btn-ghost px-3 py-2 text-sm"
+              onClick={resetAll}
+            >
+              Temizle
+            </button>
+          )}
         </div>
       </div>
 

@@ -260,7 +260,7 @@ const SuggestedQuestions = () => {
 
   return (
     <Page
-      title="📬 Soru Önerileri"
+      title="Soru Önerileri"
       subtitle={`${suggestions.length} toplam öneri, ${pendingCount} bekliyor`}
     >
       <div className="max-w-5xl mx-auto">
