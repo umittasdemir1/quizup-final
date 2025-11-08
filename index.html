@@ -112,6 +112,11 @@
       const route = useHash();
       const [authReady, setAuthReady] = useState(Boolean(window.__firebaseAuthReady));
 
+      // Scroll to top on route change - AFTER React render completes
+      useEffect(() => {
+        window.scrollTo(0, 0);
+      }, [route]);
+
       useEffect(() => {
         if (window.__firebaseAuthReady) {
           setAuthReady(true);
