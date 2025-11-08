@@ -5,24 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>QuizUp+ – Boost Your Knowledge</title>
   <meta name="color-scheme" content="light" />
-  <meta name="theme-color" content="#FF6B4A" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <meta name="theme-color" content="#FF5722" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       theme: {
         extend: {
-          fontFamily: { inter: ['Inter', 'system-ui', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'] },
-          colors: {
-            primary: {50:'#FFF5F2',100:'#FFE8E0',200:'#FFD1C1',300:'#FFB5A0',400:'#FF8D75',500:'#FF6B4A',600:'#E84A28',700:'#C23818',800:'#9D2A0F',900:'#7A1F08'},
-            secondary: {50:'#F0F7F9',100:'#D9EDF2',200:'#B3DBE5',300:'#8DC9D8',400:'#67B5CB',500:'#4A90A4',600:'#3A7383',700:'#2B5662',800:'#1D3A42',900:'#0F1F24'},
-            accent: {50:'#F0FDFB',100:'#CCFBF1',200:'#99F6E4',300:'#5EDFD1',400:'#5EC5B6',500:'#3DA89C',600:'#2D8A7F',700:'#1F6B63',800:'#134E49',900:'#0A3330'},
-            dark: {50:'#E8EAED',100:'#D1D5DA',200:'#A3ABB5',300:'#758190',400:'#47576B',500:'#1A2332',600:'#151C28',700:'#10151E',800:'#0B0E14',900:'#06070A'}
+          fontFamily: {
+            poppins: ['Poppins', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+            roboto: ['Roboto', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif']
           },
-          boxShadow: { 
-            card: '0 4px 16px rgba(0,0,0,0.08)', 
-            pill: '0 8px 24px rgba(255,107,74,0.25)',
-            glow: '0 0 20px rgba(255,107,74,0.3)'
+          colors: {
+            primary: {50:'#FFF3E0',100:'#FFE0B2',200:'#FFCC80',300:'#FFB74D',400:'#FFA726',500:'#FF5722',600:'#F4511E',700:'#E64A19',800:'#D84315',900:'#BF360C'},
+            secondary: {50:'#E3F2FD',100:'#BBDEFB',200:'#90CAF9',300:'#64B5F6',400:'#42A5F5',500:'#2196F3',600:'#1E88E5',700:'#1976D2',800:'#1565C0',900:'#0D47A1'},
+            accent: {50:'#E0F2F1',100:'#B2DFDB',200:'#80CBC4',300:'#4DB6AC',400:'#26A69A',500:'#009688',600:'#00897B',700:'#00796B',800:'#00695C',900:'#004D40'},
+            dark: {50:'#FAFAFA',100:'#F5F5F5',200:'#EEEEEE',300:'#E0E0E0',400:'#BDBDBD',500:'#9E9E9E',600:'#757575',700:'#616161',800:'#424242',900:'#212121'}
+          },
+          boxShadow: {
+            card: '0 2px 4px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.08)',
+            pill: '0 2px 4px rgba(255,87,34,0.25), 0 4px 12px rgba(255,87,34,0.15)',
+            glow: '0 0 20px rgba(255,87,34,0.3)'
           },
           borderRadius: { xl2: '16px', xl3: '20px' },
           animation: {
