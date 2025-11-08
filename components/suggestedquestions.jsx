@@ -248,9 +248,9 @@ const SuggestedQuestions = () => {
   };
 
   const getStatusBadge = (status) => {
-    if (status === 'pending') return <span className="chip bg-yellow-100 text-yellow-700">⏳ Bekliyor</span>;
-    if (status === 'approved') return <span className="chip bg-green-100 text-green-700">✅ Onaylandı</span>;
-    if (status === 'rejected') return <span className="chip bg-red-100 text-red-700">❌ Reddedildi</span>;
+    if (status === 'pending') return <span className="chip bg-yellow-100 text-yellow-700 inline-flex items-center gap-1"><ClockIcon size={14} strokeWidth={2} /> Bekliyor</span>;
+    if (status === 'approved') return <span className="chip bg-green-100 text-green-700 inline-flex items-center gap-1"><CheckCircleIcon size={14} strokeWidth={2} /> Onaylandı</span>;
+    if (status === 'rejected') return <span className="chip bg-red-100 text-red-700 inline-flex items-center gap-1"><XCircleIcon size={14} strokeWidth={2} /> Reddedildi</span>;
     return <span className="chip">{status}</span>;
   };
 
@@ -313,7 +313,7 @@ const SuggestedQuestions = () => {
                         <div className="flex flex-wrap gap-2 mb-2">
                           {suggestion.options.filter(o => o).map((o, i) => (
                             <span key={i} className={`px-3 py-1 rounded-full text-xs ${o === suggestion.correctAnswer ? 'bg-green-100 text-green-700 font-semibold' : 'bg-gray-200 text-gray-700'}`}>
-                              {o} {o === suggestion.correctAnswer && '✓'}
+                              {o} {o === suggestion.correctAnswer && <CheckIcon size={16} strokeWidth={2} />}
                             </span>
                           ))}
                         </div>
@@ -341,7 +341,7 @@ const SuggestedQuestions = () => {
                           setShowModal(true);
                         }}
                       >
-                        <span>👁️</span>
+                        <EyeIcon size={18} strokeWidth={2} />
                         <span>Detay</span>
                       </button>
                       <button
@@ -349,7 +349,7 @@ const SuggestedQuestions = () => {
                         onClick={() => openEditModal(suggestion)}
                         disabled={processing}
                       >
-                        <span>✏️</span>
+                        <PencilSquareIcon size={18} strokeWidth={2} />
                         <span>Düzenle</span>
                       </button>
                       <button
@@ -357,7 +357,7 @@ const SuggestedQuestions = () => {
                         onClick={() => approveSuggestion(suggestion)}
                         disabled={processing}
                       >
-                        <span>✅</span>
+                        <CheckCircleIcon size={18} strokeWidth={2} />
                         <span>Onayla</span>
                       </button>
                       <button
@@ -365,7 +365,7 @@ const SuggestedQuestions = () => {
                         onClick={() => rejectSuggestion(suggestion.id)}
                         disabled={processing}
                       >
-                        <span>❌</span>
+                        <XCircleIcon size={18} strokeWidth={2} />
                         <span>Reddet</span>
                       </button>
                     </div>
@@ -458,7 +458,7 @@ const SuggestedQuestions = () => {
                       <ul className="list-disc list-inside mt-2">
                         {selectedSuggestion.options.filter(o => o).map((o, i) => (
                           <li key={i} className={o === selectedSuggestion.correctAnswer ? 'text-green-600 font-semibold' : ''}>
-                            {o} {o === selectedSuggestion.correctAnswer && '✓'}
+                            {o} {o === selectedSuggestion.correctAnswer && <CheckIcon size={16} strokeWidth={2} />}
                           </li>
                         ))}
                       </ul>
@@ -500,21 +500,21 @@ const SuggestedQuestions = () => {
                       }}
                       disabled={processing}
                     >
-                      ✏️ Düzenle ve Onayla
+                      <PencilSquareIcon size={18} strokeWidth={2} className="inline" /> Düzenle ve Onayla
                     </button>
                     <button
                       className="btn btn-primary flex-1"
                       onClick={() => approveSuggestion(selectedSuggestion)}
                       disabled={processing}
                     >
-                      {processing ? 'İşleniyor...' : '✅ Olduğu Gibi Onayla'}
+                      {processing ? 'İşleniyor...' : <><CheckCircleIcon size={18} strokeWidth={2} /> Olduğu Gibi Onayla</>}
                     </button>
                     <button
                       className="btn bg-red-500 text-white hover:bg-red-600 flex-1"
                       onClick={() => rejectSuggestion(selectedSuggestion.id)}
                       disabled={processing}
                     >
-                      {processing ? 'İşleniyor...' : '❌ Reddet'}
+                      {processing ? 'İşleniyor...' : <><XCircleIcon size={18} strokeWidth={2} /> Reddet</>}
                     </button>
                   </div>
                 )}
@@ -546,7 +546,9 @@ const SuggestedQuestions = () => {
               }}
             >
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-dark-900">✏️ Soruyu Düzenle</h2>
+                <h2 className="text-2xl font-bold text-dark-900 flex items-center gap-2">
+                  <PencilSquareIcon size={24} strokeWidth={2} /> Soruyu Düzenle
+                </h2>
                 <button
                   className="text-dark-400 hover:text-dark-900 text-2xl"
                   onClick={() => setShowEditModal(false)}
@@ -667,7 +669,7 @@ const SuggestedQuestions = () => {
                       />
                       <span className="toggle-slider"></span>
                     </label>
-                    <span className="font-semibold text-dark-900">⏱️ Süre Sınırı Ekle</span>
+                    <span className="font-semibold text-dark-900 flex items-center gap-2"><ClockIcon size={18} strokeWidth={2} /> Süre Sınırı Ekle</span>
                   </div>
 
                   {editForm.hasTimer && (
@@ -698,10 +700,10 @@ const SuggestedQuestions = () => {
                       {editForm.questionImageUrl && (
                         <button
                           type="button"
-                          className="text-xs text-red-600 hover:text-red-800"
+                          className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1"
                           onClick={() => updateEditField('questionImageUrl', '')}
                         >
-                          ✕ Kaldır
+                          <XMarkIcon size={14} strokeWidth={2} /> Kaldır
                         </button>
                       )}
                     </div>
@@ -761,14 +763,14 @@ const SuggestedQuestions = () => {
                                   </div>
                                   <button
                                     type="button"
-                                    className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 text-xs"
+                                    className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 text-xs flex items-center justify-center"
                                     onClick={() => {
                                       const newUrls = [...editForm.optionImageUrls];
                                       newUrls[i] = '';
                                       updateEditField('optionImageUrls', newUrls);
                                     }}
                                   >
-                                    ✕
+                                    <XMarkIcon size={14} strokeWidth={2} />
                                   </button>
                                 </div>
                               ) : (
@@ -812,7 +814,7 @@ const SuggestedQuestions = () => {
                     onClick={saveEditAndApprove}
                     disabled={processing || uploading}
                   >
-                    {processing ? 'Kaydediliyor...' : '✅ Kaydet ve Onayla'}
+                    {processing ? 'Kaydediliyor...' : <><CheckCircleIcon size={18} strokeWidth={2} /> Kaydet ve Onayla</>}
                   </button>
                 </div>
               </div>
