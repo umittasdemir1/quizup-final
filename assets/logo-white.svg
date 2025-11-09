@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- White Background Circle -->
+  <circle cx="50" cy="50" r="48" fill="white" stroke="#E0E0E0" stroke-width="2"/>
+
+  <!-- Orange Question Mark -->
+  <g fill="#FF5722">
+    <!-- Question mark curve -->
+    <path d="M 50 28
+             C 58 28, 62 32, 62 38
+             C 62 42, 60 45, 56 47
+             L 52 50
+             C 50 51.5, 49 53, 49 56
+             L 49 60
+             L 51 60
+             C 52 60, 52 59, 52 58
+             L 52 56
+             C 52 54, 53 53, 55 51.5
+             L 59 49
+             C 64 46, 66 42, 66 38
+             C 66 30, 60 24, 50 24
+             C 40 24, 34 30, 34 38
+             L 38 38
+             C 38 32, 42 28, 50 28 Z"
+             stroke="#FF5722"
+             stroke-width="0.5"/>
+
+    <!-- Question mark dot -->
+    <circle cx="50" cy="68" r="3"/>
+  </g>
+</svg>

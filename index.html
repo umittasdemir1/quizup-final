@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>QuizUp+ – Boost Your Knowledge</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="alternate icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#FF5722" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            poppins: ['Poppins', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+            roboto: ['Roboto', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif']
+          },
+          colors: {
+            primary: {50:'#FFF3E0',100:'#FFE0B2',200:'#FFCC80',300:'#FFB74D',400:'#FFA726',500:'#FF5722',600:'#F4511E',700:'#E64A19',800:'#D84315',900:'#BF360C'},
+            secondary: {50:'#E3F2FD',100:'#BBDEFB',200:'#90CAF9',300:'#64B5F6',400:'#42A5F5',500:'#2196F3',600:'#1E88E5',700:'#1976D2',800:'#1565C0',900:'#0D47A1'},
+            accent: {50:'#E0F2F1',100:'#B2DFDB',200:'#80CBC4',300:'#4DB6AC',400:'#26A69A',500:'#009688',600:'#00897B',700:'#00796B',800:'#00695C',900:'#004D40'},
+            dark: {50:'#FAFAFA',100:'#F5F5F5',200:'#EEEEEE',300:'#E0E0E0',400:'#BDBDBD',500:'#9E9E9E',600:'#757575',700:'#616161',800:'#424242',900:'#212121'}
+          },
+          boxShadow: {
+            card: '0 2px 4px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.08)',
+            pill: '0 2px 4px rgba(255,87,34,0.25), 0 4px 12px rgba(255,87,34,0.15)',
+            glow: '0 0 20px rgba(255,87,34,0.3)'
+          },
+          borderRadius: { xl2: '16px', xl3: '20px' },
+          animation: {
+            'fade-in': 'fadeIn 0.3s ease-in',
+            'slide-up': 'slideUp 0.4s ease-out',
+            'bounce-soft': 'bounceSoft 0.6s ease-in-out'
+          },
+          keyframes: {
+            fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+            slideUp: { '0%': { transform: 'translateY(20px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } },
+            bounceSoft: { '0%, 100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-10px)' } }
+          }
+        }
+      }
+    }
+  </script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body class="min-h-screen text-dark-900">
+  <script>
+    // Prevent browser from restoring scroll position on navigation
+    if ('scrollRestoration' in history) {
+      history.scrollRestoration = 'manual';
+    }
+  </script>
+  <div id="toast-container" class="toast-container"></div>
+  <div id="root"></div>
+
+  <!-- Firebase Config & Init -->
+  <script src="config/runtime-env.js"></script>
+  <script src="config/firebase-config.js"></script>
+  <script src="config/pdf-fonts.js"></script>
+  <script>
+    if (!window.__FIREBASE_CONFIG) {
+      console.error('Firebase yapılandırması eksik. `config/firebase-config.sample.js` dosyasını `config/firebase-config.js` olarak kopyalayın.');
+    }
+  </script>
+  <script type="module" src="utils/firebase.js"></script>
+  
+  <!-- Utils & Helpers -->
+  <script type="text/babel" src="utils/helpers.js"></script>
+  <script type="text/babel" src="utils/hooks.js"></script>
+  <script src="utils/location.js"></script>
+  <script type="text/babel" src="utils/icons.jsx"></script>
+
+  <!-- Components - CRITICAL: Load sub-components BEFORE parent components -->
+  <script type="text/babel" src="components/Sidebar.jsx"></script>
+  <script type="text/babel" src="components/Landing.jsx"></script>
+  <script type="text/babel" src="components/Login.jsx"></script>
+  <script type="text/babel" src="components/UserManagement.jsx"></script>
+  <script type="text/babel" src="components/SuggestQuestion.jsx"></script>
+  <script type="text/babel" src="components/SuggestedQuestions.jsx"></script>
+  <script type="text/babel" src="components/MyTests.jsx"></script>
+  <script type="text/babel" src="components/Questions.jsx"></script>
+  <script type="text/babel" src="components/Manager.jsx"></script>
+  <script type="text/babel" src="components/quiz.jsx"></script>
+  <script type="text/babel" src="components/Dashboard.jsx"></script>
+  <script type="text/babel" src="components/Tests.jsx"></script>
+  <script type="text/babel" src="components/Result.jsx"></script>
+  <script type="text/babel" src="components/Branding.jsx"></script>
+  <script type="text/babel" src="components/LocationMap.jsx"></script>
+  
+  <!-- Admin components - QuestionList and AdminForm MUST load before Admin -->
+  <script type="text/babel" src="components/QuestionList.jsx"></script>
+  
+  <script type="text/babel" src="components/AdminForm.jsx"></script>
+  <script type="text/babel" src="components/Admin.jsx"></script>
+  
+  <!-- Main App -->
+  <script type="text/babel">
+    const { useEffect, useState } = React;
+
+    const App = () => {
+      useAnon();
+      const route = useHash();
+      const [authReady, setAuthReady] = useState(Boolean(window.__firebaseAuthReady));
+
+      // Scroll to top on route change - AFTER React render completes
+      useEffect(() => {
+        // Use setTimeout to ensure DOM is fully updated
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+        }, 0);
+      }, [route]);
+
+      useEffect(() => {
+        if (window.__firebaseAuthReady) {
+          setAuthReady(true);
+        }
+
+        const handleAuth = (event) => {
+          if (event?.detail?.ready) {
+            setAuthReady(true);
+          }
+        };
+
+        window.addEventListener('fb-auth-state', handleAuth);
+        return () => window.removeEventListener('fb-auth-state', handleAuth);
+      }, []);
+
+      if (!authReady) {
+        return (
+          <main className="min-h-screen flex items-center justify-center bg-white">
+            <LoadingSpinner text="Oturum doğrulanıyor..." />
+          </main>
+        );
+      }
+
+      return (
+        <>
+          <Sidebar />
+          <main key={route}>
+            {route === '/' || route === '' ? <Landing />
+              : route.startsWith('/login') ? <Login />
+              : route.startsWith('/users') ? (isLoggedIn() && hasRole('admin') ? <UserManagement /> : (() => { requireAuth('admin'); return null; })())
+              : route.startsWith('/suggestions') ? (isLoggedIn() && hasRole('admin') ? <SuggestedQuestions /> : (() => { requireAuth('admin'); return null; })())
+              : route.startsWith('/suggest') ? <SuggestQuestion />
+              : route.startsWith('/mytests') ? <MyTests />
+              : route.startsWith('/questions') ? (isLoggedIn() && hasRole(['admin', 'manager']) ? <QuestionBank /> : (() => { requireAuth(['admin', 'manager']); return null; })())
+              : route.startsWith('/branding') ? (isLoggedIn() && hasRole('admin') ? <Branding /> : (() => { requireAuth('admin'); return null; })())
+              : route.startsWith('/dashboard') ? (isLoggedIn() && hasRole(['admin', 'manager']) ? <Dashboard /> : (() => { requireAuth(['admin', 'manager']); return null; })())
+              : route.startsWith('/quiz/') ? <Quiz sessionId={route.split('/')[2]} />
+              : route.startsWith('/result') ? (() => {
+                  const params = new URLSearchParams(route.split('?')[1] || '');
+                  return <Result sessionId={params.get('sessionId')} resultId={params.get('resultId')} />
+                })()
+              : route.startsWith('/manager') ? (isLoggedIn() && hasRole(['admin', 'manager']) ? <Manager /> : (() => { requireAuth(['admin', 'manager']); return null; })())
+              : route.startsWith('/tests') ? (isLoggedIn() ? <Tests /> : (() => { requireAuth(); return null; })())
+              : route.startsWith('/admin') ? (isLoggedIn() && hasRole('admin') ? <Admin /> : (() => { requireAuth('admin'); return null; })())
+              : <Landing />
+            }
+          </main>
+        </>
+      );
+    };
+
+    const renderApp = () => {
+      if (!window.__appRoot) {
+        window.__appRoot = ReactDOM.createRoot(document.getElementById('root'));
+      }
+      window.__appRoot.render(<App />);
+    };
+
+    if (window.__firebaseReadyPromise) {
+      window.__firebaseReadyPromise.then(renderApp);
+    } else if (window.firebase?.db) {
+      renderApp();
+    } else {
+      window.addEventListener('fb-ready', renderApp, { once: true });
+    }
+  </script>
+</body>
+</html>
