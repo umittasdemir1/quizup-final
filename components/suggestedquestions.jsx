@@ -678,7 +678,12 @@ const SuggestedQuestions = () => {
                 {/* TIMER SECTION */}
                 <div className="card p-4">
                   <div className="flex items-center gap-3">
-                    <ClockIcon size={20} strokeWidth={2} className="text-dark-700" />
+                    <img
+                      src="assets/icons/timer-icon.png"
+                      alt="Timer"
+                      className="w-6 h-6"
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
                     <span className="font-semibold text-dark-900">
                       Süre Sınırı Ekle
                     </span>
@@ -712,7 +717,12 @@ const SuggestedQuestions = () => {
                 {/* IMAGE SECTION */}
                 <div className="card p-4">
                   <div className="flex items-center gap-3">
-                    <PhotoIcon size={20} strokeWidth={2} className="text-dark-700" />
+                    <img
+                      src="assets/icons/image-icon.png"
+                      alt="Image"
+                      className="w-6 h-6"
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
                     <span className="font-semibold text-dark-900">
                       Görsel Ekle
                     </span>
@@ -742,17 +752,19 @@ const SuggestedQuestions = () => {
                       ) : (
                         <>
                           <div
-                            className="flex flex-col items-center justify-center cursor-pointer py-6 border-2 border-dashed border-dark-300 rounded-lg hover:border-primary-500 transition-colors"
+                            className="flex items-center justify-center cursor-pointer py-4"
                             onClick={() => questionImageRef.current?.click()}
                             style={{ pointerEvents: uploading ? 'none' : 'auto' }}
                           >
                             {uploading ? (
                               <span className="text-dark-500">Yükleniyor...</span>
                             ) : (
-                              <>
-                                <PhotoIcon size={32} strokeWidth={1.5} className="text-dark-400 mb-2" />
-                                <span className="text-sm text-dark-600">Görsel yüklemek için tıklayın</span>
-                              </>
+                              <img
+                                src="assets/icons/upload-icon.png"
+                                alt="Upload"
+                                className="w-12 h-12"
+                                onError={(e) => { e.target.style.display = 'none'; }}
+                              />
                             )}
                           </div>
                           <input
@@ -811,14 +823,19 @@ const SuggestedQuestions = () => {
                               ) : (
                                 <>
                                   <div
-                                    className="flex flex-col items-center justify-center cursor-pointer py-4 border-2 border-dashed border-dark-300 rounded-lg hover:border-primary-500 transition-colors"
+                                    className="flex items-center justify-center cursor-pointer py-3"
                                     onClick={() => optionImageRefs.current[i]?.click()}
                                     style={{ pointerEvents: uploading ? 'none' : 'auto' }}
                                   >
                                     {uploading ? (
                                       <span className="text-xs text-dark-500">Yükleniyor...</span>
                                     ) : (
-                                      <PhotoIcon size={24} strokeWidth={1.5} className="text-dark-400" />
+                                      <img
+                                        src="assets/icons/upload-icon.png"
+                                        alt="Upload"
+                                        className="w-8 h-8"
+                                        onError={(e) => { e.target.style.display = 'none'; }}
+                                      />
                                     )}
                                   </div>
                                   <input
