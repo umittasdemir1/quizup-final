@@ -111,16 +111,28 @@ const Manager = () => {
 
   // 📦 Load Question Packages - Realtime listener
   useEffect(() => {
+    let unsubscribe;
+
     (async () => {
       try {
         await waitFirebase();
         const { db, collection, query, where, onSnapshot } = window.firebase;
 
         const currentUser = getCurrentUser();
-        if (!currentUser) return;
+        if (!currentUser) {
+          console.warn('⚠️ No user found, packages not loaded');
+          return;
+        }
 
         const userCompany = currentUser?.company || 'BLUEMINT';
         const isUserAdmin = currentUser?.role === 'admin';
+
+        console.log('📦 Setting up package listener for:', {
+          company: userCompany,
+          role: currentUser.role,
+          isAdmin: isUserAdmin,
+          uid: currentUser.uid
+        });
 
         // Admin: Tüm şirket paketlerini görebilir
         // Manager: Sadece kendi paketlerini görebilir
@@ -136,7 +148,7 @@ const Manager = () => {
             );
 
         // Realtime listener - auto-updates on changes
-        const unsubscribe = onSnapshot(q,
+        unsubscribe = onSnapshot(q,
           (snapshot) => {
             // Client-side sort by createdAt
             const packagesData = snapshot.docs
@@ -149,16 +161,24 @@ const Manager = () => {
           (error) => {
             // Don't show error during logout
             if (getCurrentUser()) {
+              console.error('❌ Load packages error:', error);
               window.devError('Load packages error:', error);
             }
           }
         );
-
-        return unsubscribe;
       } catch (e) {
+        console.error('❌ Load packages setup error:', e);
         window.devError('Load packages setup error:', e);
       }
     })();
+
+    // Cleanup function
+    return () => {
+      if (unsubscribe) {
+        console.log('🧹 Cleaning up package listener');
+        unsubscribe();
+      }
+    };
   }, []);
 
   // Close dropdown when clicking outside
