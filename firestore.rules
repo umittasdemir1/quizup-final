@@ -197,17 +197,5 @@ service cloud.firestore {
                               resource.data.createdBy == request.auth.uid &&
                               isSameCompany(resource.data.company);
     }
-
-    // ========================================
-    // ERROR LOGS COLLECTION (Optional - Analytics için)
-    // ========================================
-    match /errorLogs/{logId} {
-      // Sadece oluşturma izni (monitoring için)
-      allow create: if isSignedIn();
-      // Sadece admin okuyabilir
-      allow read: if isAdmin();
-      // Hiç kimse güncelleyemez/silemez
-      allow update, delete: if false;
-    }
   }
 }
