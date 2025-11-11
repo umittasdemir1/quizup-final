@@ -50,11 +50,8 @@ service cloud.firestore {
     // QUESTIONS COLLECTION
     // ========================================
     match /questions/{questionId} {
-      // ✅ FIXED: Sadece kendi şirketinin sorularını okuyabilir
-      allow read: if isSignedIn() && (
-        isSameCompany(resource.data.company) ||
-        resource.data.company == null // Backward compatibility for old questions
-      );
+      // ✅ Quiz QR kod ile açılabildiği için read için auth gerekmez
+      allow read: if true;
 
       // ✅ Admin sadece kendi şirketinin sorularını oluşturabilir
       allow create: if isAdmin() && isSameCompany(request.resource.data.company);
