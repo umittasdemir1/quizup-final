@@ -993,7 +993,7 @@ const Manager = () => {
               </div>
 
               {/* 📦 Question Packages Chips */}
-              {packages.length > 0 || true && (
+              {(packages.length > 0 || true) && (
                 <div className="mt-4 pt-4 border-t border-dark-200">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-xs font-semibold text-dark-700">📦 Hızlı Paketler:</span>
