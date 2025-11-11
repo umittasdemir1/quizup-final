@@ -24,6 +24,13 @@ const Manager = () => {
   const sortRef = useRef(null);
   const animatedPlaceholder = useAnimatedPlaceholder();
 
+  // 📦 Question Packages State
+  const [packages, setPackages] = useState([]);
+  const [showPackageModal, setShowPackageModal] = useState(false);
+  const [selectedPackageId, setSelectedPackageId] = useState(null);
+  const [packageForm, setPackageForm] = useState({ name: '', questionIds: [] });
+  const [packageErrors, setPackageErrors] = useState({});
+
   useEffect(() => {
     (async () => {
       await waitFirebase();
@@ -87,6 +94,35 @@ const Manager = () => {
         unsubSessions();
         unsubQuestions();
       };
+    })();
+  }, []);
+
+  // 📦 Load Question Packages
+  useEffect(() => {
+    (async () => {
+      try {
+        await waitFirebase();
+        const { db, collection, query, where, orderBy, getDocs } = window.firebase;
+
+        const currentUser = getCurrentUser();
+        if (!currentUser) return;
+
+        const userCompany = currentUser?.company || 'BLUEMINT';
+
+        const q = query(
+          collection(db, 'questionPackages'),
+          where('company', '==', userCompany),
+          where('createdBy', '==', currentUser.uid),
+          orderBy('createdAt', 'desc')
+        );
+
+        const snapshot = await getDocs(q);
+        const packagesData = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        setPackages(packagesData);
+      } catch (e) {
+        window.devError('Load packages error:', e);
+        // Don't show toast, it's not critical
+      }
     })();
   }, []);
 
@@ -446,6 +482,118 @@ const Manager = () => {
     }
   };
 
+  // 📦 Package Functions
+  const openPackageModal = () => {
+    setPackageForm({ name: '', questionIds: [] });
+    setPackageErrors({});
+    setShowPackageModal(true);
+  };
+
+  const togglePackageQuestion = (questionId) => {
+    setPackageForm(prev => {
+      const isSelected = prev.questionIds.includes(questionId);
+      return {
+        ...prev,
+        questionIds: isSelected
+          ? prev.questionIds.filter(id => id !== questionId)
+          : [...prev.questionIds, questionId]
+      };
+    });
+  };
+
+  const createPackage = async () => {
+    // Validation
+    const errors = {};
+    if (!packageForm.name.trim()) {
+      errors.name = 'Paket adı gereklidir';
+    }
+    if (packageForm.questionIds.length === 0) {
+      errors.questionIds = 'En az 1 soru seçmelisiniz';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setPackageErrors(errors);
+      toast('Lütfen tüm alanları doldurun', 'error');
+      return;
+    }
+
+    try {
+      await waitFirebase();
+      const { db, collection, addDoc, serverTimestamp } = window.firebase;
+
+      const currentUser = getCurrentUser();
+      const userCompany = currentUser?.company || 'BLUEMINT';
+
+      const packageData = {
+        name: packageForm.name.trim(),
+        questionIds: packageForm.questionIds,
+        questionCount: packageForm.questionIds.length,
+        createdBy: currentUser.uid,
+        createdByName: currentUser.displayName || currentUser.email || 'Bilinmeyen',
+        company: userCompany,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        isActive: true
+      };
+
+      await addDoc(collection(db, 'questionPackages'), packageData);
+
+      // Reload packages
+      const { query, where, orderBy, getDocs } = window.firebase;
+      const q = query(
+        collection(db, 'questionPackages'),
+        where('company', '==', userCompany),
+        where('createdBy', '==', currentUser.uid),
+        orderBy('createdAt', 'desc')
+      );
+      const snapshot = await getDocs(q);
+      setPackages(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+
+      toast('Paket oluşturuldu', 'success');
+      setShowPackageModal(false);
+    } catch (e) {
+      window.devError('Create package error:', e);
+      toast('Paket oluşturulurken hata oluştu', 'error');
+    }
+  };
+
+  const deletePackage = async (packageId) => {
+    if (!confirm('Bu paketi silmek istediğinizden emin misiniz?')) return;
+
+    try {
+      await waitFirebase();
+      const { db, doc, deleteDoc } = window.firebase;
+
+      await deleteDoc(doc(db, 'questionPackages', packageId));
+      setPackages(prev => prev.filter(p => p.id !== packageId));
+
+      // Eğer silinmiş paket seçiliyse, seçimi kaldır
+      if (selectedPackageId === packageId) {
+        setSelectedPackageId(null);
+      }
+
+      toast('Paket silindi', 'success');
+    } catch (e) {
+      window.devError('Delete package error:', e);
+      toast('Paket silinirken hata oluştu', 'error');
+    }
+  };
+
+  const selectPackage = (packageId) => {
+    const pkg = packages.find(p => p.id === packageId);
+    if (!pkg) return;
+
+    // Toggle: Eğer zaten seçili paket tıklanırsa, selection'ı kaldır
+    if (selectedPackageId === packageId) {
+      setSelectedPackageId(null);
+      setForm(prev => ({ ...prev, questionIds: [] }));
+    } else {
+      setSelectedPackageId(packageId);
+      // Paketin sorularını form'a yükle
+      setForm(prev => ({ ...prev, questionIds: [...pkg.questionIds] }));
+    }
+  };
+
   if (loading) return <Page title="Manager Panel"><LoadingSpinner text="Veriler yükleniyor..." /></Page>;
 
   return (
@@ -677,6 +825,53 @@ const Manager = () => {
               <div className="mt-3 text-xs text-dark-600">
                 {visibleQuestions.length} / {questions.length} soru gösteriliyor
               </div>
+
+              {/* 📦 Question Packages Chips */}
+              {packages.length > 0 || true && (
+                <div className="mt-4 pt-4 border-t border-dark-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs font-semibold text-dark-700">📦 Hızlı Paketler:</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {/* Create Package Button */}
+                    <button
+                      type="button"
+                      className="package-chip package-chip-create"
+                      onClick={openPackageModal}
+                      title="Yeni paket oluştur"
+                    >
+                      <span>+ Paket Oluştur</span>
+                    </button>
+
+                    {/* Package Chips */}
+                    {packages.map(pkg => (
+                      <div key={pkg.id} className="relative group">
+                        <button
+                          type="button"
+                          className={`package-chip ${selectedPackageId === pkg.id ? 'active' : ''}`}
+                          onClick={() => selectPackage(pkg.id)}
+                          title={`${pkg.name} (${pkg.questionCount} soru)`}
+                        >
+                          <span>{pkg.name}</span>
+                          <span className="text-xs opacity-70">({pkg.questionCount})</span>
+                        </button>
+                        {/* Delete button - shows on hover */}
+                        <button
+                          type="button"
+                          className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deletePackage(pkg.id);
+                          }}
+                          title="Paketi sil"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {errors.questions && <div className="error-text mb-2">{errors.questions}</div>}
@@ -782,6 +977,157 @@ const Manager = () => {
             ))
           )}
         </div>
+      )}
+
+      {/* 📦 Create Package Modal */}
+      {showPackageModal && (
+        <>
+          <div className="overlay open" onClick={() => setShowPackageModal(false)}></div>
+          <div
+            className="modal-lg open"
+            style={{
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              zIndex: 999,
+              background: 'white',
+              borderRadius: '16px',
+              padding: '32px',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+              maxWidth: '700px',
+              width: '95%',
+              maxHeight: '85vh',
+              overflowY: 'auto'
+            }}
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-dark-900 flex items-center gap-2">
+                📦 Yeni Soru Paketi Oluştur
+              </h2>
+              <button
+                className="text-dark-400 hover:text-dark-900 text-2xl"
+                onClick={() => setShowPackageModal(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Package Name */}
+              <div>
+                <label className="block text-sm font-semibold mb-2 text-dark-700">Paket Adı *</label>
+                <input
+                  className={`field ${packageErrors.name ? 'error' : ''}`}
+                  value={packageForm.name}
+                  onChange={e => setPackageForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="ör: Ürün Bilgisi - Temel Seviye"
+                  autoFocus
+                />
+                {packageErrors.name && <div className="error-text">{packageErrors.name}</div>}
+              </div>
+
+              {/* Search */}
+              <div>
+                <label className="block text-sm font-semibold mb-2 text-dark-700">Sorularda Ara</label>
+                <div className="relative">
+                  <span className="question-search-icon"><MagnifyingGlassIcon size={18} strokeWidth={2} /></span>
+                  <input
+                    type="search"
+                    className="w-full pl-10 pr-4 py-2 border rounded-lg bg-white body-medium focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-all"
+                    placeholder="Soru metninde ara..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Selected Count */}
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-dark-700">
+                  Seçilen: {packageForm.questionIds.length} soru
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-ghost text-xs px-3 py-1.5"
+                    onClick={() => setPackageForm(prev => ({ ...prev, questionIds: visibleQuestions.map(q => q.data.id) }))}
+                  >
+                    Tümünü Seç
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost text-xs px-3 py-1.5"
+                    onClick={() => setPackageForm(prev => ({ ...prev, questionIds: [] }))}
+                    disabled={packageForm.questionIds.length === 0}
+                  >
+                    Tümünü Kaldır
+                  </button>
+                </div>
+              </div>
+
+              {/* Questions List */}
+              {packageErrors.questionIds && <div className="error-text">{packageErrors.questionIds}</div>}
+              <div className="grid gap-2 max-h-96 overflow-y-auto p-2 border rounded-lg">
+                {visibleQuestions.length === 0 ? (
+                  <div className="text-center py-8 text-dark-500">
+                    <p className="text-sm">
+                      {questions.length === 0 ? 'Aktif soru bulunmuyor' : 'Filtrelere uygun soru bulunamadı'}
+                    </p>
+                  </div>
+                ) : (
+                  visibleQuestions.map(({ data, orderNumber }) => (
+                    <label
+                      key={data.id}
+                      className={'option-card ' + (packageForm.questionIds.includes(data.id) ? 'selected' : '')}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={packageForm.questionIds.includes(data.id)}
+                          onChange={() => togglePackageQuestion(data.id)}
+                          className="mt-1 w-5 h-5 flex-shrink-0"
+                          style={{ cursor: 'pointer' }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            <span className="chip bg-gray-200 text-gray-700 text-xs">#{orderNumber}</span>
+                            {data.category && <span className="chip chip-orange text-xs">{data.category}</span>}
+                            <span className="chip chip-blue text-xs">{typeLabel(data.type)}</span>
+                            {data.difficulty && (
+                              <span className="chip bg-gray-200 text-gray-600 text-xs">
+                                {data.difficulty === 'easy' ? 'Kolay' : data.difficulty === 'medium' ? 'Orta' : 'Zor'}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm font-medium text-dark-900 break-words">{data.questionText}</p>
+                        </div>
+                      </div>
+                    </label>
+                  ))
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-4 border-t">
+                <button
+                  className="btn btn-primary"
+                  onClick={createPackage}
+                  disabled={packageForm.questionIds.length === 0}
+                >
+                  Oluştur ({packageForm.questionIds.length} soru)
+                </button>
+                <button
+                  className="btn btn-ghost"
+                  onClick={() => setShowPackageModal(false)}
+                >
+                  İptal
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </Page>
   );

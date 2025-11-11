@@ -1691,3 +1691,63 @@ input:disabled + .toggle-slider {
     transform: translateY(0) scale(1);
   }
 }
+
+/* 📦 Question Package Chips */
+.package-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%);
+  border: 1.5px solid #D1D5DB;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  will-change: transform, background, border-color;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.package-chip:hover {
+  background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%);
+  border-color: #60A5FA;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(96, 165, 250, 0.3);
+}
+
+.package-chip.active {
+  background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+  color: white;
+  border-color: #2563EB;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+}
+
+.package-chip.active:hover {
+  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+  border-color: #1D4ED8;
+}
+
+.package-chip-create {
+  background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+  border-color: #F59E0B;
+  color: #92400E;
+  font-weight: 600;
+}
+
+.package-chip-create:hover {
+  background: linear-gradient(135deg, #FDE68A 0%, #FCD34D 100%);
+  border-color: #D97706;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+/* Mobile responsive for package chips */
+@media (max-width: 640px) {
+  .package-chip {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+}

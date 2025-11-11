@@ -179,6 +179,26 @@ service cloud.firestore {
     }
 
     // ========================================
+    // QUESTION PACKAGES COLLECTION
+    // ========================================
+    match /questionPackages/{packageId} {
+      // 📦 Sadece kendi şirketinin ve kendi oluşturduğu paketleri görebilir
+      allow read: if isSignedIn() &&
+                     isSameCompany(resource.data.company) &&
+                     resource.data.createdBy == request.auth.uid;
+
+      // 📦 Manager/Admin kendi şirketi için paket oluşturabilir
+      allow create: if isManagerOrAdmin() &&
+                       request.resource.data.createdBy == request.auth.uid &&
+                       isSameCompany(request.resource.data.company);
+
+      // 📦 Sadece kendi paketini güncelleyebilir/silebilir
+      allow update, delete: if isManagerOrAdmin() &&
+                              resource.data.createdBy == request.auth.uid &&
+                              isSameCompany(resource.data.company);
+    }
+
+    // ========================================
     // ERROR LOGS COLLECTION (Optional - Analytics için)
     // ========================================
     match /errorLogs/{logId} {
