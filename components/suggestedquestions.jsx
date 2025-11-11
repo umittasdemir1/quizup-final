@@ -126,6 +126,7 @@ const SuggestedQuestions = () => {
       correctAnswer: suggestion.correctAnswer || '',
       hasTimer: suggestion.hasTimer || false,
       timerSeconds: suggestion.timerSeconds || 60,
+      hasQuestionImage: Boolean(suggestion.questionImageUrl),
       hasImageOptions: suggestion.hasImageOptions || false,
       optionImageUrls: suggestion.optionImageUrls || ['', '', '', ''],
       questionImageUrl: suggestion.questionImageUrl || '',
@@ -675,8 +676,12 @@ const SuggestedQuestions = () => {
                 )}
 
                 {/* TIMER SECTION */}
-                <div className="card p-4 bg-secondary-50 border border-secondary-200">
-                  <div className="flex items-center gap-3 mb-3">
+                <div className="card p-4">
+                  <div className="flex items-center gap-3">
+                    <ClockIcon size={20} strokeWidth={2} className="text-dark-700" />
+                    <span className="font-semibold text-dark-900">
+                      Süre Sınırı Ekle
+                    </span>
                     <label className="toggle-switch">
                       <input
                         type="checkbox"
@@ -685,11 +690,10 @@ const SuggestedQuestions = () => {
                       />
                       <span className="toggle-slider"></span>
                     </label>
-                    <span className="font-semibold text-dark-900 flex items-center gap-2"><ClockIcon size={18} strokeWidth={2} /> Süre Sınırı Ekle</span>
                   </div>
 
                   {editForm.hasTimer && (
-                    <div>
+                    <div className="mt-4">
                       <label className="block text-sm font-semibold mb-2 text-dark-700">Süre (saniye)</label>
                       <input
                         type="number"
@@ -706,51 +710,66 @@ const SuggestedQuestions = () => {
                 </div>
 
                 {/* IMAGE SECTION */}
-                <div className="card p-4 bg-primary-50 border border-primary-200">
-                  <h4 className="font-bold text-dark-900 mb-3">📸 Görsel Ekle</h4>
-
-                  {/* Question Image */}
-                  <div className="mb-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-sm font-semibold text-dark-700">Soru Görseli</label>
-                      {editForm.questionImageUrl && (
-                        <button
-                          type="button"
-                          className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1"
-                          onClick={() => updateEditField('questionImageUrl', '')}
-                        >
-                          <XMarkIcon size={14} strokeWidth={2} /> Kaldır
-                        </button>
-                      )}
-                    </div>
-                    {editForm.questionImageUrl ? (
-                      <div className="question-image-container max-w-md mx-auto">
-                        <img src={editForm.questionImageUrl} alt="Soru" />
-                      </div>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          className="btn btn-ghost w-full"
-                          onClick={() => questionImageRef.current?.click()}
-                          disabled={uploading}
-                        >
-                          {uploading ? 'Yükleniyor...' : '📤 Görsel Yükle'}
-                        </button>
-                        <input
-                          ref={questionImageRef}
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => uploadQuestionImage(e.target.files[0])}
-                          style={{ display: 'none' }}
-                        />
-                      </>
-                    )}
+                <div className="card p-4">
+                  <div className="flex items-center gap-3">
+                    <PhotoIcon size={20} strokeWidth={2} className="text-dark-700" />
+                    <span className="font-semibold text-dark-900">
+                      Görsel Ekle
+                    </span>
+                    <label className="toggle-switch">
+                      <input
+                        type="checkbox"
+                        checked={editForm.hasQuestionImage}
+                        onChange={e => updateEditField('hasQuestionImage', e.target.checked)}
+                      />
+                      <span className="toggle-slider"></span>
+                    </label>
                   </div>
 
-                  {/* Option Images */}
-                  {editForm.type === 'mcq' && (
-                    <div>
+                  {editForm.hasQuestionImage && (
+                    <div className="mt-4">
+                      {editForm.questionImageUrl ? (
+                        <div className="relative max-w-md mx-auto">
+                          <img src={editForm.questionImageUrl} alt="Soru" className="rounded-lg" />
+                          <button
+                            type="button"
+                            className="absolute top-2 right-2 bg-red-600 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-700"
+                            onClick={() => updateEditField('questionImageUrl', '')}
+                          >
+                            <XMarkIcon size={20} strokeWidth={2} />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <div
+                            className="flex flex-col items-center justify-center cursor-pointer py-6 border-2 border-dashed border-dark-300 rounded-lg hover:border-primary-500 transition-colors"
+                            onClick={() => questionImageRef.current?.click()}
+                            style={{ pointerEvents: uploading ? 'none' : 'auto' }}
+                          >
+                            {uploading ? (
+                              <span className="text-dark-500">Yükleniyor...</span>
+                            ) : (
+                              <>
+                                <PhotoIcon size={32} strokeWidth={1.5} className="text-dark-400 mb-2" />
+                                <span className="text-sm text-dark-600">Görsel yüklemek için tıklayın</span>
+                              </>
+                            )}
+                          </div>
+                          <input
+                            ref={questionImageRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => uploadQuestionImage(e.target.files[0])}
+                            style={{ display: 'none' }}
+                          />
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Option Images (Only for MCQ and when Question Image is enabled) */}
+                  {editForm.hasQuestionImage && editForm.type === 'mcq' && (
+                    <div className="mt-4 pt-4 border-t border-dark-200">
                       <div className="flex items-center gap-3 mb-3">
                         <label className="toggle-switch">
                           <input
@@ -786,19 +805,22 @@ const SuggestedQuestions = () => {
                                       updateEditField('optionImageUrls', newUrls);
                                     }}
                                   >
-                                    <XMarkIcon size={14} strokeWidth={2} />
+                                    <XMarkIcon size={16} strokeWidth={2} />
                                   </button>
                                 </div>
                               ) : (
                                 <>
-                                  <button
-                                    type="button"
-                                    className="btn btn-ghost w-full text-xs py-2"
+                                  <div
+                                    className="flex flex-col items-center justify-center cursor-pointer py-4 border-2 border-dashed border-dark-300 rounded-lg hover:border-primary-500 transition-colors"
                                     onClick={() => optionImageRefs.current[i]?.click()}
-                                    disabled={uploading}
+                                    style={{ pointerEvents: uploading ? 'none' : 'auto' }}
                                   >
-                                    📤 Yükle
-                                  </button>
+                                    {uploading ? (
+                                      <span className="text-xs text-dark-500">Yükleniyor...</span>
+                                    ) : (
+                                      <PhotoIcon size={24} strokeWidth={1.5} className="text-dark-400" />
+                                    )}
+                                  </div>
                                   <input
                                     ref={el => optionImageRefs.current[i] = el}
                                     type="file"
@@ -819,18 +841,18 @@ const SuggestedQuestions = () => {
                 {/* Actions */}
                 <div className="flex gap-3 pt-4 border-t">
                   <button
-                    className="btn btn-ghost flex-1"
+                    className="btn btn-primary"
+                    onClick={saveEditAndApprove}
+                    disabled={processing || uploading}
+                  >
+                    {processing ? 'Kaydediliyor...' : 'Kaydet ve Onayla'}
+                  </button>
+                  <button
+                    className="btn btn-ghost"
                     onClick={() => setShowEditModal(false)}
                     disabled={processing}
                   >
                     İptal
-                  </button>
-                  <button
-                    className="btn btn-primary flex-1"
-                    onClick={saveEditAndApprove}
-                    disabled={processing || uploading}
-                  >
-                    {processing ? 'Kaydediliyor...' : <><CheckCircleIcon size={18} strokeWidth={2} /> Kaydet ve Onayla</>}
                   </button>
                 </div>
               </div>
