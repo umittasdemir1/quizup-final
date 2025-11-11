@@ -109,31 +109,47 @@ const Manager = () => {
     })();
   }, []);
 
-  // 📦 Load Question Packages
+  // 📦 Load Question Packages - Realtime listener
   useEffect(() => {
     (async () => {
       try {
         await waitFirebase();
-        const { db, collection, query, where, orderBy, getDocs } = window.firebase;
+        const { db, collection, query, where, getDocs, onSnapshot } = window.firebase;
 
         const currentUser = getCurrentUser();
         if (!currentUser) return;
 
         const userCompany = currentUser?.company || 'BLUEMINT';
 
+        // No orderBy to avoid index requirement
         const q = query(
           collection(db, 'questionPackages'),
           where('company', '==', userCompany),
-          where('createdBy', '==', currentUser.uid),
-          orderBy('createdAt', 'desc')
+          where('createdBy', '==', currentUser.uid)
         );
 
-        const snapshot = await getDocs(q);
-        const packagesData = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        setPackages(packagesData);
+        // Realtime listener - auto-updates on changes
+        const unsubscribe = onSnapshot(q,
+          (snapshot) => {
+            // Client-side sort by createdAt
+            const packagesData = snapshot.docs
+              .map(d => ({ id: d.id, ...d.data() }))
+              .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
+
+            setPackages(packagesData);
+            console.log('📦 Packages loaded:', packagesData.length);
+          },
+          (error) => {
+            // Don't show error during logout
+            if (getCurrentUser()) {
+              window.devError('Load packages error:', error);
+            }
+          }
+        );
+
+        return unsubscribe;
       } catch (e) {
-        window.devError('Load packages error:', e);
-        // Don't show toast, it's not critical
+        window.devError('Load packages setup error:', e);
       }
     })();
   }, []);
@@ -686,17 +702,7 @@ const Manager = () => {
       const docRef = await addDoc(collection(db, 'questionPackages'), packageData);
       console.log('✅ Package created with ID:', docRef.id);
 
-      // Reload packages
-      const { query, where, orderBy, getDocs } = window.firebase;
-      const q = query(
-        collection(db, 'questionPackages'),
-        where('company', '==', userCompany),
-        where('createdBy', '==', currentUser.uid),
-        orderBy('createdAt', 'desc')
-      );
-      const snapshot = await getDocs(q);
-      setPackages(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-      console.log('✅ Packages reloaded:', snapshot.docs.length);
+      // No manual reload needed - realtime listener will auto-update packages
 
       toast('Paket başarıyla oluşturuldu', 'success');
       setShowPackageModal(false);
