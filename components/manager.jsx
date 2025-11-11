@@ -114,19 +114,26 @@ const Manager = () => {
     (async () => {
       try {
         await waitFirebase();
-        const { db, collection, query, where, getDocs, onSnapshot } = window.firebase;
+        const { db, collection, query, where, onSnapshot } = window.firebase;
 
         const currentUser = getCurrentUser();
         if (!currentUser) return;
 
         const userCompany = currentUser?.company || 'BLUEMINT';
+        const isUserAdmin = currentUser?.role === 'admin';
 
-        // No orderBy to avoid index requirement
-        const q = query(
-          collection(db, 'questionPackages'),
-          where('company', '==', userCompany),
-          where('createdBy', '==', currentUser.uid)
-        );
+        // Admin: Tüm şirket paketlerini görebilir
+        // Manager: Sadece kendi paketlerini görebilir
+        const q = isUserAdmin
+          ? query(
+              collection(db, 'questionPackages'),
+              where('company', '==', userCompany)
+            )
+          : query(
+              collection(db, 'questionPackages'),
+              where('company', '==', userCompany),
+              where('createdBy', '==', currentUser.uid)
+            );
 
         // Realtime listener - auto-updates on changes
         const unsubscribe = onSnapshot(q,
@@ -137,7 +144,7 @@ const Manager = () => {
               .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
 
             setPackages(packagesData);
-            console.log('📦 Packages loaded:', packagesData.length);
+            console.log('📦 Packages loaded:', packagesData.length, '(admin:', isUserAdmin, ')');
           },
           (error) => {
             // Don't show error during logout
@@ -1016,31 +1023,41 @@ const Manager = () => {
                     </button>
 
                     {/* Package Chips */}
-                    {packages.map(pkg => (
-                      <div key={pkg.id} className="relative group">
-                        <button
-                          type="button"
-                          className={`package-chip ${selectedPackageId === pkg.id ? 'active' : ''}`}
-                          onClick={() => selectPackage(pkg.id)}
-                          title={`${pkg.name} (${pkg.questionCount} soru)`}
-                        >
-                          <span>{pkg.name}</span>
-                          <span className="text-xs opacity-70">({pkg.questionCount})</span>
-                        </button>
-                        {/* Delete button - shows on hover */}
-                        <button
-                          type="button"
-                          className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deletePackage(pkg.id);
-                          }}
-                          title="Paketi sil"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
+                    {packages.map(pkg => {
+                      const currentUser = getCurrentUser();
+                      const isOwner = pkg.createdBy === currentUser?.uid;
+                      const isAdmin = currentUser?.role === 'admin';
+                      const canDelete = isOwner || isAdmin;
+
+                      return (
+                        <div key={pkg.id} className="relative group">
+                          <button
+                            type="button"
+                            className={`package-chip ${selectedPackageId === pkg.id ? 'active' : ''}`}
+                            onClick={() => selectPackage(pkg.id)}
+                            title={`${pkg.name}\n${pkg.questionCount} soru\nOluşturan: ${pkg.createdByName || 'Bilinmeyen'}`}
+                          >
+                            <span>{pkg.name}</span>
+                            <span className="text-xs opacity-70">({pkg.questionCount})</span>
+                            {!isOwner && <span className="text-xs opacity-50 ml-1">👤</span>}
+                          </button>
+                          {/* Delete button - shows on hover */}
+                          {canDelete && (
+                            <button
+                              type="button"
+                              className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deletePackage(pkg.id);
+                              }}
+                              title="Paketi sil"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}

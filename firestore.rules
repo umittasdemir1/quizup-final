@@ -64,16 +64,16 @@ service cloud.firestore {
     // SUGGESTED QUESTIONS COLLECTION
     // ========================================
     match /suggestedQuestions/{suggestionId} {
-      // ✅ FIXED: Sadece kendi şirketinin önerilerini okuyabilir
+      // ✅ Giriş yapmış kullanıcılar şirketinin önerilerini görebilir
       allow read: if isSignedIn() && (
         isSameCompany(resource.data.company) ||
         resource.data.company == null // Backward compatibility
       );
 
-      // Herkes kendi şirketi için öneri oluşturabilir
-      allow create: if isSignedIn() && isSameCompany(request.resource.data.company);
+      // ✅ Anonim kullanıcılar da soru önerebilir (quiz sırasında)
+      allow create: if request.resource.data.company != null;
 
-      // Sadece admin kendi şirketinin önerilerini güncelleyebilir/silebilir
+      // ✅ Sadece admin kendi şirketinin önerilerini güncelleyebilir/silebilir
       allow update, delete: if isAdmin() && isSameCompany(resource.data.company);
     }
 
@@ -179,20 +179,22 @@ service cloud.firestore {
     // QUESTION PACKAGES COLLECTION
     // ========================================
     match /questionPackages/{packageId} {
-      // 📦 Sadece kendi şirketinin ve kendi oluşturduğu paketleri görebilir
-      allow read: if isSignedIn() &&
-                     isSameCompany(resource.data.company) &&
-                     resource.data.createdBy == request.auth.uid;
+      // 📦 Admin şirketinin tüm paketlerini, manager sadece kendi paketlerini görebilir
+      allow read: if isSignedIn() && isSameCompany(resource.data.company) && (
+        isAdmin() ||
+        resource.data.createdBy == request.auth.uid
+      );
 
       // 📦 Manager/Admin kendi şirketi için paket oluşturabilir
       allow create: if isManagerOrAdmin() &&
                        request.resource.data.createdBy == request.auth.uid &&
                        isSameCompany(request.resource.data.company);
 
-      // 📦 Sadece kendi paketini güncelleyebilir/silebilir
-      allow update, delete: if isManagerOrAdmin() &&
-                              resource.data.createdBy == request.auth.uid &&
-                              isSameCompany(resource.data.company);
+      // 📦 Admin tüm paketleri, manager sadece kendi paketini güncelleyebilir/silebilir
+      allow update, delete: if isManagerOrAdmin() && isSameCompany(resource.data.company) && (
+        isAdmin() ||
+        resource.data.createdBy == request.auth.uid
+      );
     }
   }
 }
