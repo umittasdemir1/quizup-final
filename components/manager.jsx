@@ -30,6 +30,18 @@ const Manager = () => {
   const [selectedPackageId, setSelectedPackageId] = useState(null);
   const [packageForm, setPackageForm] = useState({ name: '', questionIds: [] });
   const [packageErrors, setPackageErrors] = useState({});
+  const [packageSearch, setPackageSearch] = useState('');
+  const [packageFilters, setPackageFilters] = useState({
+    categories: [],
+    difficulties: [],
+    types: [],
+    timers: []
+  });
+  const [packageSort, setPackageSort] = useState('order-asc');
+  const [showPackageFilters, setShowPackageFilters] = useState(false);
+  const [showPackageSort, setShowPackageSort] = useState(false);
+  const packageFilterRef = useRef(null);
+  const packageSortRef = useRef(null);
 
   useEffect(() => {
     (async () => {
@@ -131,6 +143,8 @@ const Manager = () => {
     const handleClickOutside = (e) => {
       if (e.target.closest('[data-question-filter-toggle]')) return;
       if (e.target.closest('[data-question-sort-toggle]')) return;
+      if (e.target.closest('[data-package-filter-toggle]')) return;
+      if (e.target.closest('[data-package-sort-toggle]')) return;
 
       if (showFilters && filterRef.current && !filterRef.current.contains(e.target)) {
         setShowFilters(false);
@@ -139,10 +153,18 @@ const Manager = () => {
       if (showSort && sortRef.current && !sortRef.current.contains(e.target)) {
         setShowSort(false);
       }
+
+      if (showPackageFilters && packageFilterRef.current && !packageFilterRef.current.contains(e.target)) {
+        setShowPackageFilters(false);
+      }
+
+      if (showPackageSort && packageSortRef.current && !packageSortRef.current.contains(e.target)) {
+        setShowPackageSort(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showFilters, showSort]);
+  }, [showFilters, showSort, showPackageFilters, showPackageSort]);
 
   const orderMap = useMemo(() => {
     const map = new Map();
@@ -212,6 +234,28 @@ const Manager = () => {
   };
 
   const activeFilterCount = filters.categories.length + filters.difficulties.length + filters.types.length + filters.timers.length;
+
+  // 📦 Package modal filter helpers
+  const togglePackageFilter = (type, value) => {
+    setPackageFilters(prev => ({
+      ...prev,
+      [type]: prev[type].includes(value)
+        ? prev[type].filter(v => v !== value)
+        : [...prev[type], value]
+    }));
+  };
+
+  const clearPackageFilters = () => {
+    setPackageFilters({ categories: [], difficulties: [], types: [], timers: [] });
+  };
+
+  const resetPackageFilters = () => {
+    setPackageSearch('');
+    clearPackageFilters();
+    setShowPackageFilters(false);
+  };
+
+  const activePackageFilterCount = packageFilters.categories.length + packageFilters.difficulties.length + packageFilters.types.length + packageFilters.timers.length;
 
   const getDisplayOrder = (question, index) => (
     typeof question.order === 'number' ? question.order + 1 : index + 1
@@ -309,6 +353,87 @@ const Manager = () => {
 
     return sorted;
   }, [questions, filters, search, sortOption]);
+
+  // 📦 Package Modal: Visible questions with independent filters
+  const visiblePackageQuestions = useMemo(() => {
+    const term = packageSearch.trim().toLowerCase();
+    const wantsTimed = packageFilters.timers.includes('timed');
+    const wantsUntimed = packageFilters.timers.includes('untimed');
+
+    const base = questions.map((q, index) => ({
+      data: q,
+      originalIndex: index,
+      orderNumber: getDisplayOrder(q, index)
+    }));
+
+    const filtered = base.filter(({ data }) => {
+      if (packageFilters.categories.length > 0 && (!data.category || !packageFilters.categories.includes(data.category))) {
+        return false;
+      }
+
+      if (packageFilters.difficulties.length > 0 && (!data.difficulty || !packageFilters.difficulties.includes(data.difficulty))) {
+        return false;
+      }
+
+      if (packageFilters.types.length > 0 && (!data.type || !packageFilters.types.includes(data.type))) {
+        return false;
+      }
+
+      if (packageFilters.timers.length > 0) {
+        const isTimed = Boolean(data.hasTimer && Number(data.timerSeconds) > 0);
+        if (wantsTimed && wantsUntimed) {
+          // show all
+        } else if (wantsTimed && !isTimed) {
+          return false;
+        } else if (wantsUntimed && isTimed) {
+          return false;
+        }
+      }
+
+      if (!term) {
+        return true;
+      }
+
+      const haystack = [
+        data.questionText,
+        data.category,
+        data.correctAnswer,
+        ...(Array.isArray(data.options) ? data.options : [])
+      ].filter(Boolean).map(item => String(item).toLowerCase());
+
+      return haystack.some(text => text.includes(term));
+    });
+
+    const difficultyOrder = { 'easy': 1, 'medium': 2, 'hard': 3 };
+
+    const sorted = [...filtered].sort((a, b) => {
+      switch (packageSort) {
+        case 'order-desc':
+          return b.orderNumber - a.orderNumber || a.originalIndex - b.originalIndex;
+        case 'text-asc':
+          return (a.data.questionText || '').localeCompare(b.data.questionText || '');
+        case 'text-desc':
+          return (b.data.questionText || '').localeCompare(a.data.questionText || '');
+        case 'created-desc':
+          return toMillis(b.data.createdAt) - toMillis(a.data.createdAt);
+        case 'created-asc':
+          return toMillis(a.data.createdAt) - toMillis(b.data.createdAt);
+        case 'difficulty-easy':
+          return (difficultyOrder[a.data.difficulty] || 2) - (difficultyOrder[b.data.difficulty] || 2);
+        case 'difficulty-hard':
+          return (difficultyOrder[b.data.difficulty] || 2) - (difficultyOrder[a.data.difficulty] || 2);
+        case 'category-asc':
+          return (a.data.category || '').localeCompare(b.data.category || '') || (a.orderNumber - b.orderNumber);
+        case 'category-desc':
+          return (b.data.category || '').localeCompare(a.data.category || '') || (a.orderNumber - b.orderNumber);
+        case 'order-asc':
+        default:
+          return a.orderNumber - b.orderNumber || a.originalIndex - b.originalIndex;
+      }
+    });
+
+    return sorted;
+  }, [questions, packageFilters, packageSearch, packageSort]);
 
   const reset = () => {
     setForm({ employee: { fullName: '', store: '' }, questionIds: [] });
@@ -486,6 +611,11 @@ const Manager = () => {
   const openPackageModal = () => {
     setPackageForm({ name: '', questionIds: [] });
     setPackageErrors({});
+    setPackageSearch('');
+    setPackageFilters({ categories: [], difficulties: [], types: [], timers: [] });
+    setPackageSort('order-asc');
+    setShowPackageFilters(false);
+    setShowPackageSort(false);
     setShowPackageModal(true);
   };
 
@@ -518,11 +648,27 @@ const Manager = () => {
     }
 
     try {
+      console.log('📦 Creating package...', {
+        name: packageForm.name,
+        questionCount: packageForm.questionIds.length
+      });
+
       await waitFirebase();
       const { db, collection, addDoc, serverTimestamp } = window.firebase;
 
       const currentUser = getCurrentUser();
+      if (!currentUser || !currentUser.uid) {
+        console.error('❌ No current user found');
+        toast('Kullanıcı oturumu bulunamadı', 'error');
+        return;
+      }
+
       const userCompany = currentUser?.company || 'BLUEMINT';
+      console.log('📦 User info:', {
+        uid: currentUser.uid,
+        company: userCompany,
+        name: currentUser.displayName || currentUser.email
+      });
 
       const packageData = {
         name: packageForm.name.trim(),
@@ -536,7 +682,9 @@ const Manager = () => {
         isActive: true
       };
 
-      await addDoc(collection(db, 'questionPackages'), packageData);
+      console.log('📦 Package data:', packageData);
+      const docRef = await addDoc(collection(db, 'questionPackages'), packageData);
+      console.log('✅ Package created with ID:', docRef.id);
 
       // Reload packages
       const { query, where, orderBy, getDocs } = window.firebase;
@@ -548,12 +696,30 @@ const Manager = () => {
       );
       const snapshot = await getDocs(q);
       setPackages(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      console.log('✅ Packages reloaded:', snapshot.docs.length);
 
-      toast('Paket oluşturuldu', 'success');
+      toast('Paket başarıyla oluşturuldu', 'success');
       setShowPackageModal(false);
+      setPackageForm({ name: '', questionIds: [] });
+      setPackageErrors({});
     } catch (e) {
+      console.error('❌ Create package error:', e);
+      console.error('Error code:', e.code);
+      console.error('Error message:', e.message);
+      console.error('Full error:', e);
+
+      // More specific error messages
+      let errorMessage = 'Paket oluşturulurken hata oluştu';
+      if (e.code === 'permission-denied') {
+        errorMessage = 'İzin hatası: Firestore kurallarını kontrol edin';
+      } else if (e.code === 'unavailable') {
+        errorMessage = 'Bağlantı hatası: İnternet bağlantınızı kontrol edin';
+      } else if (e.message) {
+        errorMessage = `Hata: ${e.message}`;
+      }
+
       window.devError('Create package error:', e);
-      toast('Paket oluşturulurken hata oluştu', 'error');
+      toast(errorMessage, 'error');
     }
   };
 
@@ -1027,18 +1193,163 @@ const Manager = () => {
                 {packageErrors.name && <div className="error-text">{packageErrors.name}</div>}
               </div>
 
-              {/* Search */}
+              {/* Search, Sort & Filter */}
               <div>
-                <label className="block text-sm font-semibold mb-2 text-dark-700">Sorularda Ara</label>
-                <div className="relative">
-                  <span className="question-search-icon"><MagnifyingGlassIcon size={18} strokeWidth={2} /></span>
-                  <input
-                    type="search"
-                    className="w-full pl-10 pr-4 py-2 border rounded-lg bg-white body-medium focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-all"
-                    placeholder="Soru metninde ara..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
+                <label className="block text-sm font-semibold mb-2 text-dark-700">Sorularda Ara ve Filtrele</label>
+                <div className="flex items-center gap-3">
+                  {/* Search Bar */}
+                  <div className="relative flex-1">
+                    <span className="question-search-icon"><MagnifyingGlassIcon size={18} strokeWidth={2} /></span>
+                    <input
+                      type="search"
+                      className="w-full pl-10 pr-4 py-2 border rounded-lg bg-white body-medium focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-all"
+                      placeholder="Soru metninde ara..."
+                      value={packageSearch}
+                      onChange={(e) => setPackageSearch(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Sort Button */}
+                  <div className="relative" ref={packageSortRef} title="Sırala">
+                    <button
+                      type="button"
+                      className="p-2 flex items-center justify-center rounded-full border bg-white hover:bg-primary-500 hover:text-white transition-all duration-200 relative"
+                      onClick={() => setShowPackageSort(v => !v)}
+                      data-package-sort-toggle="true"
+                      style={{ borderColor: '#E0E0E0' }}
+                    >
+                      <BarsArrowUpIcon size={20} strokeWidth={2} />
+                    </button>
+                    {showPackageSort && (
+                      <div className="question-filter-panel" style={{ right: 0, left: 'auto' }}>
+                        <h3 className="title-small mb-3">Sırala</h3>
+                        <div className="flex flex-col gap-2">
+                          {sortOptions.map(option => (
+                            <button
+                              key={option.value}
+                              type="button"
+                              className={`px-4 py-2 text-left rounded-lg transition-all ${
+                                packageSort === option.value
+                                  ? 'bg-primary-500 text-white font-semibold'
+                                  : 'bg-gray-50 hover:bg-gray-100 text-dark-700'
+                              }`}
+                              onClick={() => {
+                                setPackageSort(option.value);
+                                setShowPackageSort(false);
+                              }}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Filter Button */}
+                  <div className="relative" ref={packageFilterRef} title="Filtrele">
+                    <button
+                      type="button"
+                      className="p-2 flex items-center justify-center rounded-full border bg-white hover:bg-primary-500 hover:text-white transition-all duration-200 relative"
+                      onClick={() => setShowPackageFilters(v => !v)}
+                      data-package-filter-toggle="true"
+                      style={{ borderColor: '#E0E0E0' }}
+                    >
+                      <FunnelIcon size={20} strokeWidth={2} />
+                      {activePackageFilterCount > 0 && (
+                        <span className="absolute -top-1 -right-1 inline-flex items-center justify-center w-5 h-5 text-xs label-small text-white bg-primary-500 rounded-full">
+                          {activePackageFilterCount}
+                        </span>
+                      )}
+                    </button>
+                    {showPackageFilters && (
+                      <div className="question-filter-panel" style={{ right: 0, left: 'auto', minWidth: '500px' }}>
+                        <div className="grid gap-6 md:grid-cols-2">
+                          {uniqueCategories.length > 0 && (
+                            <div>
+                              <h3 className="title-small">Kategoriler</h3>
+                              <div className="question-filter-options">
+                                {uniqueCategories.map(category => (
+                                  <label key={category} className="question-filter-option">
+                                    <input
+                                      type="checkbox"
+                                      checked={packageFilters.categories.includes(category)}
+                                      onChange={() => togglePackageFilter('categories', category)}
+                                    />
+                                    <span>{category}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          <div>
+                            <h3 className="title-small">Zorluk</h3>
+                            <div className="question-filter-options">
+                              {difficulties.map(diff => (
+                                <label key={diff.value} className="question-filter-option">
+                                  <input
+                                    type="checkbox"
+                                    checked={packageFilters.difficulties.includes(diff.value)}
+                                    onChange={() => togglePackageFilter('difficulties', diff.value)}
+                                  />
+                                  <span>{diff.label}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+
+                          {uniqueTypes.length > 0 && (
+                            <div>
+                              <h3 className="title-small">Soru Tipi</h3>
+                              <div className="question-filter-options">
+                                {uniqueTypes.map(type => (
+                                  <label key={type} className="question-filter-option">
+                                    <input
+                                      type="checkbox"
+                                      checked={packageFilters.types.includes(type)}
+                                      onChange={() => togglePackageFilter('types', type)}
+                                    />
+                                    <span>{typeLabel(type)}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          <div>
+                            <h3 className="title-small">Süre</h3>
+                            <div className="question-filter-options">
+                              <label className="question-filter-option">
+                                <input
+                                  type="checkbox"
+                                  checked={packageFilters.timers.includes('timed')}
+                                  onChange={() => togglePackageFilter('timers', 'timed')}
+                                />
+                                <span>Süreli</span>
+                              </label>
+                              <label className="question-filter-option">
+                                <input
+                                  type="checkbox"
+                                  checked={packageFilters.timers.includes('untimed')}
+                                  onChange={() => togglePackageFilter('timers', 'untimed')}
+                                />
+                                <span>Süresiz</span>
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                        {(activePackageFilterCount > 0 || packageSearch.trim()) && (
+                          <div className="flex justify-end mt-4">
+                            <button type="button" className="btn btn-ghost text-sm" onClick={resetPackageFilters}>Temizle</button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-2 text-xs text-dark-600">
+                  {visiblePackageQuestions.length} / {questions.length} soru gösteriliyor
                 </div>
               </div>
 
@@ -1051,7 +1362,7 @@ const Manager = () => {
                   <button
                     type="button"
                     className="btn btn-ghost text-xs px-3 py-1.5"
-                    onClick={() => setPackageForm(prev => ({ ...prev, questionIds: visibleQuestions.map(q => q.data.id) }))}
+                    onClick={() => setPackageForm(prev => ({ ...prev, questionIds: visiblePackageQuestions.map(q => q.data.id) }))}
                   >
                     Tümünü Seç
                   </button>
@@ -1069,14 +1380,14 @@ const Manager = () => {
               {/* Questions List */}
               {packageErrors.questionIds && <div className="error-text">{packageErrors.questionIds}</div>}
               <div className="grid gap-2 max-h-96 overflow-y-auto p-2 border rounded-lg">
-                {visibleQuestions.length === 0 ? (
+                {visiblePackageQuestions.length === 0 ? (
                   <div className="text-center py-8 text-dark-500">
                     <p className="text-sm">
                       {questions.length === 0 ? 'Aktif soru bulunmuyor' : 'Filtrelere uygun soru bulunamadı'}
                     </p>
                   </div>
                 ) : (
-                  visibleQuestions.map(({ data, orderNumber }) => (
+                  visiblePackageQuestions.map(({ data, orderNumber }) => (
                     <label
                       key={data.id}
                       className={'option-card ' + (packageForm.questionIds.includes(data.id) ? 'selected' : '')}
