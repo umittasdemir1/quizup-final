@@ -179,11 +179,8 @@ service cloud.firestore {
     // QUESTION PACKAGES COLLECTION
     // ========================================
     match /questionPackages/{packageId} {
-      // 📦 Admin şirketinin tüm paketlerini, manager sadece kendi paketlerini görebilir
-      allow read: if isSignedIn() && isSameCompany(resource.data.company) && (
-        isAdmin() ||
-        resource.data.createdBy == request.auth.uid
-      );
+      // 📦 TEST: Geçici olarak tüm giriş yapmış kullanıcılar okuyabilir
+      allow read: if isSignedIn();
 
       // 📦 Manager/Admin kendi şirketi için paket oluşturabilir
       allow create: if isManagerOrAdmin() &&
