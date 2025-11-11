@@ -295,6 +295,18 @@ const Quiz = ({ sessionId }) => {
     setShowSkipConfirm(false);
   }, [idx]);
 
+  // 📜 Scroll to top when question changes - Optimized for mobile
+  useEffect(() => {
+    // Instant scroll to top without smooth behavior for better mobile performance
+    window.scrollTo(0, 0);
+
+    // Also scroll the main element if it exists
+    const mainElement = document.querySelector('main');
+    if (mainElement) {
+      mainElement.scrollTop = 0;
+    }
+  }, [idx]);
+
   // ⏱️ Start timer for current question
   useEffect(() => {
     if (questions.length > 0 && questions[idx]) {
