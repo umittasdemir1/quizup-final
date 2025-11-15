@@ -156,31 +156,37 @@ service cloud.firestore {
       // ✅ FIXED: Multi-tenant isolation
       // Kullanıcılar sadece kendi şirketlerindeki diğer kullanıcıları görebilir
       // VEYA kendilerini görebilir
+      // 🌟 Super admin tüm kullanıcıları görebilir
       allow read: if isSignedIn() && (
+        isSuperAdmin() ||
         isSameCompany(resource.data.company) ||
         request.auth.uid == userId
       );
 
       // Kullanıcı oluşturma:
+      // - Super admin herhangi bir şirket için kullanıcı oluşturabilir
       // - Admin kendi şirketi için kullanıcı oluşturabilir
       // - Veya kendi dokümanını oluşturabilir
       // 🔒 SECURITY: password field asla yazılamaz
       allow create: if (
+        isSuperAdmin() ||
         (isAdmin() && isSameCompany(request.resource.data.company)) ||
         (isSignedIn() && request.auth.uid == userId)
       ) && !hasPasswordField(request.resource.data);
 
       // Kullanıcı güncelleme:
+      // - Super admin herhangi bir kullanıcıyı güncelleyebilir
       // - Kullanıcı kendi bilgilerini güncelleyebilir (company hariç)
       // - Veya admin kendi şirketinin kullanıcılarını güncelleyebilir
       // 🔒 SECURITY: password field asla eklenemez veya güncellenemez
       allow update: if (
-        (isSignedIn() && request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'company'])) ||
+        isSuperAdmin() ||
+        (isSignedIn() && request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'company', 'isSuperAdmin'])) ||
         (isAdmin() && isSameCompany(resource.data.company))
       ) && !hasPasswordField(request.resource.data);
 
-      // ✅ FIXED: Admin sadece kendi şirketinin kullanıcılarını silebilir
-      allow delete: if isAdmin() && isSameCompany(resource.data.company);
+      // ✅ FIXED: Super admin veya admin sadece kendi şirketinin kullanıcılarını silebilir
+      allow delete: if isSuperAdmin() || (isAdmin() && isSameCompany(resource.data.company));
     }
 
     // ========================================
