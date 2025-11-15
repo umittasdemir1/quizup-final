@@ -794,12 +794,32 @@ const Manager = () => {
         return;
       }
 
-      const userCompany = currentUser?.company || 'BLUEMINT';
+      // CRITICAL FIX: Super Admin must use SELECTED company, not their own company!
+      let userCompany;
+      if (currentUser.isSuperAdmin === true) {
+        // Get selected company from localStorage
+        const selectedCompanyData = localStorage.getItem('superadmin:selectedCompanyData');
+        if (selectedCompanyData) {
+          const companyData = JSON.parse(selectedCompanyData);
+          if (companyData.id !== 'all') {
+            userCompany = companyData.name || companyData.id;
+          } else {
+            toast('Lütfen paket oluşturmak için bir şirket seçin', 'warning');
+            return;
+          }
+        } else {
+          toast('Lütfen paket oluşturmak için bir şirket seçin', 'warning');
+          return;
+        }
+      } else {
+        userCompany = currentUser?.company || 'BLUEMINT';
+      }
 
       // DEBUG: Log entire currentUser object
       console.log('👤 CURRENT USER FULL OBJECT:', currentUser);
       console.log('👤 Has firstName?', 'firstName' in currentUser, currentUser.firstName);
       console.log('👤 Has lastName?', 'lastName' in currentUser, currentUser.lastName);
+      console.log('🏢 Selected company for package:', userCompany);
 
       // Get user full name
       const firstName = currentUser.firstName || '';
