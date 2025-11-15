@@ -596,9 +596,17 @@ const isLoggedIn = () => {
   return storedUser !== null;
 };
 
+const isSuperAdmin = () => {
+  const user = getCurrentUser();
+  return user && user.isSuperAdmin === true;
+};
+
 const hasRole = (requiredRole) => {
   const user = getCurrentUser();
   if (!user) return false;
+
+  // Super admin tüm rollere erişebilir
+  if (user.isSuperAdmin === true) return true;
 
   if (Array.isArray(requiredRole)) {
     return requiredRole.includes(user.role);
@@ -607,7 +615,8 @@ const hasRole = (requiredRole) => {
 };
 
 const isAdmin = () => {
-  return hasRole('admin');
+  // Super admin da admin olarak kabul edilir
+  return isSuperAdmin() || hasRole('admin');
 };
 
 let pendingAuthToastId = null;
@@ -755,6 +764,7 @@ window.LoadingSpinner = LoadingSpinner;
 window.Page = Page;
 window.getCurrentUser = getCurrentUser;
 window.isLoggedIn = isLoggedIn;
+window.isSuperAdmin = isSuperAdmin;
 window.hasRole = hasRole;
 window.isAdmin = isAdmin;
 window.requireAuth = requireAuth;
