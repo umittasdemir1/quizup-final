@@ -66,7 +66,7 @@ const Branding = () => {
       } else if (selectedComp === 'all' && companies.length > 0) {
         // If "All Companies" selected, default to first company
         // (Branding must be per-company, cannot show "all")
-        setSelectedCompany(companies[0]);
+        setSelectedCompany(companies[0].id);
       }
     };
 
