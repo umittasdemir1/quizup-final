@@ -308,7 +308,9 @@ const ensureUserProfileCached = async (authUser) => {
     company: userData.company || '',
     department: userData.department || '',
     position: userData.position || '',
-    applicationPin
+    applicationPin,
+    // Preserve super admin flag
+    isSuperAdmin: userData.isSuperAdmin === true ? true : undefined
   };
 
   try {

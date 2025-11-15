@@ -46,29 +46,36 @@ const CompanyManagement = () => {
   const loadStats = async (companiesList) => {
     try {
       await waitFirebase();
-      const { db, collection, getDocs, query, where } = window.firebase;
+      const { db, collection, getDocs, query, where, or } = window.firebase;
 
       const statsMap = {};
 
       for (const company of companiesList) {
-        // Count users
+        // Try both ID and name for backward compatibility
+        // Some collections might use document ID, others might use company name
+        const companyIdentifiers = [company.id];
+        if (company.name && company.name !== company.id) {
+          companyIdentifiers.push(company.name);
+        }
+
+        // Count users - check both ID and name
         const usersQuery = query(
           collection(db, 'users'),
-          where('company', '==', company.id)
+          where('company', 'in', companyIdentifiers)
         );
         const usersSnapshot = await getDocs(usersQuery);
 
         // Count quiz sessions
         const sessionsQuery = query(
           collection(db, 'quizSessions'),
-          where('company', '==', company.id)
+          where('company', 'in', companyIdentifiers)
         );
         const sessionsSnapshot = await getDocs(sessionsQuery);
 
         // Count questions
         const questionsQuery = query(
           collection(db, 'questions'),
-          where('company', '==', company.id)
+          where('company', 'in', companyIdentifiers)
         );
         const questionsSnapshot = await getDocs(questionsQuery);
 
