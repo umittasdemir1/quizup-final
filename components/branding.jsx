@@ -6,7 +6,7 @@ const Branding = () => {
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [companies, setCompanies] = useState([]);
+  const [companies, setCompanies] = useState([]); // Array of {id, name}
   const [selectedCompany, setSelectedCompany] = useState('');
   const fileInputRef = useRef(null);
 
@@ -24,19 +24,27 @@ const Branding = () => {
           const { db, collection, getDocs, query, orderBy } = window.firebase;
           const q = query(collection(db, 'companies'), orderBy('name'));
           const snapshot = await getDocs(q);
-          const companiesList = snapshot.docs.map(doc => doc.id);
+          const companiesList = snapshot.docs.map(doc => ({
+            id: doc.id,
+            name: doc.data().name || doc.id
+          }));
           setCompanies(companiesList);
 
           // Use selected company from getSelectedCompany()
           const selectedComp = getSelectedCompany();
-          if (selectedComp && selectedComp !== 'all' && companiesList.includes(selectedComp)) {
-            setSelectedCompany(selectedComp);
+          if (selectedComp && selectedComp !== 'all') {
+            const found = companiesList.find(c => c.id === selectedComp);
+            if (found) {
+              setSelectedCompany(found.id);
+            } else if (companiesList.length > 0) {
+              setSelectedCompany(companiesList[0].id);
+            }
           } else if (companiesList.length > 0) {
-            setSelectedCompany(companiesList[0]);
+            setSelectedCompany(companiesList[0].id);
           }
         } else if (currentUser?.company) {
           // Regular admin: Only their company
-          setCompanies([currentUser.company]);
+          setCompanies([{ id: currentUser.company, name: currentUser.company }]);
           setSelectedCompany(currentUser.company);
         }
       } catch (e) {
@@ -75,15 +83,32 @@ const Branding = () => {
       await waitFirebase();
       try {
         const { db, doc, getDoc } = window.firebase;
-        const brandingDoc = await getDoc(doc(db, 'branding', selectedCompany));
+
+        // Try to find company info (ID and name) for backward compatibility
+        const companyInfo = companies.find(c => c.id === selectedCompany);
+        const companyName = companyInfo?.name || selectedCompany;
+
+        console.log(`Loading branding for company ID: "${selectedCompany}", Name: "${companyName}"`);
+
+        // Try loading with NAME first (current system), then with ID (fallback)
+        let brandingDoc = await getDoc(doc(db, 'branding', companyName));
+
+        // If not found with name, try with ID (backward compatibility)
+        if (!brandingDoc.exists() && companyName !== selectedCompany) {
+          console.log(`Branding not found with name "${companyName}", trying with ID "${selectedCompany}"`);
+          brandingDoc = await getDoc(doc(db, 'branding', selectedCompany));
+        }
+
         if (brandingDoc.exists()) {
           const data = brandingDoc.data();
           setLogoUrl(data?.logoUrl || '');
           setSearchPlaceholderWords(data?.searchPlaceholderWords || '');
+          console.log(`Branding loaded for company:`, brandingDoc.id);
         } else {
           // Reset to defaults if no settings exist for this company
           setLogoUrl('');
           setSearchPlaceholderWords('');
+          console.log(`No branding found for company ID "${selectedCompany}" or name "${companyName}"`);
         }
       } catch (e) {
         window.devError('Settings load error:', e);
@@ -91,7 +116,7 @@ const Branding = () => {
         setLoading(false);
       }
     })();
-  }, [selectedCompany]);
+  }, [selectedCompany, companies]);
 
   const handleFileSelect = (file) => {
     if (!file) return;
@@ -122,18 +147,26 @@ const Branding = () => {
       await waitFirebase();
       const { storage, ref, uploadBytes, getDownloadURL, db, doc, setDoc } = window.firebase;
 
-      // Upload to Firebase Storage with company-specific path
-      const storageRef = ref(storage, `branding/${selectedCompany}/logo_${Date.now()}`);
+      // Get company name for backward compatibility
+      const companyInfo = companies.find(c => c.id === selectedCompany);
+      const companyName = companyInfo?.name || selectedCompany;
+
+      // Upload to Firebase Storage with company-specific path (use name for consistency)
+      const storageRef = ref(storage, `branding/${companyName}/logo_${Date.now()}`);
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
 
-      // Save URL to Firestore branding collection
-      await setDoc(doc(db, 'branding', selectedCompany), {
-        company: selectedCompany,
+      // Save URL to Firestore branding collection (use name as document ID for backward compatibility)
+      await setDoc(doc(db, 'branding', companyName), {
+        company: companyName,
+        companyId: selectedCompany, // Also save ID for reference
         logoUrl: url,
         searchPlaceholderWords: searchPlaceholderWords,
         updatedAt: new Date()
       });
+
+      console.log(`Branding saved for company "${companyName}" (ID: ${selectedCompany})`);
+
 
       window.devLog('Logo uploaded successfully for', selectedCompany, ':', url);
       setLogoUrl(url);
@@ -163,8 +196,13 @@ const Branding = () => {
       await waitFirebase();
       const { db, doc, setDoc } = window.firebase;
 
-      await setDoc(doc(db, 'branding', selectedCompany), {
-        company: selectedCompany,
+      // Get company name for backward compatibility
+      const companyInfo = companies.find(c => c.id === selectedCompany);
+      const companyName = companyInfo?.name || selectedCompany;
+
+      await setDoc(doc(db, 'branding', companyName), {
+        company: companyName,
+        companyId: selectedCompany,
         logoUrl: '',
         searchPlaceholderWords: searchPlaceholderWords,
         updatedAt: new Date()
@@ -189,8 +227,13 @@ const Branding = () => {
       await waitFirebase();
       const { db, doc, setDoc } = window.firebase;
 
-      await setDoc(doc(db, 'branding', selectedCompany), {
-        company: selectedCompany,
+      // Get company name for backward compatibility
+      const companyInfo = companies.find(c => c.id === selectedCompany);
+      const companyName = companyInfo?.name || selectedCompany;
+
+      await setDoc(doc(db, 'branding', companyName), {
+        company: companyName,
+        companyId: selectedCompany,
         logoUrl: logoUrl,
         searchPlaceholderWords: searchPlaceholderWords,
         updatedAt: new Date()
