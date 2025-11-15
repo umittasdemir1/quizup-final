@@ -80,10 +80,12 @@ service cloud.firestore {
       allow read: if true;
 
       // ✅ Admin sadece kendi şirketinin sorularını oluşturabilir
-      allow create: if isAdmin() && isSameCompany(request.resource.data.company);
+      // 🌟 Super admin tüm şirketler için soru oluşturabilir
+      allow create: if (isAdmin() && isSameCompany(request.resource.data.company)) || isSuperAdmin();
 
       // ✅ Admin sadece kendi şirketinin sorularını güncelleyebilir/silebilir
-      allow update, delete: if isAdmin() && isSameCompany(resource.data.company);
+      // 🌟 Super admin tüm soruları güncelleyebilir/silebilir
+      allow update, delete: if (isAdmin() && isSameCompany(resource.data.company)) || isSuperAdmin();
     }
 
     // ========================================
@@ -91,7 +93,9 @@ service cloud.firestore {
     // ========================================
     match /suggestedQuestions/{suggestionId} {
       // ✅ Giriş yapmış kullanıcılar şirketinin önerilerini görebilir
+      // 🌟 Super admin tüm önerileri görebilir
       allow read: if isSignedIn() && (
+        isSuperAdmin() ||
         isSameCompany(resource.data.company) ||
         resource.data.company == null // Backward compatibility
       );
@@ -100,7 +104,8 @@ service cloud.firestore {
       allow create: if request.resource.data.company != null;
 
       // ✅ Sadece admin kendi şirketinin önerilerini güncelleyebilir/silebilir
-      allow update, delete: if isAdmin() && isSameCompany(resource.data.company);
+      // 🌟 Super admin tüm önerileri güncelleyebilir/silebilir
+      allow update, delete: if (isAdmin() && isSameCompany(resource.data.company)) || isSuperAdmin();
     }
 
     // ========================================
@@ -112,10 +117,12 @@ service cloud.firestore {
       allow read: if true; // QR kod access için gerekli
 
       // ✅ FIXED: Sadece manager/admin kendi şirketi için session oluşturabilir
-      allow create: if isManagerOrAdmin() && isSameCompany(request.resource.data.company);
+      // 🌟 Super admin tüm şirketler için session oluşturabilir
+      allow create: if (isManagerOrAdmin() && isSameCompany(request.resource.data.company)) || isSuperAdmin();
 
       // ✅ FIXED: Manager/admin sadece kendi şirketinin session'larını silebilir
-      allow delete: if isManagerOrAdmin() && isSameCompany(resource.data.company);
+      // 🌟 Super admin tüm session'ları silebilir
+      allow delete: if (isManagerOrAdmin() && isSameCompany(resource.data.company)) || isSuperAdmin();
 
       // ✅ FIXED: Quiz tamamlama için kontrollü güncelleme
       // Sadece status ve completion bilgileri güncellenebilir
@@ -131,7 +138,9 @@ service cloud.firestore {
     match /results/{resultId} {
       // ✅ FIXED: Multi-tenant isolation - Sadece kendi şirketinin sonuçlarını görebilir
       // VEYA kendi oluşturduğu sonucu görebilir (anonim kullanıcılar için)
+      // 🌟 Super admin tüm sonuçları görebilir
       allow read: if isSignedIn() && (
+        isSuperAdmin() ||
         isSameCompany(resource.data.company) ||
         isResultOwner(resource.data)
       );
@@ -146,7 +155,8 @@ service cloud.firestore {
       allow update: if false;
 
       // ✅ FIXED: Sadece manager/admin kendi şirketinin sonuçlarını silebilir
-      allow delete: if isManagerOrAdmin() && isSameCompany(resource.data.company);
+      // 🌟 Super admin tüm sonuçları silebilir
+      allow delete: if (isManagerOrAdmin() && isSameCompany(resource.data.company)) || isSuperAdmin();
     }
 
     // ========================================
