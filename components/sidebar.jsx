@@ -26,6 +26,18 @@ const Sidebar = () => {
   const [signOutAllError, setSignOutAllError] = useState('');
   const isLoggedIn = currentUser !== null;
 
+  // Super Admin: Company switcher
+  const [companies, setCompanies] = useState([]);
+  const [selectedCompany, setSelectedCompany] = useState(() => {
+    try {
+      return localStorage.getItem('superadmin:selectedCompany') || 'all';
+    } catch {
+      return 'all';
+    }
+  });
+  const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
+  const [companiesLoading, setCompaniesLoading] = useState(false);
+
   // Load pending suggestions count for admin
   useEffect(() => {
     if (isLoggedIn && (currentUser?.role === 'admin' || currentUser?.role === 'SuperAdmin' || isSuperAdmin())) {
@@ -85,6 +97,52 @@ const Sidebar = () => {
     } catch (e) {
       window.devError('Load pending count error:', e);
       // Silent fail - don't show toast to user
+    }
+  };
+
+  // Load companies for super admin
+  const loadCompanies = async () => {
+    if (!isSuperAdmin()) return;
+
+    setCompaniesLoading(true);
+    try {
+      await waitFirebase();
+      const { db, collection, getDocs, query, orderBy } = window.firebase;
+
+      const q = query(collection(db, 'companies'), orderBy('name'));
+      const snapshot = await getDocs(q);
+      const companiesList = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      setCompanies(companiesList);
+      window.devLog('Companies loaded:', companiesList.length);
+    } catch (e) {
+      window.devError('Load companies error:', e);
+      toast('Şirketler yüklenemedi', 'error');
+    } finally {
+      setCompaniesLoading(false);
+    }
+  };
+
+  // Load companies on mount for super admin
+  useEffect(() => {
+    if (isLoggedIn && isSuperAdmin()) {
+      loadCompanies();
+    }
+  }, [isLoggedIn, currentUser]);
+
+  // Handle company selection
+  const handleCompanyChange = (companyId) => {
+    setSelectedCompany(companyId);
+    setShowCompanyDropdown(false);
+    try {
+      localStorage.setItem('superadmin:selectedCompany', companyId);
+      window.dispatchEvent(new CustomEvent('company-changed', { detail: { companyId } }));
+      toast(companyId === 'all' ? 'Tüm şirketler görüntüleniyor' : `Şirket değiştirildi: ${companies.find(c => c.id === companyId)?.name || companyId}`, 'success');
+    } catch (e) {
+      window.devError('Error saving selected company:', e);
     }
   };
 
@@ -494,7 +552,71 @@ const Sidebar = () => {
             )}
           </div>
 
+          {/* Super Admin: Company Switcher */}
+          {isSuperAdmin() && (
+            <div className="px-4 py-3 border-b border-gray-200">
+              <label className="block text-xs font-semibold text-dark-500 mb-2 uppercase">Şirket Seçimi</label>
+              <div className="relative">
+                <button
+                  type="button"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-dark-900 font-medium hover:bg-gray-50 transition-colors flex items-center justify-between"
+                  onClick={() => setShowCompanyDropdown(!showCompanyDropdown)}
+                >
+                  <span className="truncate">
+                    {selectedCompany === 'all' ? '🌐 Tüm Şirketler' : (companies.find(c => c.id === selectedCompany)?.name || 'Şirket Seç')}
+                  </span>
+                  <svg className={`w-4 h-4 transition-transform ${showCompanyDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {showCompanyDropdown && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowCompanyDropdown(false)}></div>
+                    <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                      <button
+                        type="button"
+                        className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 transition-colors ${selectedCompany === 'all' ? 'bg-primary-50 text-primary-600 font-semibold' : 'text-dark-900'}`}
+                        onClick={() => handleCompanyChange('all')}
+                      >
+                        🌐 Tüm Şirketler
+                      </button>
+                      {companies.map(company => (
+                        <button
+                          key={company.id}
+                          type="button"
+                          className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 transition-colors border-t border-gray-100 ${selectedCompany === company.id ? 'bg-primary-50 text-primary-600 font-semibold' : 'text-dark-900'}`}
+                          onClick={() => handleCompanyChange(company.id)}
+                        >
+                          🏢 {company.name}
+                        </button>
+                      ))}
+                      {companies.length === 0 && !companiesLoading && (
+                        <div className="px-3 py-2 text-sm text-dark-400 text-center">
+                          Henüz şirket yok
+                        </div>
+                      )}
+                      {companiesLoading && (
+                        <div className="px-3 py-2 text-sm text-dark-400 text-center">
+                          Yükleniyor...
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
           <nav className="py-4">
+            {/* Super Admin Only: Company Management */}
+            {isSuperAdmin() && (
+              <a href="#/company-management" className={isActive('/company-management') ? 'active' : ''}>
+                <BuildingOfficeIcon size={20} strokeWidth={2} />
+                <span>Şirket Yönetimi</span>
+              </a>
+            )}
+
             {/* Super Admin & Admin: See everything */}
             {(currentUser?.role === 'admin' || currentUser?.role === 'SuperAdmin' || isSuperAdmin()) && (
               <>

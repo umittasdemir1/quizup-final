@@ -122,7 +122,8 @@
   <script type="text/babel" src="components/Result.jsx"></script>
   <script type="text/babel" src="components/Branding.jsx"></script>
   <script type="text/babel" src="components/LocationMap.jsx"></script>
-  
+  <script type="text/babel" src="components/CompanyManagement.jsx"></script>
+
   <!-- Admin components - QuestionList and AdminForm MUST load before Admin -->
   <script type="text/babel" src="components/QuestionList.jsx"></script>
   
@@ -178,6 +179,7 @@
           <main>
             {route === '/' || route === '' ? <Landing />
               : route.startsWith('/login') ? <Login />
+              : route.startsWith('/company-management') ? (isLoggedIn() && isSuperAdmin() ? <CompanyManagement /> : (() => { requireAuth('admin'); toast('Bu sayfaya sadece Super Admin erişebilir', 'error'); location.hash = '#/dashboard'; return null; })())
               : route.startsWith('/users') ? (isLoggedIn() && hasRole('admin') ? <UserManagement /> : (() => { requireAuth('admin'); return null; })())
               : route.startsWith('/suggestions') ? (isLoggedIn() && hasRole('admin') ? <SuggestedQuestions /> : (() => { requireAuth('admin'); return null; })())
               : route.startsWith('/suggest') ? <SuggestQuestion />

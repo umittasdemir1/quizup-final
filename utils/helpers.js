@@ -601,6 +601,27 @@ const isSuperAdmin = () => {
   return user && user.isSuperAdmin === true;
 };
 
+// Get selected company for filtering
+// Super admin: returns selected company from localStorage ('all' or specific company)
+// Admin/Manager: returns their own company
+const getSelectedCompany = () => {
+  const user = getCurrentUser();
+  if (!user) return null;
+
+  // Super admin can select company
+  if (user.isSuperAdmin === true) {
+    try {
+      const selected = localStorage.getItem('superadmin:selectedCompany');
+      return selected || 'all';
+    } catch {
+      return 'all';
+    }
+  }
+
+  // Regular users see only their company
+  return user.company || null;
+};
+
 const hasRole = (requiredRole) => {
   const user = getCurrentUser();
   if (!user) return false;
@@ -765,6 +786,7 @@ window.Page = Page;
 window.getCurrentUser = getCurrentUser;
 window.isLoggedIn = isLoggedIn;
 window.isSuperAdmin = isSuperAdmin;
+window.getSelectedCompany = getSelectedCompany;
 window.hasRole = hasRole;
 window.isAdmin = isAdmin;
 window.requireAuth = requireAuth;
