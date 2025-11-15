@@ -118,6 +118,13 @@ const Sidebar = () => {
 
       setCompanies(companiesList);
       window.devLog('Companies loaded:', companiesList.length);
+
+      // Initialize localStorage if not set
+      if (!localStorage.getItem('superadmin:selectedCompanyData')) {
+        localStorage.setItem('superadmin:selectedCompany', 'all');
+        localStorage.setItem('superadmin:selectedCompanyData', JSON.stringify({ id: 'all', name: 'all' }));
+        window.devLog('Initialized localStorage with "all" companies');
+      }
     } catch (e) {
       window.devError('Load companies error:', e);
       toast('Şirketler yüklenemedi', 'error');

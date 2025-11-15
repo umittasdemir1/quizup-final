@@ -651,7 +651,9 @@ const getCompanyIdentifiersForQuery = () => {
       }
       // Fallback to old method if new data not available
       const selected = localStorage.getItem('superadmin:selectedCompany');
-      return selected === 'all' ? null : [selected];
+      // If no selection or 'all', return null (no filter)
+      if (!selected || selected === 'all') return null;
+      return [selected];
     } catch (e) {
       window.devError('Error reading company data:', e);
       return null;
