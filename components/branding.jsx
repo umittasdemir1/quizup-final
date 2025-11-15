@@ -28,19 +28,41 @@ const Branding = () => {
             id: doc.id,
             name: doc.data().name || doc.id
           }));
+
+          console.log('🏢 Companies loaded:', companiesList);
           setCompanies(companiesList);
+
+          // Also check what's in branding collection
+          const brandingSnapshot = await getDocs(collection(db, 'branding'));
+          console.log('🎨 Branding documents:', brandingSnapshot.docs.map(d => ({
+            id: d.id,
+            company: d.data().company,
+            hasLogo: !!d.data().logoUrl,
+            hasPlaceholder: !!d.data().searchPlaceholderWords
+          })));
 
           // Use selected company from getSelectedCompany()
           const selectedComp = getSelectedCompany();
+          console.log('📍 Selected company from localStorage:', selectedComp);
           if (selectedComp && selectedComp !== 'all') {
             const found = companiesList.find(c => c.id === selectedComp);
             if (found) {
+              console.log('✅ Found matching company:', found);
               setSelectedCompany(found.id);
-            } else if (companiesList.length > 0) {
+            } else {
+              console.log('⚠️ No matching company found for:', selectedComp);
+              console.log('⚠️ Available companies:', companiesList.map(c => c.id));
+              if (companiesList.length > 0) {
+                console.log('📌 Defaulting to first company:', companiesList[0]);
+                setSelectedCompany(companiesList[0].id);
+              }
+            }
+          } else {
+            console.log('📌 No selection or "all", defaulting to first company');
+            if (companiesList.length > 0) {
+              console.log('📌 First company:', companiesList[0]);
               setSelectedCompany(companiesList[0].id);
             }
-          } else if (companiesList.length > 0) {
-            setSelectedCompany(companiesList[0].id);
           }
         } else if (currentUser?.company) {
           // Regular admin: Only their company
@@ -85,30 +107,51 @@ const Branding = () => {
         const { db, doc, getDoc } = window.firebase;
 
         // Try to find company info (ID and name) for backward compatibility
+        console.log('🔍 Branding Load Debug:', {
+          selectedCompany: selectedCompany,
+          companiesAvailable: companies,
+          companiesLength: companies.length
+        });
+
         const companyInfo = companies.find(c => c.id === selectedCompany);
         const companyName = companyInfo?.name || selectedCompany;
 
-        console.log(`Loading branding for company ID: "${selectedCompany}", Name: "${companyName}"`);
+        console.log(`📂 Loading branding for:`, {
+          selectedCompany: selectedCompany,
+          companyInfo: companyInfo,
+          companyName: companyName
+        });
 
         // Try loading with NAME first (current system), then with ID (fallback)
+        console.log(`🔎 Trying to load: doc(db, 'branding', '${companyName}')`);
         let brandingDoc = await getDoc(doc(db, 'branding', companyName));
+        console.log(`📄 Result with name "${companyName}":`, brandingDoc.exists() ? 'EXISTS' : 'NOT FOUND');
 
         // If not found with name, try with ID (backward compatibility)
         if (!brandingDoc.exists() && companyName !== selectedCompany) {
-          console.log(`Branding not found with name "${companyName}", trying with ID "${selectedCompany}"`);
+          console.log(`🔎 Trying to load: doc(db, 'branding', '${selectedCompany}')`);
           brandingDoc = await getDoc(doc(db, 'branding', selectedCompany));
+          console.log(`📄 Result with ID "${selectedCompany}":`, brandingDoc.exists() ? 'EXISTS' : 'NOT FOUND');
         }
 
         if (brandingDoc.exists()) {
           const data = brandingDoc.data();
+          console.log(`✅ Branding loaded:`, {
+            docId: brandingDoc.id,
+            logoUrl: data?.logoUrl?.substring(0, 50) + '...',
+            searchPlaceholderWords: data?.searchPlaceholderWords
+          });
           setLogoUrl(data?.logoUrl || '');
           setSearchPlaceholderWords(data?.searchPlaceholderWords || '');
-          console.log(`Branding loaded for company:`, brandingDoc.id);
         } else {
           // Reset to defaults if no settings exist for this company
+          console.log(`❌ No branding found for:`, {
+            selectedCompanyId: selectedCompany,
+            companyName: companyName,
+            triedPaths: [`branding/${companyName}`, `branding/${selectedCompany}`]
+          });
           setLogoUrl('');
           setSearchPlaceholderWords('');
-          console.log(`No branding found for company ID "${selectedCompany}" or name "${companyName}"`);
         }
       } catch (e) {
         window.devError('Settings load error:', e);
