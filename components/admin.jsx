@@ -30,11 +30,13 @@ const Admin = () => {
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
-    (async () => {
+    let unsub = null;
+
+    const loadQuestions = async () => {
       await waitFirebase();
       const { db, collection, query, orderBy, onSnapshot, where } = window.firebase;
 
-      // 🔒 Sadece kendi şirketinin sorularını getir
+      // 🔒 Super admin seçtiği şirkete göre, admin kendi şirketini görür
       const currentUser = getCurrentUser();
 
       // Logout sırasında query çalıştırma
@@ -43,14 +45,24 @@ const Admin = () => {
         return;
       }
 
-      const userCompany = currentUser?.company || 'BLUEMINT';
+      const selectedCompany = getSelectedCompany();
+      const isSuperAdminUser = currentUser?.isSuperAdmin === true;
 
-      const q = query(
-        collection(db, 'questions'),
-        where('company', '==', userCompany),
-        orderBy('createdAt', 'desc')
-      );
-      const unsub = onSnapshot(q, snap => {
+      let q;
+      if (isSuperAdminUser && selectedCompany === 'all') {
+        q = query(
+          collection(db, 'questions'),
+          orderBy('createdAt', 'desc')
+        );
+      } else {
+        const companyToFilter = selectedCompany === 'all' ? currentUser.company : selectedCompany;
+        q = query(
+          collection(db, 'questions'),
+          where('company', '==', companyToFilter),
+          orderBy('createdAt', 'desc')
+        );
+      }
+      unsub = onSnapshot(q, snap => {
         const ordered = snap.docs.map((d, index) => {
           const data = d.data();
           return {
@@ -75,8 +87,22 @@ const Admin = () => {
         }
         setLoading(false);
       });
-      return () => unsub();
-    })();
+    };
+
+    loadQuestions();
+
+    const handleCompanyChange = () => {
+      if (unsub) unsub();
+      setLoading(true);
+      loadQuestions();
+    };
+
+    window.addEventListener('company-changed', handleCompanyChange);
+
+    return () => {
+      if (unsub) unsub();
+      window.removeEventListener('company-changed', handleCompanyChange);
+    };
   }, []);
 
   const getDisplayOrder = (question, index) => (
