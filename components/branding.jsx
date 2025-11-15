@@ -168,9 +168,9 @@ const Branding = () => {
       console.log(`Branding saved for company "${companyName}" (ID: ${selectedCompany})`);
 
 
-      window.devLog('Logo uploaded successfully for', selectedCompany, ':', url);
+      window.devLog('Logo uploaded successfully for', companyName, ':', url);
       setLogoUrl(url);
-      toast(`${selectedCompany} için logo başarıyla yüklendi`, 'success');
+      toast(`${companyName} için logo başarıyla yüklendi`, 'success');
 
       // Reload page to update logo everywhere
       setTimeout(() => {
@@ -239,7 +239,7 @@ const Branding = () => {
         updatedAt: new Date()
       });
 
-      toast(`${selectedCompany} için arama placeholder kelimeleri kaydedildi`, 'success');
+      toast(`${companyName} için arama placeholder kelimeleri kaydedildi`, 'success');
     } catch (e) {
       window.devError('Save error:', e);
       toast('Kaydetme sırasında hata oluştu', 'error');
@@ -287,7 +287,7 @@ const Branding = () => {
                   disabled={!isAdminUser || companies.length === 1}
                 >
                   {companies.map(company => (
-                    <option key={company} value={company}>{company}</option>
+                    <option key={company.id} value={company.id}>{company.name}</option>
                   ))}
                 </select>
                 <p className="text-xs text-dark-500 mt-1">
