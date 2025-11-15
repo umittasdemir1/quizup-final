@@ -46,10 +46,10 @@ const UserManagement = () => {
     try {
       await waitFirebase();
 
-      // Check if user is admin
+      // Check if user is admin or super admin
       const user = getCurrentUser();
       window.devLog('Current user:', user);
-      if (!user || user.role !== 'admin') {
+      if (!user || (user.role !== 'admin' && user.role !== 'SuperAdmin' && !user.isSuperAdmin)) {
         window.devError('User is not admin, cannot load users');
         toast('Yetkiniz yok', 'error');
         setLoading(false);
@@ -69,15 +69,29 @@ const UserManagement = () => {
 
       window.devLog('Querying users collection...');
 
-      // 🔒 Sadece kendi şirketinin kullanıcılarını getir
+      // 🔒 Super admin tüm kullanıcıları, admin sadece kendi şirketini görür
       const currentUser = getCurrentUser();
-      const userCompany = currentUser?.company || 'BLUEMINT';
+      const isSuperAdminUser = currentUser?.isSuperAdmin === true || currentUser?.role === 'SuperAdmin';
 
-      const q = query(
-        collection(db, 'users'),
-        where('company', '==', userCompany),
-        orderBy('createdAt', 'desc')
-      );
+      let q;
+      if (isSuperAdminUser) {
+        // Super admin: Tüm kullanıcıları getir
+        window.devLog('Super admin: Loading all users');
+        q = query(
+          collection(db, 'users'),
+          orderBy('createdAt', 'desc')
+        );
+      } else {
+        // Regular admin: Sadece kendi şirketinin kullanıcılarını getir
+        const userCompany = currentUser?.company || 'BLUEMINT';
+        window.devLog('Admin: Loading users for company:', userCompany);
+        q = query(
+          collection(db, 'users'),
+          where('company', '==', userCompany),
+          orderBy('createdAt', 'desc')
+        );
+      }
+
       const snapshot = await getDocs(q);
       window.devLog('Users snapshot size:', snapshot.size);
 
