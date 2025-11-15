@@ -5,11 +5,13 @@ const Tests = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    (async () => {
+    let unsub;
+
+    const loadResults = async () => {
       await waitFirebase();
       const { db, collection, query, orderBy, onSnapshot, where } = window.firebase;
 
-      // 🔒 Sadece kendi şirketinin sonuçlarını getir
+      // 🔒 Super admin seçtiği şirkete göre, admin kendi şirketini görür
       const currentUser = getCurrentUser();
 
       // Logout sırasında query çalıştırma
@@ -18,14 +20,25 @@ const Tests = () => {
         return;
       }
 
-      const userCompany = currentUser?.company || 'BLUEMINT';
+      const selectedCompany = getSelectedCompany();
+      const isSuperAdminUser = currentUser?.isSuperAdmin === true;
 
-      const q = query(
-        collection(db, 'results'),
-        where('company', '==', userCompany),
-        orderBy('submittedAt', 'desc')
-      );
-      const unsub = onSnapshot(q, snap => {
+      let q;
+      if (isSuperAdminUser && selectedCompany === 'all') {
+        q = query(
+          collection(db, 'results'),
+          orderBy('submittedAt', 'desc')
+        );
+      } else {
+        const companyToFilter = selectedCompany === 'all' ? currentUser.company : selectedCompany;
+        q = query(
+          collection(db, 'results'),
+          where('company', '==', companyToFilter),
+          orderBy('submittedAt', 'desc')
+        );
+      }
+
+      unsub = onSnapshot(q, snap => {
         setResults(snap.docs.map(d => ({ id: d.id, ...d.data() })));
         setLoading(false);
       }, (error) => {
@@ -36,8 +49,22 @@ const Tests = () => {
         }
         setLoading(false);
       });
-      return () => unsub();
-    })();
+    };
+
+    loadResults();
+
+    const handleCompanyChange = () => {
+      if (unsub) unsub();
+      setLoading(true);
+      loadResults();
+    };
+
+    window.addEventListener('company-changed', handleCompanyChange);
+
+    return () => {
+      if (unsub) unsub();
+      window.removeEventListener('company-changed', handleCompanyChange);
+    };
   }, []);
 
   const handleDelete = async (id, sessionId) => {

@@ -22,6 +22,14 @@ const SuggestedQuestions = () => {
 
   useEffect(() => {
     loadSuggestions();
+
+    const handleCompanyChange = () => {
+      setLoading(true);
+      loadSuggestions();
+    };
+
+    window.addEventListener('company-changed', handleCompanyChange);
+    return () => window.removeEventListener('company-changed', handleCompanyChange);
   }, []);
 
   const loadSuggestions = async () => {
@@ -31,15 +39,25 @@ const SuggestedQuestions = () => {
       const { db, collection, getDocs, query, orderBy, where } = window.firebase;
       window.devLog('Firebase ready, creating query...');
 
-      // 🔒 Sadece kendi şirketinin önerilerini getir
+      // 🔒 Super admin seçtiği şirkete göre, admin kendi şirketini görür
       const currentUser = getCurrentUser();
-      const userCompany = currentUser?.company || 'BLUEMINT';
+      const selectedCompany = getSelectedCompany();
+      const isSuperAdminUser = currentUser?.isSuperAdmin === true;
 
-      const q = query(
-        collection(db, 'suggestedQuestions'),
-        where('company', '==', userCompany),
-        orderBy('createdAt', 'desc')
-      );
+      let q;
+      if (isSuperAdminUser && selectedCompany === 'all') {
+        q = query(
+          collection(db, 'suggestedQuestions'),
+          orderBy('createdAt', 'desc')
+        );
+      } else {
+        const companyToFilter = selectedCompany === 'all' ? currentUser.company : selectedCompany;
+        q = query(
+          collection(db, 'suggestedQuestions'),
+          where('company', '==', companyToFilter),
+          orderBy('createdAt', 'desc')
+        );
+      }
       window.devLog('Query created, fetching documents...');
 
       const snapshot = await getDocs(q);

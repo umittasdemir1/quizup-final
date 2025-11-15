@@ -11,22 +11,51 @@ const Branding = () => {
   const fileInputRef = useRef(null);
 
   const currentUser = getCurrentUser();
-  const isAdminUser = currentUser?.role === 'admin';
+  const isAdminUser = currentUser?.role === 'admin' || currentUser?.isSuperAdmin === true;
+  const isSuperAdminUser = currentUser?.isSuperAdmin === true;
 
-  // Load company - admin can only manage their own company (multi-tenant isolation)
+  // Load company - admin can only manage their own company, super admin can manage all
   useEffect(() => {
-    (async () => {
+    const loadCompanies = async () => {
       await waitFirebase();
       try {
-        // 🔒 Her admin sadece kendi şirketinin branding'ini yönetir
-        if (currentUser?.company) {
+        if (isSuperAdminUser) {
+          // Super admin: Load all companies from companies collection
+          const { db, collection, getDocs, query, orderBy } = window.firebase;
+          const q = query(collection(db, 'companies'), orderBy('name'));
+          const snapshot = await getDocs(q);
+          const companiesList = snapshot.docs.map(doc => doc.id);
+          setCompanies(companiesList);
+
+          // Use selected company from getSelectedCompany()
+          const selectedComp = getSelectedCompany();
+          if (selectedComp && selectedComp !== 'all' && companiesList.includes(selectedComp)) {
+            setSelectedCompany(selectedComp);
+          } else if (companiesList.length > 0) {
+            setSelectedCompany(companiesList[0]);
+          }
+        } else if (currentUser?.company) {
+          // Regular admin: Only their company
           setCompanies([currentUser.company]);
           setSelectedCompany(currentUser.company);
         }
       } catch (e) {
         window.devError('Companies load error:', e);
       }
-    })();
+    };
+
+    loadCompanies();
+
+    // Super admin: Listen for company changes
+    const handleCompanyChange = () => {
+      const selectedComp = getSelectedCompany();
+      if (selectedComp && selectedComp !== 'all') {
+        setSelectedCompany(selectedComp);
+      }
+    };
+
+    window.addEventListener('company-changed', handleCompanyChange);
+    return () => window.removeEventListener('company-changed', handleCompanyChange);
   }, []);
 
   // Load branding settings when company changes

@@ -44,24 +44,46 @@ const Manager = () => {
   const packageSortRef = useRef(null);
 
   useEffect(() => {
-    (async () => {
+    let unsubSessions, unsubQuestions;
+
+    const loadData = async () => {
       await waitFirebase();
       const { db, collection, query, orderBy, onSnapshot, where } = window.firebase;
 
-      // 🔒 Sadece kendi şirketinin verilerini getir
+      // 🔒 Super admin seçtiği şirkete göre, admin kendi şirketini görür
       const currentUser = getCurrentUser();
 
       // Logout sırasında query çalıştırma
       if (!currentUser) return;
 
-      const userCompany = currentUser?.company || 'BLUEMINT';
+      const selectedCompany = getSelectedCompany();
+      const isSuperAdminUser = currentUser?.isSuperAdmin === true;
 
-      const qSessions = query(
-        collection(db, 'quizSessions'),
-        where('company', '==', userCompany),
-        orderBy('createdAt', 'desc')
-      );
-      const unsubSessions = onSnapshot(qSessions, snap => {
+      let qSessions, qQuestions;
+      if (isSuperAdminUser && selectedCompany === 'all') {
+        qSessions = query(
+          collection(db, 'quizSessions'),
+          orderBy('createdAt', 'desc')
+        );
+        qQuestions = query(
+          collection(db, 'questions'),
+          where('isActive', '==', true)
+        );
+      } else {
+        const companyToFilter = selectedCompany === 'all' ? currentUser.company : selectedCompany;
+        qSessions = query(
+          collection(db, 'quizSessions'),
+          where('company', '==', companyToFilter),
+          orderBy('createdAt', 'desc')
+        );
+        qQuestions = query(
+          collection(db, 'questions'),
+          where('company', '==', companyToFilter),
+          where('isActive', '==', true)
+        );
+      }
+
+      unsubSessions = onSnapshot(qSessions, snap => {
         setSessions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       }, (error) => {
         // Logout sırasında permission hatası gösterme
@@ -71,12 +93,7 @@ const Manager = () => {
         }
       });
 
-      const qQuestions = query(
-        collection(db, 'questions'),
-        where('company', '==', userCompany),
-        where('isActive', '==', true)
-      );
-      const unsubQuestions = onSnapshot(qQuestions, snap => {
+      unsubQuestions = onSnapshot(qQuestions, snap => {
         const ordered = snap.docs.map((d, index) => {
           const data = d.data();
           return {
@@ -101,19 +118,31 @@ const Manager = () => {
         }
         setLoading(false);
       });
-      
-      return () => {
-        unsubSessions();
-        unsubQuestions();
-      };
-    })();
+    };
+
+    loadData();
+
+    const handleCompanyChange = () => {
+      if (unsubSessions) unsubSessions();
+      if (unsubQuestions) unsubQuestions();
+      setLoading(true);
+      loadData();
+    };
+
+    window.addEventListener('company-changed', handleCompanyChange);
+
+    return () => {
+      if (unsubSessions) unsubSessions();
+      if (unsubQuestions) unsubQuestions();
+      window.removeEventListener('company-changed', handleCompanyChange);
+    };
   }, []);
 
   // 📦 Load Question Packages - Realtime listener
   useEffect(() => {
     let unsubscribe;
 
-    (async () => {
+    const loadPackages = async () => {
       try {
         await waitFirebase();
         const { db, collection, query, where, onSnapshot } = window.firebase;
@@ -124,28 +153,40 @@ const Manager = () => {
           return;
         }
 
-        const userCompany = currentUser?.company || 'BLUEMINT';
-        const isUserAdmin = currentUser?.role === 'admin';
+        const selectedCompany = getSelectedCompany();
+        const isSuperAdminUser = currentUser?.isSuperAdmin === true;
+        const isUserAdmin = currentUser?.role === 'admin' || isSuperAdminUser;
 
         console.log('📦 Setting up package listener for:', {
-          company: userCompany,
+          selectedCompany,
           role: currentUser.role,
           isAdmin: isUserAdmin,
+          isSuperAdmin: isSuperAdminUser,
           uid: currentUser.uid
         });
 
+        // Super Admin (all companies): Tüm paketleri görebilir
+        // Super Admin (specific company): Şirketin paketlerini görebilir
         // Admin: Tüm şirket paketlerini görebilir
         // Manager: Sadece kendi paketlerini görebilir
-        const q = isUserAdmin
-          ? query(
+        let q;
+        if (isSuperAdminUser && selectedCompany === 'all') {
+          q = query(collection(db, 'questionPackages'));
+        } else {
+          const companyToFilter = selectedCompany === 'all' ? currentUser.company : selectedCompany;
+          if (isUserAdmin) {
+            q = query(
               collection(db, 'questionPackages'),
-              where('company', '==', userCompany)
-            )
-          : query(
+              where('company', '==', companyToFilter)
+            );
+          } else {
+            q = query(
               collection(db, 'questionPackages'),
-              where('company', '==', userCompany),
+              where('company', '==', companyToFilter),
               where('createdBy', '==', currentUser.uid)
             );
+          }
+        }
 
         // Realtime listener - auto-updates on changes
         unsubscribe = onSnapshot(q,
@@ -170,7 +211,16 @@ const Manager = () => {
         console.error('❌ Load packages setup error:', e);
         window.devError('Load packages setup error:', e);
       }
-    })();
+    };
+
+    loadPackages();
+
+    const handleCompanyChange = () => {
+      if (unsubscribe) unsubscribe();
+      loadPackages();
+    };
+
+    window.addEventListener('company-changed', handleCompanyChange);
 
     // Cleanup function
     return () => {
@@ -178,6 +228,7 @@ const Manager = () => {
         console.log('🧹 Cleaning up package listener');
         unsubscribe();
       }
+      window.removeEventListener('company-changed', handleCompanyChange);
     };
   }, []);
 
