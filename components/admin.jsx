@@ -45,20 +45,20 @@ const Admin = () => {
         return;
       }
 
-      const selectedCompany = getSelectedCompany();
-      const isSuperAdminUser = currentUser?.isSuperAdmin === true;
+      // Get company identifiers for backward compatibility (checks both ID and name)
+      const companyIdentifiers = getCompanyIdentifiersForQuery();
 
       let q;
-      if (isSuperAdminUser && selectedCompany === 'all') {
+      if (companyIdentifiers === null) {
         q = query(
           collection(db, 'questions'),
           orderBy('createdAt', 'desc')
         );
       } else {
-        const companyToFilter = selectedCompany === 'all' ? currentUser.company : selectedCompany;
+        // Filter by company (checks both ID and name for backward compatibility)
         q = query(
           collection(db, 'questions'),
-          where('company', '==', companyToFilter),
+          where('company', 'in', companyIdentifiers),
           orderBy('createdAt', 'desc')
         );
       }

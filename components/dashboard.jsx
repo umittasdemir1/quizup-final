@@ -20,12 +20,12 @@ const Dashboard = () => {
         return;
       }
 
-      const selectedCompany = getSelectedCompany();
-      const isSuperAdminUser = currentUser?.isSuperAdmin === true;
+      // Get company identifiers for backward compatibility (checks both ID and name)
+      const companyIdentifiers = getCompanyIdentifiersForQuery();
 
       let qSnap, sSnap, rSnap;
 
-      if (isSuperAdminUser && selectedCompany === 'all') {
+      if (companyIdentifiers === null) {
         // Super admin: Tüm şirketlerin verileri
         [qSnap, sSnap, rSnap] = await Promise.all([
           getDocs(collection(db, 'questions')),
@@ -33,12 +33,11 @@ const Dashboard = () => {
           getDocs(collection(db, 'results'))
         ]);
       } else {
-        // Super admin (specific company) veya regular admin: Belirli şirket
-        const companyToFilter = selectedCompany === 'all' ? currentUser.company : selectedCompany;
+        // Filter by company (checks both ID and name for backward compatibility)
         [qSnap, sSnap, rSnap] = await Promise.all([
-          getDocs(query(collection(db, 'questions'), where('company', '==', companyToFilter))),
-          getDocs(query(collection(db, 'quizSessions'), where('company', '==', companyToFilter))),
-          getDocs(query(collection(db, 'results'), where('company', '==', companyToFilter)))
+          getDocs(query(collection(db, 'questions'), where('company', 'in', companyIdentifiers))),
+          getDocs(query(collection(db, 'quizSessions'), where('company', 'in', companyIdentifiers))),
+          getDocs(query(collection(db, 'results'), where('company', 'in', companyIdentifiers)))
         ]);
       }
 

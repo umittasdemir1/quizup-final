@@ -622,6 +622,46 @@ const getSelectedCompany = () => {
   return user.company || null;
 };
 
+// Get company identifiers for Firestore queries with backward compatibility
+// Returns array of identifiers [id, name] to handle cases where:
+// - Some collections use document ID as company field
+// - Other collections use company name as company field
+const getCompanyIdentifiersForQuery = () => {
+  const user = getCurrentUser();
+  if (!user) return [];
+
+  // Super admin can select company
+  if (user.isSuperAdmin === true) {
+    try {
+      const companyDataStr = localStorage.getItem('superadmin:selectedCompanyData');
+      if (companyDataStr) {
+        const companyData = JSON.parse(companyDataStr);
+
+        // If "all companies" selected, return empty array (no filter needed)
+        if (companyData.id === 'all') {
+          return null; // Signal to not use where clause
+        }
+
+        // Return both ID and name for backward compatibility
+        const identifiers = [companyData.id];
+        if (companyData.name && companyData.name !== companyData.id) {
+          identifiers.push(companyData.name);
+        }
+        return identifiers;
+      }
+      // Fallback to old method if new data not available
+      const selected = localStorage.getItem('superadmin:selectedCompany');
+      return selected === 'all' ? null : [selected];
+    } catch (e) {
+      window.devError('Error reading company data:', e);
+      return null;
+    }
+  }
+
+  // Regular users: use their company name
+  return user.company ? [user.company] : [];
+};
+
 const hasRole = (requiredRole) => {
   const user = getCurrentUser();
   if (!user) return false;
@@ -787,6 +827,7 @@ window.getCurrentUser = getCurrentUser;
 window.isLoggedIn = isLoggedIn;
 window.isSuperAdmin = isSuperAdmin;
 window.getSelectedCompany = getSelectedCompany;
+window.getCompanyIdentifiersForQuery = getCompanyIdentifiersForQuery;
 window.hasRole = hasRole;
 window.isAdmin = isAdmin;
 window.requireAuth = requireAuth;

@@ -138,9 +138,17 @@ const Sidebar = () => {
     setSelectedCompany(companyId);
     setShowCompanyDropdown(false);
     try {
+      // Store company data with both ID and name for backward compatibility
+      const companyData = companies.find(c => c.id === companyId);
+      const dataToStore = companyId === 'all'
+        ? JSON.stringify({ id: 'all', name: 'all' })
+        : JSON.stringify({ id: companyId, name: companyData?.name || companyId });
+
       localStorage.setItem('superadmin:selectedCompany', companyId);
+      localStorage.setItem('superadmin:selectedCompanyData', dataToStore);
+
       window.dispatchEvent(new CustomEvent('company-changed', { detail: { companyId } }));
-      toast(companyId === 'all' ? 'Tüm şirketler görüntüleniyor' : `Şirket değiştirildi: ${companies.find(c => c.id === companyId)?.name || companyId}`, 'success');
+      toast(companyId === 'all' ? 'Tüm şirketler görüntüleniyor' : `Şirket değiştirildi: ${companyData?.name || companyId}`, 'success');
     } catch (e) {
       window.devError('Error saving selected company:', e);
     }
