@@ -208,13 +208,16 @@ service cloud.firestore {
 
     match /branding/{company} {
       // ✅ FIXED: Sadece kendi şirketinin branding'ini görebilir
+      // 🌟 Super admin tüm branding'leri görebilir
       allow read: if isSignedIn() && (
+        isSuperAdmin() ||
         company == getUserCompany() ||
         company == 'default' // Default branding herkes görebilir
       );
 
       // ✅ FIXED: Admin sadece kendi şirketinin branding'ini değiştirebilir
-      allow write: if isAdmin() && company == getUserCompany();
+      // 🌟 Super admin tüm branding'leri değiştirebilir
+      allow write: if isSuperAdmin() || (isAdmin() && company == getUserCompany());
     }
 
     // ========================================
