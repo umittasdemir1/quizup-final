@@ -212,6 +212,17 @@ const Manager = () => {
 
             setPackages(packagesData);
             console.log('📦 Packages loaded:', packagesData.length, '(admin:', isUserAdmin, ')');
+
+            // Debug: Show first package data
+            if (packagesData.length > 0) {
+              console.log('📦 First package sample:', {
+                name: packagesData[0].name,
+                createdByName: packagesData[0].createdByName,
+                createdByRole: packagesData[0].createdByRole,
+                company: packagesData[0].company,
+                questionCount: packagesData[0].questionCount
+              });
+            }
           },
           (error) => {
             // Don't show error during logout
@@ -778,12 +789,18 @@ const Manager = () => {
         name: currentUser.displayName || currentUser.email
       });
 
+      // Get user full name
+      const firstName = currentUser.firstName || '';
+      const lastName = currentUser.lastName || '';
+      const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
+      const createdByName = fullName || currentUser.displayName || currentUser.email || 'Bilinmeyen';
+
       const packageData = {
         name: packageForm.name.trim(),
         questionIds: packageForm.questionIds,
         questionCount: packageForm.questionIds.length,
         createdBy: currentUser.uid,
-        createdByName: currentUser.displayName || currentUser.email || 'Bilinmeyen',
+        createdByName: createdByName,
         createdByRole: currentUser.role || 'manager',
         company: userCompany,
         createdAt: serverTimestamp(),
@@ -792,6 +809,13 @@ const Manager = () => {
       };
 
       console.log('📦 Package data:', packageData);
+      console.log('👤 Creator info:', {
+        firstName,
+        lastName,
+        fullName,
+        createdByName,
+        role: currentUser.role
+      });
       const docRef = await addDoc(collection(db, 'questionPackages'), packageData);
       console.log('✅ Package created with ID:', docRef.id);
 
