@@ -51,6 +51,11 @@ const SuggestedQuestions = () => {
           collection(db, 'suggestedQuestions'),
           orderBy('createdAt', 'desc')
         );
+      } else if (companyIdentifiers.length === 0) {
+        // No company assigned - no suggestions to show
+        setSuggestions([]);
+        setLoading(false);
+        return;
       } else {
         // Filter by company (checks both ID and name for backward compatibility)
         q = query(

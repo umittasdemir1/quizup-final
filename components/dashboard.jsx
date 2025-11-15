@@ -32,6 +32,11 @@ const Dashboard = () => {
           getDocs(collection(db, 'quizSessions')),
           getDocs(collection(db, 'results'))
         ]);
+      } else if (companyIdentifiers.length === 0) {
+        // No company assigned - return empty results
+        qSnap = { docs: [] };
+        sSnap = { docs: [] };
+        rSnap = { docs: [] };
       } else {
         // Filter by company (checks both ID and name for backward compatibility)
         [qSnap, sSnap, rSnap] = await Promise.all([

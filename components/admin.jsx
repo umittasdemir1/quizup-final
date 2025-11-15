@@ -54,6 +54,11 @@ const Admin = () => {
           collection(db, 'questions'),
           orderBy('createdAt', 'desc')
         );
+      } else if (companyIdentifiers.length === 0) {
+        // No company assigned - no questions to show
+        setQuestions([]);
+        setLoading(false);
+        return;
       } else {
         // Filter by company (checks both ID and name for backward compatibility)
         q = query(

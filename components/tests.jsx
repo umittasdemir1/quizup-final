@@ -29,6 +29,11 @@ const Tests = () => {
           collection(db, 'results'),
           orderBy('submittedAt', 'desc')
         );
+      } else if (companyIdentifiers.length === 0) {
+        // No company assigned - no results to show
+        setResults([]);
+        setLoading(false);
+        return;
       } else {
         // Filter by company (checks both ID and name for backward compatibility)
         q = query(

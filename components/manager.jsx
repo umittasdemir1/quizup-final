@@ -69,6 +69,11 @@ const Manager = () => {
           collection(db, 'questions'),
           where('isActive', '==', true)
         );
+      } else if (companyIdentifiers.length === 0) {
+        // No company assigned - no data to show
+        setSessions([]);
+        setQuestions([]);
+        return;
       } else {
         // Filter by company (checks both ID and name for backward compatibility)
         qSessions = query(
