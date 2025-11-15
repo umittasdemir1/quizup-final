@@ -23,27 +23,41 @@ const Dashboard = () => {
       // Get company identifiers for backward compatibility (checks both ID and name)
       const companyIdentifiers = getCompanyIdentifiersForQuery();
 
+      console.log('🔍 Dashboard Debug:', {
+        currentUser: currentUser,
+        isSuperAdmin: currentUser?.isSuperAdmin,
+        userCompany: currentUser?.company,
+        companyIdentifiers: companyIdentifiers,
+        localStorage_selectedCompany: localStorage.getItem('superadmin:selectedCompany'),
+        localStorage_companyData: localStorage.getItem('superadmin:selectedCompanyData')
+      });
+
       let qSnap, sSnap, rSnap;
 
       if (companyIdentifiers === null) {
         // Super admin: Tüm şirketlerin verileri
+        console.log('📊 Dashboard: Loading ALL companies data (no filter)');
         [qSnap, sSnap, rSnap] = await Promise.all([
           getDocs(collection(db, 'questions')),
           getDocs(collection(db, 'quizSessions')),
           getDocs(collection(db, 'results'))
         ]);
+        console.log('📊 Dashboard: Results -', { questions: qSnap.size, sessions: sSnap.size, results: rSnap.size });
       } else if (companyIdentifiers.length === 0) {
         // No company assigned - return empty results
+        console.log('⚠️ Dashboard: No company assigned - returning empty results');
         qSnap = { docs: [] };
         sSnap = { docs: [] };
         rSnap = { docs: [] };
       } else {
         // Filter by company (checks both ID and name for backward compatibility)
+        console.log('🔎 Dashboard: Filtering by company identifiers:', companyIdentifiers);
         [qSnap, sSnap, rSnap] = await Promise.all([
           getDocs(query(collection(db, 'questions'), where('company', 'in', companyIdentifiers))),
           getDocs(query(collection(db, 'quizSessions'), where('company', 'in', companyIdentifiers))),
           getDocs(query(collection(db, 'results'), where('company', 'in', companyIdentifiers)))
         ]);
+        console.log('🔎 Dashboard: Filtered results -', { questions: qSnap.size, sessions: sSnap.size, results: rSnap.size });
       }
 
       setQuestions(qSnap.docs.map(d => ({ id: d.id, ...d.data() })));
