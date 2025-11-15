@@ -174,20 +174,29 @@ const Manager = () => {
         // Super Admin (specific company): Şirketin paketlerini görebilir
         // Admin: Tüm şirket paketlerini görebilir
         // Manager: Sadece kendi paketlerini görebilir
+
+        // Get company identifiers for backward compatibility
+        const companyIdentifiers = getCompanyIdentifiersForQuery();
+
         let q;
-        if (isSuperAdminUser && selectedCompany === 'all') {
+        if (companyIdentifiers === null) {
+          // Super Admin: All companies
           q = query(collection(db, 'questionPackages'));
+        } else if (companyIdentifiers.length === 0) {
+          // No company - no packages
+          setPackages([]);
+          return;
         } else {
-          const companyToFilter = selectedCompany === 'all' ? currentUser.company : selectedCompany;
+          // Filter by company (checks both ID and name)
           if (isUserAdmin) {
             q = query(
               collection(db, 'questionPackages'),
-              where('company', '==', companyToFilter)
+              where('company', 'in', companyIdentifiers)
             );
           } else {
             q = query(
               collection(db, 'questionPackages'),
-              where('company', '==', companyToFilter),
+              where('company', 'in', companyIdentifiers),
               where('createdBy', '==', currentUser.uid)
             );
           }

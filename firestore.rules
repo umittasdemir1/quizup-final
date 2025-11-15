@@ -228,14 +228,21 @@ service cloud.firestore {
       allow read: if isSignedIn();
 
       // 📦 Manager/Admin kendi şirketi için paket oluşturabilir
-      allow create: if isManagerOrAdmin() &&
-                       request.resource.data.createdBy == request.auth.uid &&
-                       isSameCompany(request.resource.data.company);
+      // 🌟 Super admin tüm şirketler için paket oluşturabilir
+      allow create: if isSuperAdmin() || (
+        isManagerOrAdmin() &&
+        request.resource.data.createdBy == request.auth.uid &&
+        isSameCompany(request.resource.data.company)
+      );
 
       // 📦 Admin tüm paketleri, manager sadece kendi paketini güncelleyebilir/silebilir
-      allow update, delete: if isManagerOrAdmin() && isSameCompany(resource.data.company) && (
-        isAdmin() ||
-        resource.data.createdBy == request.auth.uid
+      // 🌟 Super admin tüm paketleri güncelleyebilir/silebilir
+      allow update, delete: if isSuperAdmin() || (
+        isManagerOrAdmin() &&
+        isSameCompany(resource.data.company) && (
+          isAdmin() ||
+          resource.data.createdBy == request.auth.uid
+        )
       );
     }
   }
