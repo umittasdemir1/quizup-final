@@ -178,22 +178,34 @@ const Manager = () => {
         // Get company identifiers for backward compatibility
         const companyIdentifiers = getCompanyIdentifiersForQuery();
 
+        console.log('📦 LOAD PACKAGES - User info:', {
+          isSuperAdmin: currentUser.isSuperAdmin,
+          role: currentUser.role,
+          company: currentUser.company,
+          companyIdentifiers: companyIdentifiers,
+          isUserAdmin: isUserAdmin
+        });
+
         let q;
         if (companyIdentifiers === null) {
           // Super Admin: All companies
+          console.log('📦 Query: ALL packages (Super Admin viewing all companies)');
           q = query(collection(db, 'questionPackages'));
         } else if (companyIdentifiers.length === 0) {
           // No company - no packages
+          console.log('📦 Query: NO packages (no company assigned)');
           setPackages([]);
           return;
         } else {
           // Filter by company (checks both ID and name)
           if (isUserAdmin) {
+            console.log('📦 Query: Filter by company (Admin):', companyIdentifiers);
             q = query(
               collection(db, 'questionPackages'),
               where('company', 'in', companyIdentifiers)
             );
           } else {
+            console.log('📦 Query: Filter by company + createdBy (Manager):', companyIdentifiers, currentUser.uid);
             q = query(
               collection(db, 'questionPackages'),
               where('company', 'in', companyIdentifiers),
@@ -783,17 +795,26 @@ const Manager = () => {
       }
 
       const userCompany = currentUser?.company || 'BLUEMINT';
-      console.log('📦 User info:', {
-        uid: currentUser.uid,
-        company: userCompany,
-        name: currentUser.displayName || currentUser.email
-      });
+
+      // DEBUG: Log entire currentUser object
+      console.log('👤 CURRENT USER FULL OBJECT:', currentUser);
+      console.log('👤 Has firstName?', 'firstName' in currentUser, currentUser.firstName);
+      console.log('👤 Has lastName?', 'lastName' in currentUser, currentUser.lastName);
 
       // Get user full name
       const firstName = currentUser.firstName || '';
       const lastName = currentUser.lastName || '';
       const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
       const createdByName = fullName || currentUser.displayName || currentUser.email || 'Bilinmeyen';
+
+      console.log('👤 Name extraction:', {
+        firstName: firstName,
+        lastName: lastName,
+        fullName: fullName,
+        displayName: currentUser.displayName,
+        email: currentUser.email,
+        FINAL_createdByName: createdByName
+      });
 
       const packageData = {
         name: packageForm.name.trim(),
@@ -808,14 +829,7 @@ const Manager = () => {
         isActive: true
       };
 
-      console.log('📦 Package data:', packageData);
-      console.log('👤 Creator info:', {
-        firstName,
-        lastName,
-        fullName,
-        createdByName,
-        role: currentUser.role
-      });
+      console.log('📦 FINAL Package data to save:', packageData);
       const docRef = await addDoc(collection(db, 'questionPackages'), packageData);
       console.log('✅ Package created with ID:', docRef.id);
 
@@ -1140,18 +1154,13 @@ const Manager = () => {
                       const isSuperAdmin = currentUser?.isSuperAdmin === true;
                       const canDelete = isOwner || isAdmin || isSuperAdmin;
 
-                      // Tooltip content
+                      // Tooltip content - Single line format: "Name | Role | Company"
                       const roleDisplay = pkg.createdByRole === 'admin' ? 'Admin' :
                                          pkg.createdByRole === 'manager' ? 'Manager' :
                                          pkg.createdByRole === 'SuperAdmin' ? 'Süper Admin' :
                                          pkg.createdByRole || '-';
 
-                      const tooltipText = `${pkg.name}\n` +
-                        `━━━━━━━━━━━━━━━\n` +
-                        `👤 ${pkg.createdByName || 'Bilinmeyen'}\n` +
-                        `💼 ${roleDisplay}\n` +
-                        `🏢 ${pkg.company || '-'}\n` +
-                        `📝 ${pkg.questionCount} Soru`;
+                      const tooltipText = `${pkg.createdByName || 'Bilinmeyen'} | ${roleDisplay} | ${pkg.company || '-'}`;
 
                       return (
                         <div key={pkg.id} className="relative group">
