@@ -195,7 +195,10 @@ const UserManagement = () => {
       } = window.firebase;
 
       const adminUser = getCurrentUser();
-      if (!adminUser || adminUser.role !== 'admin') {
+      const isAdmin = adminUser?.role === 'admin';
+      const isSuperAdmin = adminUser?.isSuperAdmin === true;
+
+      if (!adminUser || (!isAdmin && !isSuperAdmin)) {
         throw Object.assign(new Error('Yönetici oturumu bulunamadı'), { code: 'auth/admin-required' });
       }
 
@@ -211,7 +214,24 @@ const UserManagement = () => {
       try {
         // 🆕 Yeni kullanıcıyı oluşturan admin'in şirketini otomatik ata
         const currentUser = getCurrentUser();
-        const userCompany = currentUser?.company || 'BLUEMINT';
+
+        // CRITICAL: Super Admin must use SELECTED company, not their own company!
+        let userCompany;
+        if (currentUser.isSuperAdmin === true) {
+          const selectedCompanyData = localStorage.getItem('superadmin:selectedCompanyData');
+          if (selectedCompanyData) {
+            const companyData = JSON.parse(selectedCompanyData);
+            if (companyData.id !== 'all') {
+              userCompany = companyData.name || companyData.id;
+            } else {
+              throw new Error('Lütfen kullanıcı oluşturmak için bir şirket seçin');
+            }
+          } else {
+            throw new Error('Lütfen kullanıcı oluşturmak için bir şirket seçin');
+          }
+        } else {
+          userCompany = currentUser?.company || 'BLUEMINT';
+        }
 
         await setDoc(doc(db, 'users', createdUser.uid), {
           firstName: form.firstName,
