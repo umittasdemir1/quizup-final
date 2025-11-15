@@ -28,13 +28,13 @@ const Sidebar = () => {
 
   // Load pending suggestions count for admin
   useEffect(() => {
-    if (isLoggedIn && hasRole('admin')) {
+    if (isLoggedIn && (currentUser?.role === 'admin' || currentUser?.role === 'SuperAdmin' || isSuperAdmin())) {
       loadPendingCount();
       // Refresh every 30 seconds
       const interval = setInterval(loadPendingCount, 30000);
       return () => clearInterval(interval);
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, currentUser]);
 
   useEffect(() => {
     const syncUser = () => {
@@ -56,9 +56,9 @@ const Sidebar = () => {
     try {
       await waitFirebase();
 
-      // Double check: Only admin can load pending count
+      // Double check: Only admin or super admin can load pending count
       const user = getCurrentUser();
-      if (!user || user.role !== 'admin') {
+      if (!user || (user.role !== 'admin' && user.role !== 'SuperAdmin' && !user.isSuperAdmin)) {
         window.devLog('Skipping pending count load: User is not admin');
         return;
       }
@@ -387,7 +387,7 @@ const Sidebar = () => {
 
   // Logo click handler
   const handleLogoClick = () => {
-    if (isLoggedIn && hasRole(['admin', 'manager'])) {
+    if (isLoggedIn && (currentUser?.role === 'admin' || currentUser?.role === 'manager' || currentUser?.role === 'SuperAdmin' || isSuperAdmin())) {
       location.hash = '#/dashboard';
     } else {
       location.hash = '#/';
@@ -495,8 +495,8 @@ const Sidebar = () => {
           </div>
 
           <nav className="py-4">
-            {/* Admin: See everything */}
-            {hasRole('admin') && (
+            {/* Super Admin & Admin: See everything */}
+            {(currentUser?.role === 'admin' || currentUser?.role === 'SuperAdmin' || isSuperAdmin()) && (
               <>
                 <a href="#/dashboard" className={isActive('/dashboard') ? 'active' : ''}>
                   <ChartBarIcon size={20} strokeWidth={2} />
@@ -564,7 +564,7 @@ const Sidebar = () => {
             )}
 
             {/* Manager: Dashboard, Manager Panel, Tests, Suggest */}
-            {hasRole('manager') && (
+            {currentUser?.role === 'manager' && (
               <>
                 <a href="#/dashboard" className={isActive('/dashboard') ? 'active' : ''}>
                   <ChartBarIcon size={20} strokeWidth={2} />
@@ -594,7 +594,7 @@ const Sidebar = () => {
             )}
 
             {/* Tester: Tests and Suggest */}
-            {hasRole('tester') && (
+            {currentUser?.role === 'tester' && (
               <>
                 <a href="#/tests" className={isActive('/tests') ? 'active' : ''}>
                   <DocumentTextIcon size={20} strokeWidth={2} />
