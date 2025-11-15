@@ -39,6 +39,15 @@ const UserManagement = () => {
 
   useEffect(() => {
     loadUsers();
+
+    // Super admin şirket değiştirdiğinde yeniden yükle
+    const handleCompanyChange = () => {
+      setLoading(true);
+      loadUsers();
+    };
+
+    window.addEventListener('company-changed', handleCompanyChange);
+    return () => window.removeEventListener('company-changed', handleCompanyChange);
   }, []);
 
   const loadUsers = async () => {
@@ -69,16 +78,32 @@ const UserManagement = () => {
 
       window.devLog('Querying users collection...');
 
-      // 🔒 Super admin tüm kullanıcıları, admin sadece kendi şirketini görür
+      // 🔒 Super admin seçtiği şirkete göre, admin kendi şirketini görür
       const currentUser = getCurrentUser();
       const isSuperAdminUser = currentUser?.isSuperAdmin === true || currentUser?.role === 'SuperAdmin';
 
+      // Get company identifiers for backward compatibility (checks both ID and name)
+      const companyIdentifiers = getCompanyIdentifiersForQuery();
+
       let q;
-      if (isSuperAdminUser) {
-        // Super admin: Tüm kullanıcıları getir
-        window.devLog('Super admin: Loading all users');
+      if (isSuperAdminUser && companyIdentifiers === null) {
+        // Super admin: Tüm şirketlerin kullanıcıları
+        window.devLog('Super admin: Loading all users from all companies');
         q = query(
           collection(db, 'users'),
+          orderBy('createdAt', 'desc')
+        );
+      } else if (companyIdentifiers && companyIdentifiers.length === 0) {
+        // No company assigned - no users to show
+        setUsers([]);
+        setLoading(false);
+        return;
+      } else if (isSuperAdminUser && companyIdentifiers) {
+        // Super admin: Seçili şirketin kullanıcıları
+        window.devLog('Super admin: Loading users for selected company:', companyIdentifiers);
+        q = query(
+          collection(db, 'users'),
+          where('company', 'in', companyIdentifiers),
           orderBy('createdAt', 'desc')
         );
       } else {

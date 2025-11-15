@@ -45,18 +45,26 @@ const Branding = () => {
     };
 
     loadCompanies();
+  }, []);
 
-    // Super admin: Listen for company changes
+  // Super admin: Listen for company changes (separate effect to access companies state)
+  useEffect(() => {
+    if (!isSuperAdminUser) return;
+
     const handleCompanyChange = () => {
       const selectedComp = getSelectedCompany();
       if (selectedComp && selectedComp !== 'all') {
         setSelectedCompany(selectedComp);
+      } else if (selectedComp === 'all' && companies.length > 0) {
+        // If "All Companies" selected, default to first company
+        // (Branding must be per-company, cannot show "all")
+        setSelectedCompany(companies[0]);
       }
     };
 
     window.addEventListener('company-changed', handleCompanyChange);
     return () => window.removeEventListener('company-changed', handleCompanyChange);
-  }, []);
+  }, [companies, isSuperAdminUser]);
 
   // Load branding settings when company changes
   useEffect(() => {
