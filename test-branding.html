@@ -4,7 +4,7 @@
   <title>Branding Test</title>
   <style>
     body { font-family: monospace; padding: 20px; }
-    pre { background: #f5f5f5; padding: 10px; }
+    pre { background: #f5f5f5; padding: 10px; white-space: pre-wrap; }
     .result { margin: 20px 0; padding: 10px; border: 1px solid #ccc; }
   </style>
 </head>
@@ -25,59 +25,58 @@
       const output = document.getElementById('output');
       output.innerHTML = '<h2>Loading...</h2>';
 
-      let html = '';
+      let results = [];
 
       try {
         // 1. Companies koleksiyonu
-        html += '<div class="result"><h3>1. COMPANIES COLLECTION</h3>';
+        results.push('<div class="result"><h3>1. COMPANIES COLLECTION</h3><pre>');
         const companiesSnap = await getDocs(collection(db, 'companies'));
-        html += '<pre>';
-        companiesSnap.forEach(doc => {
-          html += `ID: ${doc.id}\n`;
-          html += `Name: ${doc.data().name}\n`;
-          html += '---\n';
+        companiesSnap.forEach(docSnap => {
+          results.push('ID: ' + docSnap.id);
+          results.push('Name: ' + docSnap.data().name);
+          results.push('---');
         });
-        html += '</pre></div>';
+        results.push('</pre></div>');
 
         // 2. Branding koleksiyonu
-        html += '<div class="result"><h3>2. BRANDING COLLECTION</h3>';
+        results.push('<div class="result"><h3>2. BRANDING COLLECTION</h3><pre>');
         const brandingSnap = await getDocs(collection(db, 'branding'));
-        html += '<pre>';
-        brandingSnap.forEach(doc => {
-          const data = doc.data();
-          html += `Document ID: ${doc.id}\n`;
-          html += `company field: ${data.company || 'N/A'}\n`;
-          html += `companyId field: ${data.companyId || 'N/A'}\n`;
-          html += `Has Logo: ${data.logoUrl ? 'YES' : 'NO'}\n`;
-          html += `Has Placeholder: ${data.searchPlaceholderWords ? 'YES' : 'NO'}\n`;
-          html += '---\n';
+        brandingSnap.forEach(docSnap => {
+          const data = docSnap.data();
+          results.push('Document ID: ' + docSnap.id);
+          results.push('company field: ' + (data.company || 'N/A'));
+          results.push('companyId field: ' + (data.companyId || 'N/A'));
+          results.push('Has Logo: ' + (data.logoUrl ? 'YES' : 'NO'));
+          results.push('Has Placeholder: ' + (data.searchPlaceholderWords ? 'YES' : 'NO'));
+          results.push('---');
         });
-        html += '</pre></div>';
+        results.push('</pre></div>');
 
         // 3. Test BLUEMINT yükleme
-        html += '<div class="result"><h3>3. TEST LOADING BLUEMINT</h3>';
-        html += '<pre>';
+        results.push('<div class="result"><h3>3. TEST LOADING BLUEMINT</h3><pre>');
 
         // Try with "BLUEMINT"
-        html += 'Trying: doc(db, "branding", "BLUEMINT")\n';
-        let doc1 = await getDoc(doc(db, 'branding', 'BLUEMINT'));
-        html += `Result: ${doc1.exists() ? '✅ EXISTS' : '❌ NOT FOUND'}\n`;
-        if (doc1.exists()) {
-          html += `Data: ${JSON.stringify(doc1.data(), null, 2)}\n`;
+        results.push('Trying: doc(db, "branding", "BLUEMINT")');
+        const brandingRef1 = doc(db, 'branding', 'BLUEMINT');
+        const brandingDoc1 = await getDoc(brandingRef1);
+        results.push('Result: ' + (brandingDoc1.exists() ? '✅ EXISTS' : '❌ NOT FOUND'));
+        if (brandingDoc1.exists()) {
+          results.push('Data: ' + JSON.stringify(brandingDoc1.data(), null, 2));
         }
-        html += '\n';
+        results.push('');
 
         // Try with company ID
-        html += 'Trying: doc(db, "branding", "xJamxO1gSkMAxio5NoR1")\n';
-        let doc2 = await getDoc(doc(db, 'branding', 'xJamxO1gSkMAxio5NoR1'));
-        html += `Result: ${doc2.exists() ? '✅ EXISTS' : '❌ NOT FOUND'}\n';
-        if (doc2.exists()) {
-          html += `Data: ${JSON.stringify(doc2.data(), null, 2)}\n`;
+        results.push('Trying: doc(db, "branding", "xJamxO1gSkMAxio5NoR1")');
+        const brandingRef2 = doc(db, 'branding', 'xJamxO1gSkMAxio5NoR1');
+        const brandingDoc2 = await getDoc(brandingRef2);
+        results.push('Result: ' + (brandingDoc2.exists() ? '✅ EXISTS' : '❌ NOT FOUND'));
+        if (brandingDoc2.exists()) {
+          results.push('Data: ' + JSON.stringify(brandingDoc2.data(), null, 2));
         }
 
-        html += '</pre></div>';
+        results.push('</pre></div>');
 
-        output.innerHTML = html;
+        output.innerHTML = results.join('\n');
 
       } catch (error) {
         output.innerHTML = '<div class="result"><h3>ERROR</h3><pre>' + error.message + '\n' + error.stack + '</pre></div>';
