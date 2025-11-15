@@ -21,12 +21,12 @@ const QuestionBank = () => {
   useEffect(() => {
     let unsubscribe = null;
 
-    (async () => {
+    const loadQuestions = async () => {
       try {
         await waitFirebase();
         const { db, collection, query, orderBy, onSnapshot, where } = window.firebase;
 
-        // 🔒 Sadece kendi şirketinin sorularını getir
+        // 🔒 Super admin seçtiği şirkete göre, admin kendi şirketini görür
         const currentUser = getCurrentUser();
 
         // Logout sırasında query çalıştırma
@@ -35,13 +35,26 @@ const QuestionBank = () => {
           return;
         }
 
-        const userCompany = currentUser?.company || 'BLUEMINT';
+        const selectedCompany = getSelectedCompany();
+        const isSuperAdminUser = currentUser?.isSuperAdmin === true;
 
-        const q = query(
-          collection(db, 'questions'),
-          where('company', '==', userCompany),
-          orderBy('createdAt', 'desc')
-        );
+        let q;
+        if (isSuperAdminUser && selectedCompany === 'all') {
+          // Super admin: Tüm şirketlerin soruları
+          q = query(
+            collection(db, 'questions'),
+            orderBy('createdAt', 'desc')
+          );
+        } else {
+          // Super admin (specific company) veya regular admin: Belirli şirket
+          const companyToFilter = selectedCompany === 'all' ? currentUser.company : selectedCompany;
+          q = query(
+            collection(db, 'questions'),
+            where('company', '==', companyToFilter),
+            orderBy('createdAt', 'desc')
+          );
+        }
+
         unsubscribe = onSnapshot(q, snapshot => {
           const ordered = snapshot.docs.map((doc, index) => {
             const data = doc.data();
@@ -69,12 +82,26 @@ const QuestionBank = () => {
         toast('Sorular yüklenirken hata oluştu', 'error');
         setLoading(false);
       }
-    })();
+    };
+
+    loadQuestions();
+
+    // Super admin şirket değiştirdiğinde yeniden yükle
+    const handleCompanyChange = () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+      setLoading(true);
+      loadQuestions();
+    };
+
+    window.addEventListener('company-changed', handleCompanyChange);
 
     return () => {
       if (typeof unsubscribe === 'function') {
         unsubscribe();
       }
+      window.removeEventListener('company-changed', handleCompanyChange);
     };
   }, []);
 

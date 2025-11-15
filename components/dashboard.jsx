@@ -6,37 +6,63 @@ const Dashboard = () => {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    (async () => {
-      await waitFirebase();
-      const { db, collection, getDocs, query, where } = window.firebase;
-      try {
-        // 🔒 Sadece kendi şirketinin verilerini getir
-        const currentUser = getCurrentUser();
+  const loadData = async () => {
+    setLoading(true);
+    await waitFirebase();
+    const { db, collection, getDocs, query, where } = window.firebase;
+    try {
+      // 🔒 Super admin seçtiği şirkete göre, admin kendi şirketini görür
+      const currentUser = getCurrentUser();
 
-        // Logout sırasında query çalıştırma
-        if (!currentUser) {
-          setLoading(false);
-          return;
-        }
-
-        const userCompany = currentUser?.company || 'BLUEMINT';
-
-        const [qSnap, sSnap, rSnap] = await Promise.all([
-          getDocs(query(collection(db, 'questions'), where('company', '==', userCompany))),
-          getDocs(query(collection(db, 'quizSessions'), where('company', '==', userCompany))),
-          getDocs(query(collection(db, 'results'), where('company', '==', userCompany)))
-        ]);
-        setQuestions(qSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-        setSessions(sSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-        setResults(rSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-      } catch(e) {
-        window.devError('Dashboard load error:', e);
-        toast('Dashboard yüklenirken hata oluştu', 'error');
-      } finally {
+      // Logout sırasında query çalıştırma
+      if (!currentUser) {
         setLoading(false);
+        return;
       }
-    })();
+
+      const selectedCompany = getSelectedCompany();
+      const isSuperAdminUser = currentUser?.isSuperAdmin === true;
+
+      let qSnap, sSnap, rSnap;
+
+      if (isSuperAdminUser && selectedCompany === 'all') {
+        // Super admin: Tüm şirketlerin verileri
+        [qSnap, sSnap, rSnap] = await Promise.all([
+          getDocs(collection(db, 'questions')),
+          getDocs(collection(db, 'quizSessions')),
+          getDocs(collection(db, 'results'))
+        ]);
+      } else {
+        // Super admin (specific company) veya regular admin: Belirli şirket
+        const companyToFilter = selectedCompany === 'all' ? currentUser.company : selectedCompany;
+        [qSnap, sSnap, rSnap] = await Promise.all([
+          getDocs(query(collection(db, 'questions'), where('company', '==', companyToFilter))),
+          getDocs(query(collection(db, 'quizSessions'), where('company', '==', companyToFilter))),
+          getDocs(query(collection(db, 'results'), where('company', '==', companyToFilter)))
+        ]);
+      }
+
+      setQuestions(qSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setSessions(sSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setResults(rSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch(e) {
+      window.devError('Dashboard load error:', e);
+      toast('Dashboard yüklenirken hata oluştu', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+
+    // Super admin şirket değiştirdiğinde yeniden yükle
+    const handleCompanyChange = () => {
+      loadData();
+    };
+
+    window.addEventListener('company-changed', handleCompanyChange);
+    return () => window.removeEventListener('company-changed', handleCompanyChange);
   }, []);
 
   if (loading) return <Page title="Dashboard"><LoadingSpinner text="Dashboard yükleniyor..." /></Page>;
