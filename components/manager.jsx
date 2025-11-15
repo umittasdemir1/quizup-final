@@ -784,6 +784,7 @@ const Manager = () => {
         questionCount: packageForm.questionIds.length,
         createdBy: currentUser.uid,
         createdByName: currentUser.displayName || currentUser.email || 'Bilinmeyen',
+        createdByRole: currentUser.role || 'manager',
         company: userCompany,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -1112,7 +1113,21 @@ const Manager = () => {
                       const currentUser = getCurrentUser();
                       const isOwner = pkg.createdBy === currentUser?.uid;
                       const isAdmin = currentUser?.role === 'admin';
-                      const canDelete = isOwner || isAdmin;
+                      const isSuperAdmin = currentUser?.isSuperAdmin === true;
+                      const canDelete = isOwner || isAdmin || isSuperAdmin;
+
+                      // Tooltip content
+                      const roleDisplay = pkg.createdByRole === 'admin' ? 'Admin' :
+                                         pkg.createdByRole === 'manager' ? 'Manager' :
+                                         pkg.createdByRole === 'SuperAdmin' ? 'Süper Admin' :
+                                         pkg.createdByRole || '-';
+
+                      const tooltipText = `${pkg.name}\n` +
+                        `━━━━━━━━━━━━━━━\n` +
+                        `👤 ${pkg.createdByName || 'Bilinmeyen'}\n` +
+                        `💼 ${roleDisplay}\n` +
+                        `🏢 ${pkg.company || '-'}\n` +
+                        `📝 ${pkg.questionCount} Soru`;
 
                       return (
                         <div key={pkg.id} className="relative group">
@@ -1120,7 +1135,7 @@ const Manager = () => {
                             type="button"
                             className={`package-chip ${selectedPackageId === pkg.id ? 'active' : ''}`}
                             onClick={() => selectPackage(pkg.id)}
-                            title={`${pkg.name}\n${pkg.questionCount} soru\nOluşturan: ${pkg.createdByName || 'Bilinmeyen'}`}
+                            title={tooltipText}
                           >
                             <span>{pkg.name}</span>
                             <span className="text-xs opacity-70">({pkg.questionCount})</span>
