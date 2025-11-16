@@ -126,10 +126,8 @@ service cloud.firestore {
 
       // ✅ FIXED: Quiz tamamlama için kontrollü güncelleme
       // Sadece status ve completion bilgileri güncellenebilir
-      allow update: if true && (
-        // Sadece belirli alanlar değiştirilebilir
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'completedAt', 'completedBy', 'updatedAt'])
-      );
+      allow update: if request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['status', 'completedAt', 'completedBy', 'updatedAt']);
     }
 
     // ========================================
@@ -203,7 +201,8 @@ service cloud.firestore {
     // SETTINGS / BRANDING COLLECTIONS
     // ========================================
     match /settings/{docId} {
-      allow read, write: if isAdmin();
+      // 🌟 Super admin and regular admin can access settings
+      allow read, write: if isSuperAdmin() || isAdmin();
     }
 
     match /branding/{company} {
