@@ -1,6 +1,10 @@
-const {onCall, HttpsError} = require('firebase-functions/v2/https');
+const {onCall, onRequest, HttpsError} = require('firebase-functions/v2/https');
 const {logger} = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const cors = require('cors')({
+  origin: true, // Allow all origins
+  credentials: true
+});
 
 admin.initializeApp();
 
@@ -21,7 +25,8 @@ admin.initializeApp();
  *   "message": "Kullanıcı başarıyla silindi"
  * }
  */
-exports.deleteUserByAdmin = onCall({cors: true}, async (request) => {
+// Callable function - CORS is automatically handled by Firebase SDK
+exports.deleteUserByAdmin = onCall(async (request) => {
   // 1. Check authentication
   if (!request.auth) {
     throw new HttpsError(
