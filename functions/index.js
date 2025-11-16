@@ -5,27 +5,32 @@ const cors = require("cors");
 admin.initializeApp();
 const corsHandler = cors({ origin: true });
 
-exports.deleteUserByAdminV2 = functions.https.onRequest((req, res) => {
-  corsHandler(req, res, async () => {
+const { onRequest } = require("firebase-functions/v2/https");
+const admin = require("firebase-admin");
+admin.initializeApp();
 
-    // Preflight
-    if (req.method === "OPTIONS") {
-      res.set("Access-Control-Allow-Origin", "*");
-      res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-      res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
-      return res.status(204).send("");
-    }
+exports.deleteUserByAdminV2 = onRequest((req, res) => {
+  // --- CORS headers ---
+  res.set("Access-Control-Allow-Origin", "https://quizupplus.netlify.app");
+  res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.set("Access-Control-Allow-Credentials", "true");
 
-    if (req.method !== "POST") {
-      res.set("Access-Control-Allow-Origin", "*");
-      return res.status(405).json({ error: "Method not allowed" });
-    }
+  // 🔹 Preflight (OPTIONS) → CORS izin ver
+  if (req.method === "OPTIONS") {
+    return res.status(204).send("");
+  }
 
+  // 🔹 Sadece POST kabul et
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  (async () => {
     try {
-      // Token
+      // Token al
       const authHeader = req.headers.authorization;
       if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        res.set("Access-Control-Allow-Origin", "*");
         return res.status(401).json({ error: "Unauthorized" });
       }
 
@@ -33,35 +38,37 @@ exports.deleteUserByAdminV2 = functions.https.onRequest((req, res) => {
       const decoded = await admin.auth().verifyIdToken(idToken);
       const callerUid = decoded.uid;
 
-      // Role check
+      // Rol kontrol
       const callerDoc = await admin.firestore().collection("users").doc(callerUid).get();
-      const caller = callerDoc.data();
-      if (!(caller.role === "admin" || caller.isSuperAdmin)) {
-        res.set("Access-Control-Allow-Origin", "*");
-        return res.status(403).json({ error: "Yetkiniz yok" });
+      if (!callerDoc.exists) {
+        return res.status(403).json({ error: "Kullanıcı bulunamadı" });
       }
 
-      // Input
+      const isAdmin =
+        callerDoc.data().role === "admin" ||
+        callerDoc.data().isSuperAdmin === true;
+
+      if (!isAdmin) {
+        return res.status(403).json({ error: "Yetki yok" });
+      }
+
+      // Silinecek kullanıcı
       const { userId } = req.body;
       if (!userId) {
-        res.set("Access-Control-Allow-Origin", "*");
-        return res.status(400).json({ error: "userId gerekli" });
+        return res.status(400).json({ error: "Kullanıcı ID gerekli" });
       }
+
       if (userId === callerUid) {
-        res.set("Access-Control-Allow-Origin", "*");
         return res.status(400).json({ error: "Kendinizi silemezsiniz" });
       }
 
+      // Auth + Firestore sil
       await admin.auth().deleteUser(userId);
       await admin.firestore().collection("users").doc(userId).delete();
 
-      res.set("Access-Control-Allow-Origin", "*");
-      return res.status(200).json({ success: true });
-
+      return res.json({ success: true });
     } catch (err) {
-      res.set("Access-Control-Allow-Origin", "*");
       return res.status(500).json({ error: err.message });
     }
-
-  });
+  })();
 });
