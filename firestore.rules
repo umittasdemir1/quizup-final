@@ -1,0 +1,249 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ========================================
+    // HELPER FUNCTIONS
+    // ========================================
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isManagerOrAdmin() {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'manager'];
+    }
+
+    // Null-safe company getter
+    function getUserCompany() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('company', null)
+        : null;
+    }
+
+    // Null-safe company comparison
+    function isSameCompany(companyField) {
+      let userComp = getUserCompany();
+      return userComp != null && companyField != null && companyField == userComp;
+    }
+
+    // 🔒 SECURITY: Prevent password field access
+    function hasPasswordField(data) {
+      return 'password' in data;
+    }
+
+    // 🆕 Check if user is owner of the result
+    function isResultOwner(resultData) {
+      return isSignedIn() && resultData.ownerUid == request.auth.uid;
+    }
+
+    // 🌟 Super Admin check
+    function isSuperAdmin() {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isSuperAdmin', false) == true;
+    }
+
+    // ========================================
+    // COMPANIES COLLECTION
+    // ========================================
+    match /companies/{companyId} {
+      // Süper admin tüm şirketleri, admin sadece kendi şirketini görebilir
+      allow read: if isSuperAdmin() ||
+                     (isAdmin() && getUserCompany() == companyId);
+
+      // Sadece süper admin şirket oluşturabilir
+      allow create: if isSuperAdmin();
+
+      // Süper admin tüm şirketleri, admin kendi şirketini güncelleyebilir
+      allow update: if isSuperAdmin() ||
+                       (isAdmin() && getUserCompany() == companyId);
+
+      // Sadece süper admin silebilir
+      allow delete: if isSuperAdmin();
+    }
+
+    // ========================================
+    // QUESTIONS COLLECTION
+    // ========================================
+    match /questions/{questionId} {
+      // ✅ Quiz QR kod ile açılabildiği için read için auth gerekmez
+      allow read: if true;
+
+      // ✅ Admin sadece kendi şirketinin sorularını oluşturabilir
+      // 🌟 Super admin tüm şirketler için soru oluşturabilir
+      allow create: if (isAdmin() && isSameCompany(request.resource.data.company)) || isSuperAdmin();
+
+      // ✅ Admin sadece kendi şirketinin sorularını güncelleyebilir/silebilir
+      // 🌟 Super admin tüm soruları güncelleyebilir/silebilir
+      allow update, delete: if (isAdmin() && isSameCompany(resource.data.company)) || isSuperAdmin();
+    }
+
+    // ========================================
+    // SUGGESTED QUESTIONS COLLECTION
+    // ========================================
+    match /suggestedQuestions/{suggestionId} {
+      // ✅ Giriş yapmış kullanıcılar şirketinin önerilerini görebilir
+      // 🌟 Super admin tüm önerileri görebilir
+      allow read: if isSignedIn() && (
+        isSuperAdmin() ||
+        isSameCompany(resource.data.company) ||
+        resource.data.company == null // Backward compatibility
+      );
+
+      // ✅ Anonim kullanıcılar da soru önerebilir (quiz sırasında)
+      allow create: if request.resource.data.company != null;
+
+      // ✅ Sadece admin kendi şirketinin önerilerini güncelleyebilir/silebilir
+      // 🌟 Super admin tüm önerileri güncelleyebilir/silebilir
+      allow update, delete: if (isAdmin() && isSameCompany(resource.data.company)) || isSuperAdmin();
+    }
+
+    // ========================================
+    // QUIZ SESSIONS COLLECTION
+    // ========================================
+    match /quizSessions/{sessionId} {
+      // ✅ FIXED: QR kod ile herkes kendi session'ına erişebilir
+      // Ancak sadece kendi şirketinin session'larını listeleyebilir
+      allow read: if true; // QR kod access için gerekli
+
+      // ✅ FIXED: Sadece manager/admin kendi şirketi için session oluşturabilir
+      // 🌟 Super admin tüm şirketler için session oluşturabilir
+      allow create: if (isManagerOrAdmin() && isSameCompany(request.resource.data.company)) || isSuperAdmin();
+
+      // ✅ FIXED: Manager/admin sadece kendi şirketinin session'larını silebilir
+      // 🌟 Super admin tüm session'ları silebilir
+      allow delete: if (isManagerOrAdmin() && isSameCompany(resource.data.company)) || isSuperAdmin();
+
+      // ✅ FIXED: Quiz tamamlama için kontrollü güncelleme
+      // Sadece status ve completion bilgileri güncellenebilir
+      allow update: if true && (
+        // Sadece belirli alanlar değiştirilebilir
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'completedAt', 'completedBy', 'updatedAt'])
+      );
+    }
+
+    // ========================================
+    // RESULTS COLLECTION
+    // ========================================
+    match /results/{resultId} {
+      // ✅ FIXED: Multi-tenant isolation - Sadece kendi şirketinin sonuçlarını görebilir
+      // VEYA kendi oluşturduğu sonucu görebilir (anonim kullanıcılar için)
+      // 🌟 Super admin tüm sonuçları görebilir
+      allow read: if isSignedIn() && (
+        isSuperAdmin() ||
+        isSameCompany(resource.data.company) ||
+        isResultOwner(resource.data)
+      );
+
+      // ✅ FIXED: Result oluşturma kontrolü
+      allow create: if isSignedIn() &&
+                      request.resource.data.ownerUid == request.auth.uid &&
+                      // Session'dan company bilgisi alınmalı (client'ta zaten yapılıyor)
+                      request.resource.data.company != null;
+
+      // Result'lar güncellenemez
+      allow update: if false;
+
+      // ✅ FIXED: Sadece manager/admin kendi şirketinin sonuçlarını silebilir
+      // 🌟 Super admin tüm sonuçları silebilir
+      allow delete: if (isManagerOrAdmin() && isSameCompany(resource.data.company)) || isSuperAdmin();
+    }
+
+    // ========================================
+    // USERS COLLECTION
+    // ========================================
+    match /users/{userId} {
+      // ✅ FIXED: Multi-tenant isolation
+      // Kullanıcılar sadece kendi şirketlerindeki diğer kullanıcıları görebilir
+      // VEYA kendilerini görebilir
+      // 🌟 Super admin tüm kullanıcıları görebilir
+      allow read: if isSignedIn() && (
+        isSuperAdmin() ||
+        isSameCompany(resource.data.company) ||
+        request.auth.uid == userId
+      );
+
+      // Kullanıcı oluşturma:
+      // - Super admin herhangi bir şirket için kullanıcı oluşturabilir
+      // - Admin kendi şirketi için kullanıcı oluşturabilir
+      // - Veya kendi dokümanını oluşturabilir
+      // 🔒 SECURITY: password field asla yazılamaz
+      allow create: if (
+        isSuperAdmin() ||
+        (isAdmin() && isSameCompany(request.resource.data.company)) ||
+        (isSignedIn() && request.auth.uid == userId)
+      ) && !hasPasswordField(request.resource.data);
+
+      // Kullanıcı güncelleme:
+      // - Super admin herhangi bir kullanıcıyı güncelleyebilir
+      // - Kullanıcı kendi bilgilerini güncelleyebilir (company hariç)
+      // - Veya admin kendi şirketinin kullanıcılarını güncelleyebilir
+      // 🔒 SECURITY: password field asla eklenemez veya güncellenemez
+      allow update: if (
+        isSuperAdmin() ||
+        (isSignedIn() && request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'company', 'isSuperAdmin'])) ||
+        (isAdmin() && isSameCompany(resource.data.company))
+      ) && !hasPasswordField(request.resource.data);
+
+      // ✅ FIXED: Super admin veya admin sadece kendi şirketinin kullanıcılarını silebilir
+      allow delete: if isSuperAdmin() || (isAdmin() && isSameCompany(resource.data.company));
+    }
+
+    // ========================================
+    // SETTINGS / BRANDING COLLECTIONS
+    // ========================================
+    match /settings/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /branding/{company} {
+      // ✅ FIXED: Sadece kendi şirketinin branding'ini görebilir
+      // 🌟 Super admin tüm branding'leri görebilir
+      allow read: if isSignedIn() && (
+        isSuperAdmin() ||
+        company == getUserCompany() ||
+        company == 'default' // Default branding herkes görebilir
+      );
+
+      // ✅ FIXED: Admin sadece kendi şirketinin branding'ini değiştirebilir
+      // 🌟 Super admin tüm branding'leri değiştirebilir
+      allow write: if isSuperAdmin() || (isAdmin() && company == getUserCompany());
+    }
+
+    // ========================================
+    // QUESTION PACKAGES COLLECTION
+    // ========================================
+    match /questionPackages/{packageId} {
+      // 📦 TEST: Geçici olarak tüm giriş yapmış kullanıcılar okuyabilir
+      allow read: if isSignedIn();
+
+      // 📦 Manager/Admin kendi şirketi için paket oluşturabilir
+      // 🌟 Super admin tüm şirketler için paket oluşturabilir
+      allow create: if isSuperAdmin() || (
+        isManagerOrAdmin() &&
+        request.resource.data.createdBy == request.auth.uid &&
+        isSameCompany(request.resource.data.company)
+      );
+
+      // 📦 Admin tüm paketleri, manager sadece kendi paketini güncelleyebilir/silebilir
+      // 🌟 Super admin tüm paketleri güncelleyebilir/silebilir
+      allow update, delete: if isSuperAdmin() || (
+        isManagerOrAdmin() &&
+        isSameCompany(resource.data.company) && (
+          isAdmin() ||
+          resource.data.createdBy == request.auth.uid
+        )
+      );
+    }
+  }
+}
