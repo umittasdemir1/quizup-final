@@ -97,7 +97,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
-const functions = getFunctions(app);
+const functions = getFunctions(app, 'us-central1'); // Specify region
 
 safeDevLog('[Firebase] Firebase initialized');
 
