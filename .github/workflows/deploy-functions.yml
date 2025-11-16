@@ -33,14 +33,10 @@ jobs:
       - name: Create service account file
         run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > service-account.json
 
+      - name: Install Firebase Tools
+        run: npm install -g firebase-tools@latest
+
       - name: Deploy to Firebase
-        run: |
-          npm install -g firebase-tools@latest
-          echo "=== Package.json contents ==="
-          cat functions/package.json | grep -A 3 engines
-          echo "=== Firebase.json contents ==="
-          cat firebase.json
-          echo "=== Starting deployment ==="
-          firebase deploy --only functions --force --project retail-quiz-4bb8c
+        run: firebase deploy --only functions --project retail-quiz-4bb8c
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ./service-account.json
