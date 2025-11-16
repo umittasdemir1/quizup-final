@@ -87,6 +87,25 @@ exports.deleteUserByAdminV2 = onRequest(
           return res.status(400).json({ error: "Cannot delete yourself" });
         }
 
+        // 🔒 SECURITY: Multi-tenant isolation - Admin can only delete users from their own company
+        if (!isSuper) {
+          const targetUserDoc = await admin.firestore()
+            .collection("users")
+            .doc(userId)
+            .get();
+
+          if (!targetUserDoc.exists) {
+            return res.status(404).json({ error: "User not found" });
+          }
+
+          const targetUser = targetUserDoc.data();
+
+          // Admin can only delete users from the same company
+          if (targetUser.company !== caller.company) {
+            return res.status(403).json({ error: "Cannot delete user from different company" });
+          }
+        }
+
         await admin.auth().deleteUser(userId);
         await admin.firestore().collection("users").doc(userId).delete();
 
