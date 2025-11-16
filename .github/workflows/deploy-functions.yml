@@ -41,6 +41,6 @@ jobs:
           echo "=== Firebase.json contents ==="
           cat firebase.json
           echo "=== Starting deployment ==="
-          firebase deploy --only functions --force --project retail-quiz-4bb8c --runtime nodejs20
+          firebase deploy --only functions --force --project retail-quiz-4bb8c
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ./service-account.json
