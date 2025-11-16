@@ -9,102 +9,96 @@ const cors = require('cors')({
 admin.initializeApp();
 
 /**
- * Delete user from Firebase Auth
+ * Delete user from Firebase Auth - HTTP Endpoint with CORS
  *
- * HTTP Callable Function (v2) - Only admin/superadmin can call this
- * CORS is automatically handled by v2 functions
- *
- * Request body:
- * {
- *   "userId": "user-uid-to-delete"
- * }
- *
- * Response:
- * {
- *   "success": true,
- *   "message": "Kullanıcı başarıyla silindi"
- * }
+ * This is an HTTP endpoint (not callable) to avoid CORS issues
  */
-// Callable function - CORS is automatically handled by Firebase SDK
-exports.deleteUserByAdmin = onCall(async (request) => {
-  // 1. Check authentication
-  if (!request.auth) {
-    throw new HttpsError(
-      'unauthenticated',
-      'Bu işlem için giriş yapmalısınız'
-    );
-  }
-
-  // 2. Get caller's user document to check role
-  const callerUid = request.auth.uid;
-  const data = request.data;
-  const callerDoc = await admin.firestore().collection('users').doc(callerUid).get();
-
-  if (!callerDoc.exists) {
-    throw new HttpsError(
-      'permission-denied',
-      'Kullanıcı bilgileriniz bulunamadı'
-    );
-  }
-
-  const callerData = callerDoc.data();
-  const isAdmin = callerData.role === 'admin';
-  const isSuperAdmin = callerData.isSuperAdmin === true;
-
-  // 3. Check if user is admin or super admin
-  if (!isAdmin && !isSuperAdmin) {
-    throw new HttpsError(
-      'permission-denied',
-      'Bu işlem için yönetici yetkisi gerekiyor'
-    );
-  }
-
-  // 4. Validate input
-  const { userId } = data;
-  if (!userId) {
-    throw new HttpsError(
-      'invalid-argument',
-      'Kullanıcı ID\'si gerekli'
-    );
-  }
-
-  // 5. Prevent self-deletion
-  if (userId === callerUid) {
-    throw new HttpsError(
-      'invalid-argument',
-      'Kendi hesabınızı silemezsiniz'
-    );
+exports.deleteUserByAdmin = onRequest({cors: true}, async (req, res) => {
+  // Only accept POST
+  if (req.method !== 'POST') {
+    res.status(405).json({error: 'Method not allowed'});
+    return;
   }
 
   try {
-    // 6. Delete from Firebase Auth
+    // Get ID token from Authorization header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      res.status(401).json({error: 'Unauthorized: Missing or invalid token'});
+      return;
+    }
+
+    const idToken = authHeader.split('Bearer ')[1];
+
+    // Verify ID token
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const callerUid = decodedToken.uid;
+
+    // Get caller's user document to check role
+    const callerDoc = await admin.firestore().collection('users').doc(callerUid).get();
+
+    if (!callerDoc.exists) {
+      res.status(403).json({error: 'Kullanıcı bilgileriniz bulunamadı'});
+      return;
+    }
+
+    const callerData = callerDoc.data();
+    const isAdmin = callerData.role === 'admin';
+    const isSuperAdmin = callerData.isSuperAdmin === true;
+
+    // Check if user is admin or super admin
+    if (!isAdmin && !isSuperAdmin) {
+      res.status(403).json({error: 'Bu işlem için yönetici yetkisi gerekiyor'});
+      return;
+    }
+
+    // Validate input
+    const { userId } = req.body;
+    if (!userId) {
+      res.status(400).json({error: 'Kullanıcı ID\'si gerekli'});
+      return;
+    }
+
+    // Prevent self-deletion
+    if (userId === callerUid) {
+      res.status(400).json({error: 'Kendi hesabınızı silemezsiniz'});
+      return;
+    }
+
+    // Delete from Firebase Auth
     await admin.auth().deleteUser(userId);
 
-    // 7. Also delete from Firestore (if not already deleted by client)
+    // Also delete from Firestore
     await admin.firestore().collection('users').doc(userId).delete();
 
     logger.info(`User ${userId} deleted by admin ${callerUid}`);
 
-    return {
+    res.status(200).json({
       success: true,
       message: 'Kullanıcı başarıyla silindi'
-    };
+    });
+
   } catch (error) {
     logger.error('Error deleting user:', error);
 
     // Handle specific errors
     if (error.code === 'auth/user-not-found') {
       // User already deleted from Auth, just delete Firestore doc
-      await admin.firestore().collection('users').doc(userId).delete();
-      return {
-        success: true,
-        message: 'Kullanıcı kaydı temizlendi'
-      };
+      try {
+        const { userId } = req.body;
+        await admin.firestore().collection('users').doc(userId).delete();
+        res.status(200).json({
+          success: true,
+          message: 'Kullanıcı kaydı temizlendi'
+        });
+      } catch (e) {
+        res.status(500).json({error: 'Firestore silme hatası: ' + e.message});
+      }
+      return;
     }
 
-    throw new HttpsError(
-      'internal',
-      'Kullanıcı silinirken hata oluştu: ' + error.message
-    );
+    res.status(500).json({
+      error: 'Kullanıcı silinirken hata oluştu: ' + error.message
+    });
   }
 });

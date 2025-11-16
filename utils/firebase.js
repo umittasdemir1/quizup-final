@@ -653,10 +653,36 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // Cloud Function to delete user from Auth (requires admin role)
+// Uses HTTP endpoint instead of callable function to avoid CORS issues
 const deleteUserByAdmin = async (userId) => {
-  const deleteUserFunction = httpsCallable(functions, 'deleteUserByAdmin');
-  const result = await deleteUserFunction({ userId });
-  return result.data;
+  // Get current user's ID token
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('Not authenticated');
+  }
+
+  const idToken = await currentUser.getIdToken();
+
+  // Call HTTP endpoint
+  const response = await fetch(
+    'https://us-central1-retail-quiz-4bb8c.cloudfunctions.net/deleteUserByAdmin',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${idToken}`
+      },
+      body: JSON.stringify({ userId })
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Delete failed');
+  }
+
+  const result = await response.json();
+  return result;
 };
 
 window.firebase = {
