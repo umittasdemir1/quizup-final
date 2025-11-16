@@ -13,7 +13,7 @@ admin.initializeApp();
  *
  * This is an HTTP endpoint (not callable) to avoid CORS issues
  */
-exports.deleteUserByAdmin = onRequest({cors: true}, async (req, res) => {
+exports.deleteUserByAdminV2 = onRequest({cors: true}, async (req, res) => {
   // Only accept POST
   if (req.method !== 'POST') {
     res.status(405).json({error: 'Method not allowed'});

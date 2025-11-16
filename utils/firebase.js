@@ -665,7 +665,7 @@ const deleteUserByAdmin = async (userId) => {
 
   // Call HTTP endpoint
   const response = await fetch(
-    'https://us-central1-retail-quiz-4bb8c.cloudfunctions.net/deleteUserByAdmin',
+    'https://us-central1-retail-quiz-4bb8c.cloudfunctions.net/deleteUserByAdminV2',
     {
       method: 'POST',
       headers: {
