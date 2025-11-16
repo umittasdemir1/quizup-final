@@ -30,3 +30,8 @@ yarn-error.log*
 .Trashes
 ehthumbs.db
 Desktop.ini
+
+# Firebase Functions
+functions/node_modules/
+functions/lib/
+functions/.eslintrc.json

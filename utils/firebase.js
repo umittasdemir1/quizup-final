@@ -18,6 +18,7 @@ import {
   EmailAuthProvider
 } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-storage.js';
+import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-functions.js';
 
 // 🔧 Local dev logging - helpers.js henüz yüklenmemiş olabilir
 const safeDevLog = (...args) => {
@@ -96,6 +97,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
+const functions = getFunctions(app);
 
 safeDevLog('[Firebase] Firebase initialized');
 
@@ -650,13 +652,22 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
+// Cloud Function to delete user from Auth (requires admin role)
+const deleteUserByAdmin = async (userId) => {
+  const deleteUserFunction = httpsCallable(functions, 'deleteUserByAdmin');
+  const result = await deleteUserFunction({ userId });
+  return result.data;
+};
+
 window.firebase = {
-  app, auth, db, storage,
+  app, auth, db, storage, functions,
   collection, addDoc, onSnapshot, query, where, orderBy, doc, getDoc, getDocs,
   setDoc, updateDoc, deleteDoc, serverTimestamp, limit, writeBatch, deleteField,
   signInAnonymously, signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut,
   updatePassword, reauthenticateWithCredential, EmailAuthProvider,
   ref, uploadBytes, getDownloadURL, deleteObject,
+  httpsCallable,
   createUserWithEmailAndPassword: firebaseCreateUserWithEmailAndPassword,
-  createUserWithEmailAndPasswordAsAdmin
+  createUserWithEmailAndPasswordAsAdmin,
+  deleteUserByAdmin
 };

@@ -409,17 +409,32 @@ const UserManagement = () => {
   };
 
   const deleteUser = async (userId, userEmail) => {
-    if (!confirm(`${userEmail} kullanıcısını silmek istediğinize emin misiniz?`)) return;
+    if (!confirm(`${userEmail} kullanıcısını silmek istediğinize emin misiniz?\n\nBu işlem Firebase Auth ve Firestore'dan tamamen silecek.`)) return;
 
     try {
       await waitFirebase();
-      const { db, doc, deleteDoc } = window.firebase;
-      await deleteDoc(doc(db, 'users', userId));
-      toast('Kullanıcı silindi', 'success');
+      const { deleteUserByAdmin } = window.firebase;
+
+      // Call Cloud Function to delete from both Auth and Firestore
+      console.log('🗑️ Deleting user:', userId, userEmail);
+      const result = await deleteUserByAdmin(userId);
+      console.log('✅ Delete result:', result);
+
+      toast(result.message || 'Kullanıcı silindi', 'success');
       loadUsers();
     } catch (e) {
       window.devError('Delete user error:', e);
-      toast('Kullanıcı silinirken hata oluştu', 'error');
+
+      // Handle Cloud Function errors
+      if (e.code === 'unauthenticated') {
+        toast('Bu işlem için giriş yapmalısınız', 'error');
+      } else if (e.code === 'permission-denied') {
+        toast('Bu işlem için yönetici yetkisi gerekiyor', 'error');
+      } else if (e.message) {
+        toast(e.message, 'error');
+      } else {
+        toast('Kullanıcı silinirken hata oluştu', 'error');
+      }
     }
   };
 
