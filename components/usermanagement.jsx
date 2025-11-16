@@ -215,21 +215,28 @@ const UserManagement = () => {
         // 🆕 Yeni kullanıcıyı oluşturan admin'in şirketini otomatik ata
         const currentUser = getCurrentUser();
 
-        // CRITICAL: Super Admin must use SELECTED company, not their own company!
+        // Company determination logic
         let userCompany;
         if (currentUser.isSuperAdmin === true) {
-          const selectedCompanyData = localStorage.getItem('superadmin:selectedCompanyData');
-          if (selectedCompanyData) {
-            const companyData = JSON.parse(selectedCompanyData);
-            if (companyData.id !== 'all') {
-              userCompany = companyData.name || companyData.id;
-            } else {
-              throw new Error('Lütfen kullanıcı oluşturmak için bir şirket seçin');
-            }
+          // Super Admin: Use form.company if provided, otherwise use selected company
+          if (form.company && form.company.trim()) {
+            userCompany = form.company.trim();
           } else {
-            throw new Error('Lütfen kullanıcı oluşturmak için bir şirket seçin');
+            // Fall back to selected company
+            const selectedCompanyData = localStorage.getItem('superadmin:selectedCompanyData');
+            if (selectedCompanyData) {
+              const companyData = JSON.parse(selectedCompanyData);
+              if (companyData.id !== 'all') {
+                userCompany = companyData.name || companyData.id;
+              } else {
+                throw new Error('Lütfen şirket alanını doldurun veya sidebar\'dan bir şirket seçin');
+              }
+            } else {
+              throw new Error('Lütfen şirket alanını doldurun veya sidebar\'dan bir şirket seçin');
+            }
           }
         } else {
+          // Regular admin: Use their own company
           userCompany = currentUser?.company || 'BLUEMINT';
         }
 
