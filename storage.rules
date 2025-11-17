@@ -1,0 +1,66 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ========================================
+    // HELPER FUNCTIONS
+    // ========================================
+
+    // Admin kontrolü - Firestore'dan role bilgisi çekiliyor
+    function isAdmin() {
+      return request.auth != null &&
+             firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // 🌟 Super Admin kontrolü
+    function isSuperAdmin() {
+      return request.auth != null &&
+             firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('isSuperAdmin', false) == true;
+    }
+
+    // Giriş kontrolü
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Dosya boyutu kontrolü (5MB)
+    function isValidSize() {
+      return request.resource.size < 5 * 1024 * 1024;
+    }
+
+    // Resim formatı kontrolü (opsiyonel - ekstra güvenlik)
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    // ========================================
+    // BRANDING - Şirket logoları
+    // ========================================
+    match /branding/{company}/{fileName} {
+      // Herkes okuyabilir (logolar public)
+      allow read: if true;
+
+      // 🌟 Super admin ve admin yazabilir, max 5MB, sadece resim
+      allow write: if (isSuperAdmin() || isAdmin()) && isValidSize() && isImage();
+    }
+
+    // ========================================
+    // QUESTIONS - Soru görselleri
+    // ========================================
+    match /questions/{folder}/{fileName} {
+      // Herkes okuyabilir (quiz'lerde gösterilecek)
+      allow read: if true;
+
+      // 🌟 Super admin ve admin yazabilir, max 5MB, sadece resim
+      allow write: if (isSuperAdmin() || isAdmin()) && isValidSize() && isImage();
+    }
+
+    // ========================================
+    // CATCH-ALL: Diğer tüm dosyalar engellenir
+    // ========================================
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
