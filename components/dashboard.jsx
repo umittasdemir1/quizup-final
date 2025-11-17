@@ -236,6 +236,9 @@ const Dashboard = () => {
 
   return (
     <Page title="Dashboard" subtitle="Genel Bakış ve İstatistikler">
+      {/* Demo Badge */}
+      <DemoBadge />
+
       {/* KPI Cards - Professional Design */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
         {/* Soru Havuzu Card */}

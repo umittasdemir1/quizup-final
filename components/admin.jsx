@@ -294,6 +294,22 @@ const Admin = () => {
         const currentUser = getCurrentUser();
         const userCompany = currentUser?.company || 'BLUEMINT';
 
+        // Demo limit kontrolü
+        if (currentUser?.isDemo && currentUser?.limits?.maxQuestions) {
+          const { collection: fbCollection, query, where, getDocs } = window.firebase;
+          const questionsQuery = query(
+            fbCollection(db, 'questions'),
+            where('company', '==', userCompany)
+          );
+          const questionsSnapshot = await getDocs(questionsQuery);
+
+          if (questionsSnapshot.size >= currentUser.limits.maxQuestions) {
+            toast(`Demo limit: Maksimum ${currentUser.limits.maxQuestions} soru oluşturabilirsiniz`, 'error');
+            setSaving(false);
+            return;
+          }
+        }
+
         data.createdAt = serverTimestamp();
         data.company = userCompany;
         await addDoc(collection(db, 'questions'), data);
