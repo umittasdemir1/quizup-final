@@ -215,6 +215,40 @@ const UserManagement = () => {
         // 🆕 Yeni kullanıcıyı oluşturan admin'in şirketini otomatik ata
         const currentUser = getCurrentUser();
 
+        // Demo limit kontrolü
+        if (currentUser?.isDemo && currentUser?.limits) {
+          const { collection: fbCollection, query, where, getDocs } = window.firebase;
+          const usersQuery = query(
+            fbCollection(db, 'users'),
+            where('company', '==', currentUser.company)
+          );
+          const usersSnapshot = await getDocs(usersQuery);
+
+          // Count admin and manager users
+          const users = usersSnapshot.docs.map(doc => doc.data());
+          const adminCount = users.filter(u => u.role === 'admin').length;
+          const managerCount = users.filter(u => u.role === 'manager').length;
+
+          // Check limits based on role
+          if (form.role === 'admin' && adminCount >= currentUser.limits.maxAdmins) {
+            if (creationSession?.rollback) {
+              await creationSession.rollback();
+            }
+            toast(`Demo limit: Maksimum ${currentUser.limits.maxAdmins} admin oluşturabilirsiniz`, 'error');
+            setSubmitting(false);
+            return;
+          }
+
+          if (form.role === 'manager' && managerCount >= currentUser.limits.maxManagers) {
+            if (creationSession?.rollback) {
+              await creationSession.rollback();
+            }
+            toast(`Demo limit: Maksimum ${currentUser.limits.maxManagers} yönetici oluşturabilirsiniz`, 'error');
+            setSubmitting(false);
+            return;
+          }
+        }
+
         // Company determination logic
         let userCompany;
         if (currentUser.isSuperAdmin === true) {
