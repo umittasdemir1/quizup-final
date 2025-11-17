@@ -184,7 +184,7 @@ const Sidebar = () => {
     setUserInfoForm({
       firstName: currentUser.firstName || '',
       lastName: currentUser.lastName || '',
-      company: currentUser.company || '',
+      company: currentUser.companyName || currentUser.company || '',
       department: currentUser.department || '',
       position: currentUser.position || '',
       applicationPin: currentUser.applicationPin && /^\d{4}$/.test(currentUser.applicationPin)
@@ -204,7 +204,7 @@ const Sidebar = () => {
         setUserInfoForm({
           firstName: data.firstName || '',
           lastName: data.lastName || '',
-          company: data.company || '',
+          company: data.companyName || data.company || '',
           department: data.department || '',
           position: data.position || '',
           applicationPin: data.applicationPin && /^\d{4}$/.test(data.applicationPin)
@@ -487,7 +487,7 @@ const Sidebar = () => {
     : 'Misafir Kullanıcı';
 
   const displayCompany = isLoggedIn
-    ? (currentUser?.company?.trim() || 'Şirket bilgisi yok')
+    ? (currentUser?.companyName || currentUser?.company?.trim() || 'Şirket bilgisi yok')
     : 'Oturum açılmadı';
 
   const renderUserMenuContent = () => (
