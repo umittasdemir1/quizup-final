@@ -223,8 +223,13 @@ const CompanyManagement = () => {
             <div key={company.id} className="bg-white rounded-xl shadow-card p-6 hover:shadow-lg transition-shadow">
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h3 className="text-lg font-bold text-dark-900 mb-1">{company.name}</h3>
+                  <h3 className="text-lg font-bold text-dark-900 mb-1">{company.displayName || company.name}</h3>
                   <div className="flex items-center gap-2">
+                    {company.isDemo && (
+                      <span className="px-2 py-1 rounded-full text-xs font-semibold bg-secondary-100 text-secondary-700">
+                        Demo
+                      </span>
+                    )}
                     {getPlanBadge(company.plan)}
                     {company.active === false && (
                       <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">

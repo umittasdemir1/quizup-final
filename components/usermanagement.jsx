@@ -138,6 +138,7 @@ const UserManagement = () => {
           id: d.id,
           ...rawData,
           company: rawData.company || '',
+          companyName: rawData.companyName || rawData.company || '',
           department: rawData.department || '',
           position: rawData.position || '',
           applicationPin: normalizedPin
@@ -361,7 +362,7 @@ const UserManagement = () => {
       email: user.email,
       role: user.role,
       position: user.position || '',
-      company: user.company || '',
+      company: user.companyName || user.company || '',
       department: user.department || '',
       applicationPin: user.applicationPin || '0000'
     });
@@ -522,7 +523,7 @@ const UserManagement = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-dark-600">{user.email}</td>
-                    <td className="px-6 py-4 text-sm text-dark-600">{user.company || '-'}</td>
+                    <td className="px-6 py-4 text-sm text-dark-600">{user.companyName || user.company || '-'}</td>
                     <td className="px-6 py-4 text-sm text-dark-600">{user.department || '-'}</td>
                     <td className="px-6 py-4">{getRoleBadge(user.role)}</td>
                     <td className="px-6 py-4 text-sm text-dark-600">{user.position || '-'}</td>
