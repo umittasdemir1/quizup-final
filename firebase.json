@@ -2,9 +2,12 @@
   "firestore": {
     "rules": "firestore.rules"
   },
-  "storage": {
-    "rules": "storage.rules"
-  },
+  "storage": [
+    {
+      "bucket": "retail-quiz-4bb8c.appspot.com",
+      "rules": "storage.rules"
+    }
+  ],
   "functions": {
     "source": "functions",
     "runtime": "nodejs20"
