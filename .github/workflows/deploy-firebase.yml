@@ -38,6 +38,6 @@ jobs:
         run: npm install -g firebase-tools@latest
 
       - name: Deploy Functions + Rules to Firebase
-        run: firebase deploy --only functions,firestore:rules,storage:rules --project retail-quiz-4bb8c --force
+        run: firebase deploy --only functions,firestore:rules,storage --project retail-quiz-4bb8c --force
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ./service-account.json
