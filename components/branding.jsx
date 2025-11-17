@@ -66,7 +66,8 @@ const Branding = () => {
           }
         } else if (currentUser?.company) {
           // Regular admin: Only their company
-          setCompanies([{ id: currentUser.company, name: currentUser.company }]);
+          const displayName = currentUser.companyName || currentUser.company;
+          setCompanies([{ id: currentUser.company, name: displayName }]);
           setSelectedCompany(currentUser.company);
         }
       } catch (e) {
