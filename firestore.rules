@@ -201,8 +201,11 @@ service cloud.firestore {
     // SETTINGS / BRANDING COLLECTIONS
     // ========================================
     match /settings/{docId} {
-      // 🌟 Super admin and regular admin can access settings
-      allow read, write: if isSuperAdmin() || isAdmin();
+      // 🌟 Demo feature settings: Public read access for landing page
+      allow read: if docId == 'demoFeature' || isSuperAdmin() || isAdmin();
+
+      // 🌟 Super admin and regular admin can write all settings
+      allow write: if isSuperAdmin() || isAdmin();
     }
 
     match /branding/{company} {
