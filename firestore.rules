@@ -81,11 +81,17 @@ service cloud.firestore {
 
       // ✅ Admin sadece kendi şirketinin sorularını oluşturabilir
       // 🌟 Super admin tüm şirketler için soru oluşturabilir
-      allow create: if (isAdmin() && isSameCompany(request.resource.data.company)) || isSuperAdmin();
+      // 🆕 examType field validation: must be 'general' or 'special' if present
+      allow create: if ((isAdmin() && isSameCompany(request.resource.data.company)) || isSuperAdmin()) &&
+                       (!('examType' in request.resource.data) || request.resource.data.examType in ['general', 'special']);
 
       // ✅ Admin sadece kendi şirketinin sorularını güncelleyebilir/silebilir
       // 🌟 Super admin tüm soruları güncelleyebilir/silebilir
-      allow update, delete: if (isAdmin() && isSameCompany(resource.data.company)) || isSuperAdmin();
+      // 🆕 examType field validation on update
+      allow update: if ((isAdmin() && isSameCompany(resource.data.company)) || isSuperAdmin()) &&
+                       (!('examType' in request.resource.data) || request.resource.data.examType in ['general', 'special']);
+
+      allow delete: if (isAdmin() && isSameCompany(resource.data.company)) || isSuperAdmin();
     }
 
     // ========================================

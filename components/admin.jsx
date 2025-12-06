@@ -14,6 +14,7 @@ const Admin = () => {
     type: 'mcq',
     category: '',
     difficulty: 'easy',
+    examType: 'general', // 🆕 Sınav Tipi: 'general' veya 'special'
     options: ['', '', '', ''],
     correctAnswer: '',
     isActive: true,
@@ -215,6 +216,7 @@ const Admin = () => {
       type: q.type || 'mcq',
       category: q.category || '',
       difficulty: q.difficulty || 'easy',
+      examType: q.examType || 'general', // 🆕 Sınav Tipi
       options: q.options || ['', '', '', ''],
       correctAnswer: q.correctAnswer || '',
       isActive: q.isActive ?? true,
@@ -273,6 +275,7 @@ const Admin = () => {
         type: form.type,
         category: validatedCategory,
         difficulty: form.difficulty,
+        examType: form.examType || 'general', // 🆕 Sınav Tipi
         options: validatedOptions,
         correctAnswer: form.type === 'mcq' ? form.correctAnswer.trim() : '',
         isActive: form.isActive,

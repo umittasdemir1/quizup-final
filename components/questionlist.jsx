@@ -8,7 +8,8 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, onCre
     difficulties: [],
     statuses: [],
     types: [],
-    timers: []
+    timers: [],
+    examTypes: [] // 🆕 Sınav Tipi filtresi
   });
   const [sortOption, setSortOption] = useState('order-asc');
   const filterRef = useRef(null);
@@ -72,7 +73,7 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, onCre
   };
 
   const clearFilters = () => {
-    setFilters({ categories: [], difficulties: [], statuses: [], types: [], timers: [] });
+    setFilters({ categories: [], difficulties: [], statuses: [], types: [], timers: [], examTypes: [] });
   };
 
   const resetAll = () => {
@@ -85,7 +86,8 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, onCre
     filters.difficulties.length +
     filters.statuses.length +
     filters.types.length +
-    filters.timers.length;
+    filters.timers.length +
+    filters.examTypes.length;
 
   const getDisplayOrder = (question, index) => {
     return typeof question.order === 'number' ? question.order + 1 : index + 1;
@@ -142,6 +144,14 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, onCre
         } else if (wantsTimed && !isTimed) {
           return false;
         } else if (wantsUntimed && isTimed) {
+          return false;
+        }
+      }
+
+      // 🆕 Sınav Tipi filtresi
+      if (filters.examTypes.length > 0) {
+        const examType = data.examType || 'general';
+        if (!filters.examTypes.includes(examType)) {
           return false;
         }
       }
@@ -214,6 +224,11 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, onCre
             <div className="flex items-center gap-3 mb-2 flex-wrap">
               <span className="chip chip-blue">{typeLabel(question.type)}</span>
               {question.category && <span className="chip chip-orange">{question.category}</span>}
+              {question.examType && (
+                <span className={`chip ${question.examType === 'special' ? 'bg-purple-500 text-white' : 'bg-teal-500 text-white'}`}>
+                  {question.examType === 'special' ? 'Özel Sınav' : 'Genel Sınav'}
+                </span>
+              )}
               {question.difficulty && (
                 <span className="chip bg-gray-200 text-gray-600">
                   {question.difficulty === 'easy' ? 'Kolay' : question.difficulty === 'medium' ? 'Orta' : 'Zor'}
@@ -423,6 +438,28 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, onCre
                           onChange={() => toggleFilter('timers', 'untimed')}
                         />
                         <span>Süresiz</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="title-small">Sınav Tipi</h3>
+                    <div className="question-filter-options">
+                      <label className="question-filter-option">
+                        <input
+                          type="checkbox"
+                          checked={filters.examTypes.includes('general')}
+                          onChange={() => toggleFilter('examTypes', 'general')}
+                        />
+                        <span>Genel Sınav</span>
+                      </label>
+                      <label className="question-filter-option">
+                        <input
+                          type="checkbox"
+                          checked={filters.examTypes.includes('special')}
+                          onChange={() => toggleFilter('examTypes', 'special')}
+                        />
+                        <span>Özel Sınav</span>
                       </label>
                     </div>
                   </div>

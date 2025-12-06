@@ -16,7 +16,8 @@ const Manager = () => {
     categories: [],
     difficulties: [],
     types: [],
-    timers: []
+    timers: [],
+    examTypes: [] // 🆕 Sınav Tipi filtresi
   });
   const [search, setSearch] = useState('');
   const [sortOption, setSortOption] = useState('order-asc');
@@ -35,7 +36,8 @@ const Manager = () => {
     categories: [],
     difficulties: [],
     types: [],
-    timers: []
+    timers: [],
+    examTypes: [] // 🆕 Sınav Tipi filtresi (paket modal için)
   });
   const [packageSort, setPackageSort] = useState('order-asc');
   const [showPackageFilters, setShowPackageFilters] = useState(false);
@@ -355,7 +357,7 @@ const Manager = () => {
   };
 
   const clearFilters = () => {
-    setFilters({ categories: [], difficulties: [], types: [], timers: [] });
+    setFilters({ categories: [], difficulties: [], types: [], timers: [], examTypes: [] });
   };
 
   const resetFilters = () => {
@@ -364,7 +366,7 @@ const Manager = () => {
     setShowFilters(false);
   };
 
-  const activeFilterCount = filters.categories.length + filters.difficulties.length + filters.types.length + filters.timers.length;
+  const activeFilterCount = filters.categories.length + filters.difficulties.length + filters.types.length + filters.timers.length + filters.examTypes.length;
 
   // 📦 Package modal filter helpers
   const togglePackageFilter = (type, value) => {
@@ -377,7 +379,7 @@ const Manager = () => {
   };
 
   const clearPackageFilters = () => {
-    setPackageFilters({ categories: [], difficulties: [], types: [], timers: [] });
+    setPackageFilters({ categories: [], difficulties: [], types: [], timers: [], examTypes: [] });
   };
 
   const resetPackageFilters = () => {
@@ -386,7 +388,7 @@ const Manager = () => {
     setShowPackageFilters(false);
   };
 
-  const activePackageFilterCount = packageFilters.categories.length + packageFilters.difficulties.length + packageFilters.types.length + packageFilters.timers.length;
+  const activePackageFilterCount = packageFilters.categories.length + packageFilters.difficulties.length + packageFilters.types.length + packageFilters.timers.length + packageFilters.examTypes.length;
 
   const getDisplayOrder = (question, index) => (
     typeof question.order === 'number' ? question.order + 1 : index + 1
@@ -436,6 +438,14 @@ const Manager = () => {
         } else if (wantsTimed && !isTimed) {
           return false;
         } else if (wantsUntimed && isTimed) {
+          return false;
+        }
+      }
+
+      // 🆕 Sınav Tipi filtresi
+      if (filters.examTypes.length > 0) {
+        const examType = data.examType || 'general';
+        if (!filters.examTypes.includes(examType)) {
           return false;
         }
       }
@@ -521,6 +531,14 @@ const Manager = () => {
         }
       }
 
+      // 🆕 Sınav Tipi filtresi (paket modal için)
+      if (packageFilters.examTypes.length > 0) {
+        const examType = data.examType || 'general';
+        if (!packageFilters.examTypes.includes(examType)) {
+          return false;
+        }
+      }
+
       if (!term) {
         return true;
       }
@@ -571,7 +589,7 @@ const Manager = () => {
     setShowForm(false);
     setQrUrl('');
     setErrors({});
-    setFilters({ categories: [], difficulties: [], types: [], timers: [] });
+    setFilters({ categories: [], difficulties: [], types: [], timers: [], examTypes: [] });
     setSearch('');
   };
 
@@ -743,7 +761,7 @@ const Manager = () => {
     setPackageForm({ name: '', questionIds: [] });
     setPackageErrors({});
     setPackageSearch('');
-    setPackageFilters({ categories: [], difficulties: [], types: [], timers: [] });
+    setPackageFilters({ categories: [], difficulties: [], types: [], timers: [], examTypes: [] });
     setPackageSort('order-asc');
     setShowPackageFilters(false);
     setShowPackageSort(false);
@@ -1135,6 +1153,28 @@ const Manager = () => {
                             </label>
                           </div>
                         </div>
+
+                        <div>
+                          <h3 className="title-small">Sınav Tipi</h3>
+                          <div className="question-filter-options">
+                            <label className="question-filter-option">
+                              <input
+                                type="checkbox"
+                                checked={filters.examTypes.includes('general')}
+                                onChange={() => toggleFilter('examTypes', 'general')}
+                              />
+                              <span>Genel Sınav</span>
+                            </label>
+                            <label className="question-filter-option">
+                              <input
+                                type="checkbox"
+                                checked={filters.examTypes.includes('special')}
+                                onChange={() => toggleFilter('examTypes', 'special')}
+                              />
+                              <span>Özel Sınav</span>
+                            </label>
+                          </div>
+                        </div>
                       </div>
                       {(activeFilterCount > 0 || search.trim()) && (
                         <div className="flex justify-end mt-4">
@@ -1511,6 +1551,28 @@ const Manager = () => {
                                   onChange={() => togglePackageFilter('timers', 'untimed')}
                                 />
                                 <span>Süresiz</span>
+                              </label>
+                            </div>
+                          </div>
+
+                          <div>
+                            <h3 className="title-small">Sınav Tipi</h3>
+                            <div className="question-filter-options">
+                              <label className="question-filter-option">
+                                <input
+                                  type="checkbox"
+                                  checked={packageFilters.examTypes.includes('general')}
+                                  onChange={() => togglePackageFilter('examTypes', 'general')}
+                                />
+                                <span>Genel Sınav</span>
+                              </label>
+                              <label className="question-filter-option">
+                                <input
+                                  type="checkbox"
+                                  checked={packageFilters.examTypes.includes('special')}
+                                  onChange={() => togglePackageFilter('examTypes', 'special')}
+                                />
+                                <span>Özel Sınav</span>
                               </label>
                             </div>
                           </div>

@@ -42,9 +42,9 @@ const AdminForm = ({
         </div>
         <div>
           <label className="block text-sm font-semibold mb-2 text-dark-700">Kategori *</label>
-          <input 
+          <input
             className={`field ${errors.category ? 'error' : ''}`}
-            value={form.category} 
+            value={form.category}
             onChange={e => updateField('category', e.target.value)}
             placeholder="Ürün Bilgisi"
           />
@@ -58,6 +58,15 @@ const AdminForm = ({
             <option value="hard">Zor</option>
           </select>
         </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-semibold mb-2 text-dark-700">Sınav Tipi *</label>
+        <select className={`field ${errors.examType ? 'error' : ''}`} value={form.examType || 'general'} onChange={e => updateField('examType', e.target.value)}>
+          <option value="general">Genel Sınav</option>
+          <option value="special">Özel Sınav</option>
+        </select>
+        {errors.examType && <div className="error-text">{errors.examType}</div>}
       </div>
 
       {form.type === 'mcq' && (

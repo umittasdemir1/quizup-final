@@ -188,6 +188,15 @@ const Dashboard = () => {
     }
   });
 
+  // 🆕 Sınav Tipi Distribution
+  const examTypeCount = { general: 0, special: 0 };
+  questions.forEach(q => {
+    const examType = q.examType || 'general';
+    if (examType === 'general' || examType === 'special') {
+      examTypeCount[examType]++;
+    }
+  });
+
   // Store Performance
   const storeStats = {};
   results.forEach(r => {
@@ -534,6 +543,48 @@ const Dashboard = () => {
                     </div>
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+
+          {/* Total Summary */}
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="flex justify-between text-sm">
+              <span className="text-dark-600">Toplam Soru</span>
+              <span className="font-bold text-dark-900">{totalQuestions}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 🆕 Exam Type Distribution */}
+        <div className="card p-6">
+          <h3 className="dashboard-section-title text-dark-900 mb-4 flex items-center gap-2">
+            <DocumentTextIcon size={20} strokeWidth={2} /> Sınav Tipi Dağılımı
+          </h3>
+          <div className="flex flex-col gap-4">
+            {/* General Exam Card */}
+            <div className="rounded-xl bg-teal-50 border-2 border-teal-200 overflow-hidden">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <div className="text-4xl font-black text-teal-600">{examTypeCount.general}</div>
+                    <div className="text-sm font-semibold text-dark-600 mt-1">Genel Sınav Soruları</div>
+                  </div>
+                  <div className="text-5xl">📚</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Special Exam Card */}
+            <div className="rounded-xl bg-purple-50 border-2 border-purple-200 overflow-hidden">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <div className="text-4xl font-black text-purple-600">{examTypeCount.special}</div>
+                    <div className="text-sm font-semibold text-dark-600 mt-1">Özel Sınav Soruları</div>
+                  </div>
+                  <div className="text-5xl">🎯</div>
+                </div>
               </div>
             </div>
           </div>

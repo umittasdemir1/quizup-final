@@ -11,7 +11,8 @@ const QuestionBank = () => {
     difficulties: [],
     statuses: [],
     types: [],
-    timers: []
+    timers: [],
+    examTypes: [] // 🆕 Sınav Tipi filtresi
   });
   const [sortOption, setSortOption] = useState('order-asc');
   const filterRef = useRef(null);
@@ -159,7 +160,7 @@ const QuestionBank = () => {
   };
 
   const clearFilters = () => {
-    setFilters({ categories: [], difficulties: [], statuses: [], types: [], timers: [] });
+    setFilters({ categories: [], difficulties: [], statuses: [], types: [], timers: [], examTypes: [] });
   };
 
   const resetAll = () => {
@@ -168,7 +169,7 @@ const QuestionBank = () => {
     setShowFilters(false);
   };
 
-  const activeFilterCount = filters.categories.length + filters.difficulties.length + filters.statuses.length + filters.types.length + filters.timers.length;
+  const activeFilterCount = filters.categories.length + filters.difficulties.length + filters.statuses.length + filters.types.length + filters.timers.length + filters.examTypes.length;
 
   const sortOptions = useMemo(() => ([
     { value: 'order-asc', label: 'Numara (Artan)' },
@@ -238,6 +239,14 @@ const QuestionBank = () => {
         } else if (wantsTimed && !isTimed) {
           return false;
         } else if (wantsUntimed && isTimed) {
+          return false;
+        }
+      }
+
+      // 🆕 Sınav Tipi filtresi
+      if (filters.examTypes.length > 0) {
+        const examType = data.examType || 'general';
+        if (!filters.examTypes.includes(examType)) {
           return false;
         }
       }
@@ -475,6 +484,28 @@ const QuestionBank = () => {
                         </label>
                       </div>
                     </div>
+
+                    <div>
+                      <h3 className="title-small">Sınav Tipi</h3>
+                      <div className="question-filter-options">
+                        <label className="question-filter-option">
+                          <input
+                            type="checkbox"
+                            checked={filters.examTypes.includes('general')}
+                            onChange={() => toggleFilter('examTypes', 'general')}
+                          />
+                          <span>Genel Sınav</span>
+                        </label>
+                        <label className="question-filter-option">
+                          <input
+                            type="checkbox"
+                            checked={filters.examTypes.includes('special')}
+                            onChange={() => toggleFilter('examTypes', 'special')}
+                          />
+                          <span>Özel Sınav</span>
+                        </label>
+                      </div>
+                    </div>
                   </div>
                   {(activeFilterCount > 0 || search.trim()) && (
                     <div className="flex justify-end mt-4">
@@ -514,6 +545,11 @@ const QuestionBank = () => {
                 <div className="flex flex-wrap items-center gap-2">
                   {data.type && <span className="chip chip-blue">{typeLabel(data.type)}</span>}
                   {data.category && <span className="chip chip-orange">{data.category}</span>}
+                  {data.examType && (
+                    <span className={`chip ${data.examType === 'special' ? 'bg-purple-500 text-white' : 'bg-teal-500 text-white'}`}>
+                      {data.examType === 'special' ? 'Özel Sınav' : 'Genel Sınav'}
+                    </span>
+                  )}
                   {data.difficulty && (
                     <span className="chip bg-gray-200 text-gray-600">
                       {data.difficulty === 'easy' ? 'Kolay' : data.difficulty === 'medium' ? 'Orta' : 'Zor'}
