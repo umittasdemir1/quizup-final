@@ -352,21 +352,47 @@ const QuestionBank = () => {
       const margin = 15;
       let yPos = margin;
 
-      // Başlık
-      setFontWeight('bold');
-      pdf.setFontSize(16);
-      pdf.setTextColor(26, 35, 50);
-      pdf.text('Soru Bankası', margin, yPos);
-      yPos += 8;
+      // 🎨 Profesyonel Başlık Tasarımı
+      // Header background (renkli çubuk)
+      pdf.setFillColor(255, 87, 34); // Primary orange
+      pdf.rect(0, 0, pageWidth, 35, 'F');
 
+      // Ana başlık
+      setFontWeight('bold');
+      pdf.setFontSize(22);
+      pdf.setTextColor(255, 255, 255); // Beyaz
+      pdf.text('📚 SORU BANKASI', margin, yPos + 10);
+
+      // Alt başlık (sınav tipi)
       setFontWeight('normal');
-      pdf.setFontSize(10);
-      pdf.setTextColor(107, 114, 128);
+      pdf.setFontSize(11);
+      pdf.setTextColor(255, 255, 255);
       const exportTypeText = exportExamType === 'all' ? 'Tüm Sorular' :
                             exportExamType === 'general' ? 'Genel Sınav Soruları' :
                             'Özel Sınav Soruları';
-      pdf.text(exportTypeText + ` (${exportQuestions.length} soru)`, margin, yPos);
-      yPos += 10;
+      pdf.text(exportTypeText, margin, yPos + 18);
+
+      // Soru sayısı ve tarih (sağ üst)
+      pdf.setFontSize(9);
+      const exportDate = new Date().toLocaleDateString('tr-TR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      const headerRight = `${exportQuestions.length} Soru | ${exportDate}`;
+      const headerRightWidth = pdf.getTextWidth(headerRight);
+      pdf.text(headerRight, pageWidth - margin - headerRightWidth, yPos + 10);
+
+      // Şirket adı (eğer varsa)
+      const currentUser = getCurrentUser();
+      if (currentUser?.company) {
+        pdf.setFontSize(9);
+        const companyText = `${currentUser.company}`;
+        const companyWidth = pdf.getTextWidth(companyText);
+        pdf.text(companyText, pageWidth - margin - companyWidth, yPos + 18);
+      }
+
+      yPos = 45; // Başlıktan sonra başlangıç pozisyonu
 
       // Sorular
       exportQuestions.forEach((q, index) => {
@@ -523,42 +549,80 @@ const QuestionBank = () => {
   };
 
   const exportToExcel = () => {
+    if (!window.XLSX) {
+      toast('Excel kütüphanesi yüklenemedi', 'error');
+      return;
+    }
+
     try {
       setExporting(true);
       const exportQuestions = getFilteredQuestionsForExport();
 
-      // CSV formatında oluştur (Excel'de açılabilir)
-      let csvContent = '\ufeff'; // UTF-8 BOM
-      csvContent += 'Soru No,Soru Metni,Tip,Kategori,Zorluk,Sınav Tipi,Seçenek A,Seçenek B,Seçenek C,Seçenek D,Doğru Cevap,Durum\n';
+      // 📊 XLSX formatında oluştur (SheetJS ile)
+      const workbookData = [];
 
+      // Header satırı
+      workbookData.push([
+        'Soru No',
+        'Soru Metni',
+        'Tip',
+        'Kategori',
+        'Zorluk',
+        'Sınav Tipi',
+        'Seçenek A',
+        'Seçenek B',
+        'Seçenek C',
+        'Seçenek D',
+        'Doğru Cevap',
+        'Durum'
+      ]);
+
+      // Veri satırları
       exportQuestions.forEach((q, index) => {
         const questionNumber = typeof q.order === 'number' ? q.order + 1 : index + 1;
-        const row = [
+        workbookData.push([
           questionNumber,
-          `"${(q.questionText || '').replace(/"/g, '""')}"`, // Escape quotes
+          q.questionText || '',
           q.type === 'mcq' ? 'Çoktan Seçmeli' : 'Açık Uçlu',
           q.category || '',
           q.difficulty === 'easy' ? 'Kolay' : q.difficulty === 'medium' ? 'Orta' : q.difficulty === 'hard' ? 'Zor' : '',
           q.examType === 'special' ? 'Özel Sınav' : 'Genel Sınav',
-          q.options && q.options[0] ? `"${q.options[0].replace(/"/g, '""')}"` : '',
-          q.options && q.options[1] ? `"${q.options[1].replace(/"/g, '""')}"` : '',
-          q.options && q.options[2] ? `"${q.options[2].replace(/"/g, '""')}"` : '',
-          q.options && q.options[3] ? `"${q.options[3].replace(/"/g, '""')}"` : '',
-          q.correctAnswer ? `"${q.correctAnswer.replace(/"/g, '""')}"` : '',
+          q.options && q.options[0] ? q.options[0] : '',
+          q.options && q.options[1] ? q.options[1] : '',
+          q.options && q.options[2] ? q.options[2] : '',
+          q.options && q.options[3] ? q.options[3] : '',
+          q.correctAnswer || '',
           q.isActive ? 'Aktif' : 'Pasif'
-        ];
-        csvContent += row.join(',') + '\n';
+        ]);
       });
 
-      // Excel dosyası olarak indir
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
+      // Worksheet oluştur
+      const worksheet = window.XLSX.utils.aoa_to_sheet(workbookData);
+
+      // Sütun genişliklerini ayarla
+      worksheet['!cols'] = [
+        { wch: 8 },  // Soru No
+        { wch: 50 }, // Soru Metni
+        { wch: 15 }, // Tip
+        { wch: 20 }, // Kategori
+        { wch: 10 }, // Zorluk
+        { wch: 12 }, // Sınav Tipi
+        { wch: 30 }, // Seçenek A
+        { wch: 30 }, // Seçenek B
+        { wch: 30 }, // Seçenek C
+        { wch: 30 }, // Seçenek D
+        { wch: 30 }, // Doğru Cevap
+        { wch: 10 }  // Durum
+      ];
+
+      // Workbook oluştur
+      const workbook = window.XLSX.utils.book_new();
+      window.XLSX.utils.book_append_sheet(workbook, worksheet, 'Sorular');
+
+      // XLSX dosyası olarak indir
       const examTypeSlug = exportExamType === 'all' ? 'tum' : exportExamType === 'general' ? 'genel' : 'ozel';
-      link.href = url;
-      link.download = `sorular_${examTypeSlug}_${new Date().toISOString().split('T')[0]}.csv`;
-      link.click();
-      URL.revokeObjectURL(url);
+      const fileName = `sorular_${examTypeSlug}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      window.XLSX.writeFile(workbook, fileName);
 
       toast('Excel dosyası başarıyla indirildi', 'success');
       setShowExportModal(false);
