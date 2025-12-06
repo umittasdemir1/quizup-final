@@ -19,6 +19,13 @@ const QuestionBank = () => {
   const sortRef = useRef(null);
   const animatedPlaceholder = useAnimatedPlaceholder();
 
+  // 📥 Export modal state
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportFormat, setExportFormat] = useState('pdf'); // pdf, word, excel
+  const [exportExamType, setExportExamType] = useState('all'); // all, general, special
+  const [exporting, setExporting] = useState(false);
+  const exportModalRef = useRef(null);
+
   useEffect(() => {
     let unsubscribe = null;
 
@@ -114,6 +121,7 @@ const QuestionBank = () => {
     const handleClickOutside = (event) => {
       if (event.target.closest('[data-question-filter-toggle]')) return;
       if (event.target.closest('[data-question-sort-toggle]')) return;
+      if (event.target.closest('[data-export-modal-toggle]')) return;
 
       if (showFilters && filterRef.current && !filterRef.current.contains(event.target)) {
         setShowFilters(false);
@@ -122,11 +130,15 @@ const QuestionBank = () => {
       if (showSort && sortRef.current && !sortRef.current.contains(event.target)) {
         setShowSort(false);
       }
+
+      if (showExportModal && exportModalRef.current && !exportModalRef.current.contains(event.target)) {
+        setShowExportModal(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showFilters, showSort]);
+  }, [showFilters, showSort, showExportModal]);
 
   const uniqueCategories = useMemo(() => {
     return [...new Set(questions.map(q => q.category).filter(Boolean))].sort();
@@ -296,6 +308,278 @@ const QuestionBank = () => {
     return sorted;
   }, [questions, search, filters, sortOption]);
 
+  // 📥 Export fonksiyonları
+  const getFilteredQuestionsForExport = () => {
+    let filtered = questions;
+
+    // Sınav tipi filtreleme
+    if (exportExamType !== 'all') {
+      filtered = filtered.filter(q => (q.examType || 'general') === exportExamType);
+    }
+
+    // Sıralama (order field'a göre)
+    return filtered.sort((a, b) => {
+      const orderA = typeof a.order === 'number' ? a.order : 999999;
+      const orderB = typeof b.order === 'number' ? b.order : 999999;
+      return orderA - orderB;
+    });
+  };
+
+  const exportToPDF = async () => {
+    if (!window.jspdf?.jsPDF) {
+      toast('PDF kütüphanesi yüklenemedi', 'error');
+      return;
+    }
+
+    try {
+      setExporting(true);
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF('portrait', 'mm', 'a4');
+
+      // Türkçe font desteği
+      const fontReady = ensurePdfFont(pdf);
+      const setFontWeight = (weight = 'normal') => {
+        if (fontReady) {
+          pdf.setFont('DejaVuSans', weight);
+        } else {
+          pdf.setFont('helvetica', weight);
+        }
+      };
+
+      const exportQuestions = getFilteredQuestionsForExport();
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 15;
+      let yPos = margin;
+
+      // Başlık
+      setFontWeight('bold');
+      pdf.setFontSize(16);
+      pdf.setTextColor(26, 35, 50);
+      pdf.text('Soru Bankası', margin, yPos);
+      yPos += 8;
+
+      setFontWeight('normal');
+      pdf.setFontSize(10);
+      pdf.setTextColor(107, 114, 128);
+      const exportTypeText = exportExamType === 'all' ? 'Tüm Sorular' :
+                            exportExamType === 'general' ? 'Genel Sınav Soruları' :
+                            'Özel Sınav Soruları';
+      pdf.text(exportTypeText + ` (${exportQuestions.length} soru)`, margin, yPos);
+      yPos += 10;
+
+      // Sorular
+      exportQuestions.forEach((q, index) => {
+        const questionNumber = typeof q.order === 'number' ? q.order + 1 : index + 1;
+
+        // Yeni sayfa kontrolü
+        if (yPos > pageHeight - 40) {
+          pdf.addPage();
+          yPos = margin;
+        }
+
+        // Soru numarası ve metni
+        setFontWeight('bold');
+        pdf.setFontSize(11);
+        pdf.setTextColor(26, 35, 50);
+        const questionText = `${questionNumber}. ${q.questionText}`;
+        const lines = pdf.splitTextToSize(questionText, pageWidth - margin * 2);
+        pdf.text(lines, margin, yPos);
+        yPos += lines.length * 5;
+
+        // Kategori, Zorluk, Sınav Tipi bilgileri
+        setFontWeight('normal');
+        pdf.setFontSize(9);
+        pdf.setTextColor(107, 114, 128);
+        const metadata = [];
+        if (q.category) metadata.push(`Kategori: ${q.category}`);
+        if (q.difficulty) metadata.push(`Zorluk: ${q.difficulty === 'easy' ? 'Kolay' : q.difficulty === 'medium' ? 'Orta' : 'Zor'}`);
+        if (q.examType) metadata.push(`Sınav Tipi: ${q.examType === 'special' ? 'Özel Sınav' : 'Genel Sınav'}`);
+        if (metadata.length > 0) {
+          pdf.text(metadata.join(' | '), margin, yPos);
+          yPos += 5;
+        }
+
+        // Çoktan seçmeli seçenekler
+        if (q.type === 'mcq' && q.options && q.options.length > 0) {
+          setFontWeight('normal');
+          pdf.setFontSize(10);
+          pdf.setTextColor(26, 35, 50);
+          q.options.forEach((option, optIndex) => {
+            if (option && option.trim()) {
+              const isCorrect = option === q.correctAnswer;
+              const optionText = `  ${String.fromCharCode(65 + optIndex)}) ${option}${isCorrect ? ' ✓' : ''}`;
+              const optionLines = pdf.splitTextToSize(optionText, pageWidth - margin * 2 - 5);
+
+              if (isCorrect) {
+                setFontWeight('bold');
+                pdf.setTextColor(22, 163, 74); // Green
+              }
+
+              pdf.text(optionLines, margin + 3, yPos);
+              yPos += optionLines.length * 5;
+
+              if (isCorrect) {
+                setFontWeight('normal');
+                pdf.setTextColor(26, 35, 50);
+              }
+            }
+          });
+        }
+
+        yPos += 5; // Sorular arası boşluk
+      });
+
+      // Dosya adı oluştur
+      const examTypeSlug = exportExamType === 'all' ? 'tum' : exportExamType === 'general' ? 'genel' : 'ozel';
+      const fileName = `sorular_${examTypeSlug}_${new Date().toISOString().split('T')[0]}.pdf`;
+      pdf.save(fileName);
+
+      toast('PDF başarıyla indirildi', 'success');
+      setShowExportModal(false);
+    } catch (error) {
+      window.devError('PDF export error:', error);
+      toast('PDF oluştururken hata oluştu', 'error');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const exportToWord = () => {
+    try {
+      setExporting(true);
+      const exportQuestions = getFilteredQuestionsForExport();
+
+      let htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Soru Bankası</title>
+  <style>
+    body { font-family: 'Calibri', 'Arial', sans-serif; margin: 40px; }
+    h1 { color: #1a2332; font-size: 24px; margin-bottom: 10px; }
+    .subtitle { color: #6b7280; font-size: 14px; margin-bottom: 30px; }
+    .question { margin-bottom: 25px; page-break-inside: avoid; }
+    .question-header { font-weight: bold; font-size: 14px; color: #1a2332; margin-bottom: 8px; }
+    .question-meta { font-size: 12px; color: #6b7280; margin-bottom: 8px; }
+    .options { margin-left: 20px; }
+    .option { margin: 4px 0; font-size: 13px; }
+    .correct { color: #16a34a; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>Soru Bankası</h1>
+  <div class="subtitle">${exportExamType === 'all' ? 'Tüm Sorular' : exportExamType === 'general' ? 'Genel Sınav Soruları' : 'Özel Sınav Soruları'} (${exportQuestions.length} soru)</div>
+`;
+
+      exportQuestions.forEach((q, index) => {
+        const questionNumber = typeof q.order === 'number' ? q.order + 1 : index + 1;
+        const metadata = [];
+        if (q.category) metadata.push(`Kategori: ${q.category}`);
+        if (q.difficulty) metadata.push(`Zorluk: ${q.difficulty === 'easy' ? 'Kolay' : q.difficulty === 'medium' ? 'Orta' : 'Zor'}`);
+        if (q.examType) metadata.push(`Sınav Tipi: ${q.examType === 'special' ? 'Özel Sınav' : 'Genel Sınav'}`);
+
+        htmlContent += `
+  <div class="question">
+    <div class="question-header">${questionNumber}. ${q.questionText}</div>
+    ${metadata.length > 0 ? `<div class="question-meta">${metadata.join(' | ')}</div>` : ''}
+`;
+
+        if (q.type === 'mcq' && q.options && q.options.length > 0) {
+          htmlContent += '    <div class="options">\n';
+          q.options.forEach((option, optIndex) => {
+            if (option && option.trim()) {
+              const isCorrect = option === q.correctAnswer;
+              htmlContent += `      <div class="option ${isCorrect ? 'correct' : ''}">${String.fromCharCode(65 + optIndex)}) ${option}${isCorrect ? ' ✓' : ''}</div>\n`;
+            }
+          });
+          htmlContent += '    </div>\n';
+        }
+
+        htmlContent += '  </div>\n';
+      });
+
+      htmlContent += '</body></html>';
+
+      // Word dosyası olarak indir
+      const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const examTypeSlug = exportExamType === 'all' ? 'tum' : exportExamType === 'general' ? 'genel' : 'ozel';
+      link.href = url;
+      link.download = `sorular_${examTypeSlug}_${new Date().toISOString().split('T')[0]}.doc`;
+      link.click();
+      URL.revokeObjectURL(url);
+
+      toast('Word dosyası başarıyla indirildi', 'success');
+      setShowExportModal(false);
+    } catch (error) {
+      window.devError('Word export error:', error);
+      toast('Word dosyası oluştururken hata oluştu', 'error');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const exportToExcel = () => {
+    try {
+      setExporting(true);
+      const exportQuestions = getFilteredQuestionsForExport();
+
+      // CSV formatında oluştur (Excel'de açılabilir)
+      let csvContent = '\ufeff'; // UTF-8 BOM
+      csvContent += 'Soru No,Soru Metni,Tip,Kategori,Zorluk,Sınav Tipi,Seçenek A,Seçenek B,Seçenek C,Seçenek D,Doğru Cevap,Durum\n';
+
+      exportQuestions.forEach((q, index) => {
+        const questionNumber = typeof q.order === 'number' ? q.order + 1 : index + 1;
+        const row = [
+          questionNumber,
+          `"${(q.questionText || '').replace(/"/g, '""')}"`, // Escape quotes
+          q.type === 'mcq' ? 'Çoktan Seçmeli' : 'Açık Uçlu',
+          q.category || '',
+          q.difficulty === 'easy' ? 'Kolay' : q.difficulty === 'medium' ? 'Orta' : q.difficulty === 'hard' ? 'Zor' : '',
+          q.examType === 'special' ? 'Özel Sınav' : 'Genel Sınav',
+          q.options && q.options[0] ? `"${q.options[0].replace(/"/g, '""')}"` : '',
+          q.options && q.options[1] ? `"${q.options[1].replace(/"/g, '""')}"` : '',
+          q.options && q.options[2] ? `"${q.options[2].replace(/"/g, '""')}"` : '',
+          q.options && q.options[3] ? `"${q.options[3].replace(/"/g, '""')}"` : '',
+          q.correctAnswer ? `"${q.correctAnswer.replace(/"/g, '""')}"` : '',
+          q.isActive ? 'Aktif' : 'Pasif'
+        ];
+        csvContent += row.join(',') + '\n';
+      });
+
+      // Excel dosyası olarak indir
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const examTypeSlug = exportExamType === 'all' ? 'tum' : exportExamType === 'general' ? 'genel' : 'ozel';
+      link.href = url;
+      link.download = `sorular_${examTypeSlug}_${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+
+      toast('Excel dosyası başarıyla indirildi', 'success');
+      setShowExportModal(false);
+    } catch (error) {
+      window.devError('Excel export error:', error);
+      toast('Excel dosyası oluştururken hata oluştu', 'error');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleExport = () => {
+    if (exportFormat === 'pdf') {
+      exportToPDF();
+    } else if (exportFormat === 'word') {
+      exportToWord();
+    } else if (exportFormat === 'excel') {
+      exportToExcel();
+    }
+  };
+
   if (loading) {
     return (
       <Page title="Sorular">
@@ -309,10 +593,22 @@ const QuestionBank = () => {
       title="Sorular"
       subtitle={`${visibleQuestions.length} / ${questions.length} soru gösteriliyor`}
       extra={(
-        <div className="text-right text-sm text-dark-500 leading-5">
-          <div>Aktif: <strong className="text-dark-800">{stats.active}</strong></div>
-          <div>Pasif: <strong className="text-dark-800">{stats.inactive}</strong></div>
-          <div>Zamanlayıcılı: <strong className="text-dark-800">{stats.timed}</strong></div>
+        <div className="flex items-center gap-4">
+          <div className="text-right text-sm text-dark-500 leading-5">
+            <div>Aktif: <strong className="text-dark-800">{stats.active}</strong></div>
+            <div>Pasif: <strong className="text-dark-800">{stats.inactive}</strong></div>
+            <div>Zamanlayıcılı: <strong className="text-dark-800">{stats.timed}</strong></div>
+          </div>
+          {/* 📥 Export Butonu */}
+          <button
+            type="button"
+            className="btn btn-primary flex items-center gap-2"
+            onClick={() => setShowExportModal(true)}
+            data-export-modal-toggle
+            title="Soruları Dışa Aktar"
+          >
+            <ArrowDownTrayIcon size={18} strokeWidth={2} />
+          </button>
         </div>
       )}
     >
@@ -616,6 +912,137 @@ const QuestionBank = () => {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* 📥 Export Modal */}
+      {showExportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div
+            ref={exportModalRef}
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-fade-in"
+            data-export-modal-toggle
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-dark-900">Soruları Dışa Aktar</h3>
+              <button
+                onClick={() => setShowExportModal(false)}
+                className="text-dark-400 hover:text-dark-600 transition-colors"
+              >
+                <XMarkIcon size={24} strokeWidth={2} />
+              </button>
+            </div>
+
+            {/* Format Seçimi */}
+            <div className="mb-6">
+              <label className="block text-sm font-semibold mb-3 text-dark-700">Dosya Formatı</label>
+              <div className="grid grid-cols-3 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setExportFormat('pdf')}
+                  className={`p-3 rounded-lg border-2 transition-all ${
+                    exportFormat === 'pdf'
+                      ? 'border-primary-500 bg-primary-50 text-primary-700'
+                      : 'border-gray-200 hover:border-gray-300 text-dark-600'
+                  }`}
+                >
+                  <div className="text-2xl mb-1">📄</div>
+                  <div className="text-xs font-semibold">PDF</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExportFormat('word')}
+                  className={`p-3 rounded-lg border-2 transition-all ${
+                    exportFormat === 'word'
+                      ? 'border-primary-500 bg-primary-50 text-primary-700'
+                      : 'border-gray-200 hover:border-gray-300 text-dark-600'
+                  }`}
+                >
+                  <div className="text-2xl mb-1">📝</div>
+                  <div className="text-xs font-semibold">Word</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExportFormat('excel')}
+                  className={`p-3 rounded-lg border-2 transition-all ${
+                    exportFormat === 'excel'
+                      ? 'border-primary-500 bg-primary-50 text-primary-700'
+                      : 'border-gray-200 hover:border-gray-300 text-dark-600'
+                  }`}
+                >
+                  <div className="text-2xl mb-1">📊</div>
+                  <div className="text-xs font-semibold">Excel</div>
+                </button>
+              </div>
+            </div>
+
+            {/* Sınav Tipi Filtresi */}
+            <div className="mb-6">
+              <label className="block text-sm font-semibold mb-3 text-dark-700">Sınav Tipi</label>
+              <div className="space-y-2">
+                <label className="flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all hover:bg-gray-50" style={{ borderColor: exportExamType === 'all' ? '#f97316' : '#e5e7eb' }}>
+                  <input
+                    type="radio"
+                    name="exportExamType"
+                    value="all"
+                    checked={exportExamType === 'all'}
+                    onChange={(e) => setExportExamType(e.target.value)}
+                    className="mr-3"
+                  />
+                  <span className="font-medium text-dark-700">Tümü</span>
+                  <span className="ml-auto text-xs text-dark-500">({questions.length} soru)</span>
+                </label>
+                <label className="flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all hover:bg-gray-50" style={{ borderColor: exportExamType === 'general' ? '#14b8a6' : '#e5e7eb' }}>
+                  <input
+                    type="radio"
+                    name="exportExamType"
+                    value="general"
+                    checked={exportExamType === 'general'}
+                    onChange={(e) => setExportExamType(e.target.value)}
+                    className="mr-3"
+                  />
+                  <span className="font-medium text-dark-700">Genel Sınav</span>
+                  <span className="ml-auto text-xs text-dark-500">
+                    ({questions.filter(q => (q.examType || 'general') === 'general').length} soru)
+                  </span>
+                </label>
+                <label className="flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all hover:bg-gray-50" style={{ borderColor: exportExamType === 'special' ? '#a855f7' : '#e5e7eb' }}>
+                  <input
+                    type="radio"
+                    name="exportExamType"
+                    value="special"
+                    checked={exportExamType === 'special'}
+                    onChange={(e) => setExportExamType(e.target.value)}
+                    className="mr-3"
+                  />
+                  <span className="font-medium text-dark-700">Özel Sınav</span>
+                  <span className="ml-auto text-xs text-dark-500">
+                    ({questions.filter(q => q.examType === 'special').length} soru)
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            {/* Butonlar */}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowExportModal(false)}
+                className="flex-1 btn btn-ghost"
+                disabled={exporting}
+              >
+                İptal
+              </button>
+              <button
+                type="button"
+                onClick={handleExport}
+                className="flex-1 btn btn-primary"
+                disabled={exporting}
+              >
+                {exporting ? 'İndiriliyor...' : 'İndir'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </Page>
