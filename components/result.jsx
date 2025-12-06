@@ -1,26 +1,5 @@
 const { useState, useEffect } = React;
 
-const sanitizeBase64 = (input) => (input || '').replace(/\s+/g, '');
-
-const ensurePdfFont = (pdf) => {
-  const base64 = window.__QUIZUP_PDF_FONTS?.dejaVuSans;
-  if (!base64) return false;
-  const cleaned = sanitizeBase64(base64);
-  try {
-    if (!window.__QUIZUP_PDF_FONT_REGISTERED) {
-      pdf.addFileToVFS('DejaVuSans.ttf', cleaned);
-      pdf.addFont('DejaVuSans.ttf', 'DejaVuSans', 'normal');
-      pdf.addFont('DejaVuSans.ttf', 'DejaVuSans', 'bold');
-      window.__QUIZUP_PDF_FONT_REGISTERED = true;
-    }
-    pdf.setFont('DejaVuSans', 'normal');
-    return true;
-  } catch (err) {
-    window.devWarn('PDF font yüklenemedi:', err);
-    return false;
-  }
-};
-
 const fetchImageAsDataUrl = async (url) => {
   if (!url) return null;
   try {

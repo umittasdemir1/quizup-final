@@ -1009,3 +1009,39 @@ window.logPageView = logPageView;
 window.logEvent = logEvent;
 window.logError = logError;
 window.trackPerformance = trackPerformance;
+
+// ========================================
+// PDF FONT HELPER
+// ========================================
+
+// Helper function to sanitize base64 strings
+const sanitizeBase64 = (input) => (input || '').replace(/\s+/g, '');
+
+/**
+ * Ensures PDF has Turkish character support by adding DejaVu Sans font
+ * CRITICAL: This must be called for EVERY new PDF instance
+ * @param {jsPDF} pdf - The jsPDF instance
+ * @returns {boolean} - True if font was successfully added, false otherwise
+ */
+window.ensurePdfFont = (pdf) => {
+  const base64 = window.__QUIZUP_PDF_FONTS?.dejaVuSans;
+  if (!base64) {
+    window.devWarn('PDF font data not found');
+    return false;
+  }
+
+  const cleaned = sanitizeBase64(base64);
+
+  try {
+    // ⚠️ IMPORTANT: Always add font to each PDF instance
+    // DO NOT use global flag - each jsPDF instance needs its own font registration
+    pdf.addFileToVFS('DejaVuSans.ttf', cleaned);
+    pdf.addFont('DejaVuSans.ttf', 'DejaVuSans', 'normal');
+    pdf.addFont('DejaVuSans.ttf', 'DejaVuSans', 'bold');
+    pdf.setFont('DejaVuSans', 'normal');
+    return true;
+  } catch (err) {
+    window.devWarn('PDF font registration failed:', err);
+    return false;
+  }
+};
