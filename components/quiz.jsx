@@ -641,7 +641,7 @@ const Quiz = ({ sessionId }) => {
               color: '#64748b',
               letterSpacing: '0.02em'
             }}>
-              Soru {idx + 1} / {questions.length}
+              Soru {idx + 1}/{questions.length}
             </span>
           </div>
           <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
