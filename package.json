@@ -1,0 +1,31 @@
+{
+  "name": "quizup-final",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:legacy": "node scripts/build-legacy.mjs",
+    "dev": "npm run build:legacy && vite --host 0.0.0.0",
+    "build": "npm run build:legacy && vite build",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.104.1",
+    "dompurify": "^3.3.1",
+    "jspdf": "^4.2.1",
+    "leaflet": "^1.9.4",
+    "qrcode": "^1.5.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.22",
+    "esbuild": "^0.25.12",
+    "postcss": "^8.5.6",
+    "puppeteer-core": "^24.42.0",
+    "tailwindcss": "^3.4.18",
+    "typescript": "^6.0.3",
+    "vite": "^6.4.2"
+  }
+}

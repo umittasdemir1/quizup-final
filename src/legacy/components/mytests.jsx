@@ -1,0 +1,161 @@
+const { useState, useEffect } = React;
+
+const MyTests = () => {
+  const [myTests, setMyTests] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Get or create anonymous user ID
+  const getAnonymousId = () => {
+    let anonId = localStorage.getItem('anonUserId');
+    if (!anonId) {
+      anonId = 'anon_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem('anonUserId', anonId);
+    }
+    return anonId;
+  };
+
+  useEffect(() => {
+    loadMyTests();
+  }, []);
+
+  const loadMyTests = async () => {
+    try {
+      const anonId = getAnonymousId();
+
+      // Get test IDs from localStorage
+      const myTestIds = JSON.parse(localStorage.getItem(`tests_${anonId}`) || '[]');
+
+      if (myTestIds.length === 0) {
+        setLoading(false);
+        return;
+      }
+
+      const staleIds = new Set();
+      const tests = [];
+
+      for (const testId of myTestIds) {
+        try {
+          const result = await window.db.getResultById(testId);
+          if (result) {
+            tests.push(result);
+          } else {
+            staleIds.add(testId);
+          }
+        } catch (e) {
+          const message = e?.message || '';
+          if (message.toLowerCase().includes('permission')) {
+            staleIds.add(testId);
+            window.devWarn('Erişim izni olmayan test kaydı kaldırılıyor:', testId);
+          } else {
+            window.devError('Test yüklenirken hata:', testId, e);
+          }
+        }
+      }
+
+      if (staleIds.size > 0) {
+        const filteredIds = myTestIds.filter(id => !staleIds.has(id));
+        localStorage.setItem(`tests_${anonId}`, JSON.stringify(filteredIds));
+        if (staleIds.size === myTestIds.length) {
+          toast('Eski test kayıtlarına erişilemiyor. Lütfen yeni bir quiz başlatın.', 'warning');
+        } else {
+          toast('Bazı eski test kayıtlarına erişilemiyor ve listeden kaldırıldı.', 'info');
+        }
+      }
+
+      setMyTests(tests.sort((a, b) => {
+        const aTime = new Date(a.submittedAt || a.createdAt || 0).getTime();
+        const bTime = new Date(b.submittedAt || b.createdAt || 0).getTime();
+        return bTime - aTime;
+      }));
+    } catch (e) {
+      window.devError('Load my tests error:', e);
+      toast('Testleriniz yüklenemedi', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) return <Page title="Testlerim"><LoadingSpinner /></Page>;
+
+  return (
+    <Page title="Testlerim" subtitle={`${myTests.length} test tamamlandı`}>
+      {myTests.length === 0 ? (
+        <div className="card p-12 text-center">
+          <div className="text-6xl mb-4">
+            <DocumentTextIcon size={64} strokeWidth={1.5} className="inline text-primary-500" />
+          </div>
+          <p className="text-dark-500 text-lg mb-4">Henüz test tamamlamadınız</p>
+          <a href="#/" className="btn btn-primary">
+            Quiz'e Başla
+          </a>
+        </div>
+      ) : (
+        <div className="grid gap-4">
+          {myTests.map((test) => {
+            const percent = test.score?.percent || 0;
+            const correct = test.score?.correct || 0;
+            const total = test.score?.total || 0;
+
+            return (
+              <div key={test.id} className="card p-6 hover:shadow-lg transition-shadow">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div
+                        className="text-3xl font-black"
+                        style={{
+                          color: percent >= 70 ? '#5EC5B6' : percent >= 50 ? '#FF6B4A' : '#dc2626'
+                        }}
+                      >
+                        {percent}%
+                      </div>
+                      <div className="text-dark-600">
+                        <div className="font-semibold">{correct}/{total} Doğru</div>
+                        <div className="text-sm text-dark-500">
+                          {fmtDate(test.submittedAt)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {test.employee && (
+                      <div className="text-sm text-dark-600">
+                        <span className="font-semibold">{test.employee.fullName}</span>
+                        {test.employee.store && <span> • {test.employee.store}</span>}
+                      </div>
+                    )}
+
+                    {test.timeTracking && (
+                      <div className="flex gap-3 mt-2 text-sm">
+                        <span className="chip chip-blue">
+                          <ClockIcon size={14} strokeWidth={2} className="inline" /> {Math.floor(test.timeTracking.totalTime / 60)}dk {test.timeTracking.totalTime % 60}sn
+                        </span>
+                        <span className="chip bg-gray-100 text-gray-700">
+                          {test.score?.total || 0} soru
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <a
+                    href={`#/result?sessionId=${test.sessionId}&resultId=${test.id}`}
+                    className="btn btn-sm bg-blue-500 text-white hover:bg-blue-600"
+                  >
+                    <ChartBarIcon size={16} strokeWidth={2} className="inline mr-1" /> Detay
+                  </a>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="mt-6 text-center">
+        <a href="#/" className="btn btn-primary">
+          🆕 Yeni Quiz Başlat
+        </a>
+      </div>
+    </Page>
+  );
+};
+
+window.MyTests = MyTests;

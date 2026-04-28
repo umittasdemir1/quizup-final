@@ -1,0 +1,14 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+  VITE_SUPABASE_URL = "https://desydmbcbenyaksheold.supabase.co"
+  VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlc3lkbWJjYmVueWFrc2hlb2xkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMjk3MTEsImV4cCI6MjA5MjcwNTcxMX0.qDmliCNqlqAjAudGBK3ODbKD7JpcUZaMZ-afGv8lDec"
+  VITE_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_mNRmwXUWIk9LTOsUZT3uxA_VUTVr_fi"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
