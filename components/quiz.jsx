@@ -627,7 +627,7 @@ const Quiz = ({ sessionId }) => {
   const isTimedOut = timedOutQuestions[q.id];
 
   return (
-    <Page className="pt-3 pb-8"
+    <Page className="pt-0 pb-8"
     >
       {q.hasTimer && q.timerSeconds && (
         <CircularTimer timeLeft={timeLeft} totalSeconds={timerTotal} isActive={timerActive} />
