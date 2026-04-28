@@ -627,16 +627,36 @@ const Quiz = ({ sessionId }) => {
   const isTimedOut = timedOutQuestions[q.id];
 
   return (
-    <Page
+    <Page className="pt-3 pb-8"
     >
       {q.hasTimer && q.timerSeconds && (
         <CircularTimer timeLeft={timeLeft} totalSeconds={timerTotal} isActive={timerActive} />
       )}
-      <div className="max-w-3xl mx-auto">
-        <div className="mb-6">
-          <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+      <div className="max-w-3xl mx-auto" style={{ paddingTop: '4px' }}>
+        <div className="mb-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <span style={{
+              fontSize: '12px',
+              fontWeight: '600',
+              color: '#64748b',
+              letterSpacing: '0.03em'
+            }}>
+              Soru {idx + 1} / {questions.length}
+            </span>
+            <span style={{
+              fontSize: '12px',
+              fontWeight: '700',
+              color: '#5EC5B6',
+              background: 'rgba(94,197,182,0.1)',
+              padding: '2px 8px',
+              borderRadius: '999px',
+            }}>
+              %{Math.round(progress)}
+            </span>
+          </div>
+          <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
             <div 
-              className="h-full bg-gradient-to-r from-primary-500 to-accent-500 transition-all duration-300"
+              className="h-full bg-gradient-to-r from-primary-500 to-accent-500 transition-all duration-500"
               style={{ width: progress + '%' }}
             ></div>
           </div>

@@ -228,15 +228,17 @@ const LoadingSpinner = ({ size = 40, text = 'Yükleniyor...' }) => (
 );
 
 // Page Component
-const Page = ({ title, subtitle, extra, children }) => (
-  <div className="max-w-7xl mx-auto px-4 py-8">
-    <div className="flex justify-between items-start mb-6">
-      <div>
-        <h1 className="text-3xl font-bold text-dark-900">{title}</h1>
-        {subtitle && <p className="text-dark-500 mt-1">{subtitle}</p>}
+const Page = ({ title, subtitle, extra, children, className }) => (
+  <div className={`max-w-7xl mx-auto px-4 ${className || 'py-8'}`}>
+    {(title || subtitle || extra) && (
+      <div className="flex justify-between items-start mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-dark-900">{title}</h1>
+          {subtitle && <p className="text-dark-500 mt-1">{subtitle}</p>}
+        </div>
+        {extra && <div>{extra}</div>}
       </div>
-      {extra && <div>{extra}</div>}
-    </div>
+    )}
     {children}
   </div>
 );
