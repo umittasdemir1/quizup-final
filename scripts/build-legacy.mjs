@@ -1,9 +1,14 @@
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { transform } from 'esbuild';
 
-const files = [
+// These files are copied as-is (no esbuild transform needed)
+const copyOnlyFiles = [
   'config/pdf-fonts.js',
+];
+
+// These files go through esbuild JSX transform
+const files = [
   'utils/helpers.js',
   'utils/hooks.js',
   'utils/location.js',
@@ -36,6 +41,14 @@ const outRoot = 'public/legacy';
 
 await rm(outRoot, { recursive: true, force: true });
 
+// Copy-only files (skip esbuild)
+for (const file of copyOnlyFiles) {
+  const outputPath = join(outRoot, file.replace(/\.(jsx|js)$/, '.js'));
+  await mkdir(dirname(outputPath), { recursive: true });
+  await copyFile(file, outputPath);
+}
+
+// esbuild transform files
 for (const file of files) {
   const source = await readFile(file, 'utf8');
   const result = await transform(source, {
