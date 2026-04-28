@@ -636,22 +636,12 @@ const Quiz = ({ sessionId }) => {
         <div className="mb-3">
           <div className="flex items-center justify-between mb-1.5">
             <span style={{
-              fontSize: '12px',
+              fontSize: '13px',
               fontWeight: '600',
               color: '#64748b',
-              letterSpacing: '0.03em'
+              letterSpacing: '0.02em'
             }}>
               Soru {idx + 1} / {questions.length}
-            </span>
-            <span style={{
-              fontSize: '12px',
-              fontWeight: '700',
-              color: '#5EC5B6',
-              background: 'rgba(94,197,182,0.1)',
-              padding: '2px 8px',
-              borderRadius: '999px',
-            }}>
-              %{Math.round(progress)}
             </span>
           </div>
           <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
