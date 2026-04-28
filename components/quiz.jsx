@@ -628,19 +628,6 @@ const Quiz = ({ sessionId }) => {
 
   return (
     <Page
-      extra={
-        <button
-          className="p-2 rounded-full bg-red-50 hover:bg-red-100 text-red-600 transition-all border-2 border-red-200"
-          onClick={() => setShowAbandonModal(true)}
-          title="Quizden Çık"
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-            <polyline points="16 17 21 12 16 7" />
-            <line x1="21" y1="12" x2="9" y2="12" />
-          </svg>
-        </button>
-      }
     >
       {q.hasTimer && q.timerSeconds && (
         <CircularTimer timeLeft={timeLeft} totalSeconds={timerTotal} isActive={timerActive} />
@@ -723,10 +710,10 @@ const Quiz = ({ sessionId }) => {
             ></textarea>
           )}
 
-          <div className="quiz-nav-group">
-            {/* Previous Button - Pill Shaped */}
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            {/* Previous Button */}
             <button 
-              className="nav-pill nav-pill-prev relative w-full sm:w-auto" 
+              className="nav-pill nav-pill-prev relative" 
               onClick={prev} 
               disabled={idx === 0}
             >
@@ -743,10 +730,9 @@ const Quiz = ({ sessionId }) => {
               )}
             </button>
 
-
-            {/* Next/Submit Button - Pill Shaped */}
+            {/* Next/Submit Button */}
             {idx < questions.length - 1 ? (
-              <button className="nav-pill nav-pill-next w-full sm:w-auto" onClick={next}>
+              <button className="nav-pill nav-pill-next" onClick={next}>
                 <span className="nav-pill-text">Next</span>
                 <div className="nav-pill-icon">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -756,7 +742,7 @@ const Quiz = ({ sessionId }) => {
               </button>
             ) : (
               <button
-                className="nav-pill nav-pill-submit w-full sm:w-auto"
+                className="nav-pill nav-pill-submit"
                 onClick={() => submit()}
                 disabled={submitting}
               >
@@ -768,6 +754,19 @@ const Quiz = ({ sessionId }) => {
                 </div>
               </button>
             )}
+
+            {/* Quit Button - sağda */}
+            <button
+              style={{ padding: '8px', borderRadius: '50%', background: '#fff1f0', border: '2px solid #fecaca', color: '#dc2626', transition: 'all 0.2s', cursor: 'pointer' }}
+              onClick={() => setShowAbandonModal(true)}
+              title="Quizden Çık"
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+            </button>
           </div>
         </div>
         
