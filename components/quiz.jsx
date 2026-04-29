@@ -519,6 +519,9 @@ const Quiz = ({ sessionId }) => {
     if (!skipConfirm && !confirm('Quizi göndermek istediğinizden emin misiniz?')) return;
 
     const lastQuestionStatus = lastQuestionTimedOut ? 'timeout' : (lastQuestionAnswered ? 'answered' : 'skipped');
+    const lastQuestionTimeSpent = questionStartTime
+      ? Math.round((Date.now() - questionStartTime) / 1000)
+      : 0;
     
     // Record time for last question
     recordQuestionTime(currentQuestionId, lastQuestionStatus);
@@ -546,7 +549,7 @@ const Quiz = ({ sessionId }) => {
           questionId: q.id,
           questionText: q.questionText,
           category: q.category,
-          timeSpent: questionTimes[q.id]?.timeSpent || 0,
+          timeSpent: isLastQuestion ? lastQuestionTimeSpent : (questionTimes[q.id]?.timeSpent || 0),
           status: wasTimedOut
             ? 'timeout'
             : (isLastQuestion
@@ -652,15 +655,15 @@ const Quiz = ({ sessionId }) => {
           </div>
         </div>
 
-        <div className="card p-8 space-y-6" ref={cardRef}>
+        <div className="card p-5 sm:p-8 space-y-4 sm:space-y-6" ref={cardRef}>
           <div>
 
             {q.questionImageUrl && (
-              <div className="question-image-container mb-4">
+              <div className="question-image-container mb-3 sm:mb-4">
                 <img src={q.questionImageUrl} alt="Soru Görseli" />
               </div>
             )}
-            <h2 className="text-2xl font-bold text-dark-900 mb-6" dangerouslySetInnerHTML={{ __html: sanitizeHTML(q.questionText) }} />
+            <h2 className="text-xl sm:text-2xl font-medium text-dark-900 mb-4 sm:mb-6 leading-snug" dangerouslySetInnerHTML={{ __html: sanitizeHTML(q.questionText) }} />
           </div>
 
           {q.type === 'mcq' ? (

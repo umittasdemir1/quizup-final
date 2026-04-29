@@ -601,28 +601,37 @@ main {
 
 /* Option Cards */
 .option-card {
-  border: 2px solid #e5e7eb;
-  border-radius: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 18px;
   padding: 14px 16px;
   cursor: pointer;
-  transition: border-color .2s, background-color .2s;
-  background: #f9fafb;
+  transition: background-color .18s ease, box-shadow .18s ease, border-color .18s ease, transform .18s ease;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.05),
+    0 10px 24px rgba(15, 23, 42, 0.06);
   display: block;
   width: 100%;
   /* 🚀 Hardware acceleration for smooth mobile tap interactions */
-  will-change: border-color, background-color;
+  will-change: transform, background-color, box-shadow;
   transform: translateZ(0);
 }
 
 .option-card:hover {
-  border-color: #FFCC80;
-  background: #FFF3E0;
+  border-color: rgba(255, 204, 128, 0.9);
+  background: linear-gradient(180deg, #fffdf9 0%, #fff7ed 100%);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.05),
+    0 12px 28px rgba(255, 163, 26, 0.10);
+  transform: translateY(-1px) translateZ(0);
 }
 
 .option-card.selected {
-  border-color: #FF5722;
-  background: #FFE0B2;
-  box-shadow: 0 0 0 2px rgba(255,87,34,0.15);
+  border-color: rgba(255, 87, 34, 0.32);
+  background: linear-gradient(180deg, #fff8f3 0%, #ffeede 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 87, 34, 0.08),
+    0 12px 28px rgba(255, 87, 34, 0.14);
 }
 
 .option-card input[type="radio"],
@@ -1258,40 +1267,49 @@ main {
 
 /* Image Option Cards */
 .image-option-card {
-  border: 3px solid #e5e7eb;
-  border-radius: 16px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 20px;
   padding: 12px;
   cursor: pointer;
-  transition: all .2s;
-  background: #fff;
+  transition: background-color .18s ease, box-shadow .18s ease, border-color .18s ease, transform .18s ease;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.05),
+    0 12px 28px rgba(15, 23, 42, 0.07);
   overflow: hidden;
   /* 🚀 Hardware acceleration for smooth mobile interactions */
-  will-change: transform, border-color, box-shadow;
+  will-change: transform, background-color, box-shadow;
   backface-visibility: hidden;
 }
 
 .image-option-card:hover {
-  border-color: #FFCC80;
-  transform: scale(1.02);
+  border-color: rgba(255, 204, 128, 0.9);
+  background: linear-gradient(180deg, #fffdf9 0%, #fff7ed 100%);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.05),
+    0 14px 30px rgba(255, 163, 26, 0.10);
+  transform: translateY(-1px) scale(1.01);
 }
 
 .image-option-card.disabled {
   pointer-events: none;
   opacity: 0.6;
-  border-color: #e5e7eb;
   transform: none;
 }
 
 .image-option-card.selected {
-  border-color: #FF5722;
-  box-shadow: 0 0 0 3px rgba(255,87,34,0.2);
+  border-color: rgba(255, 87, 34, 0.32);
+  background: linear-gradient(180deg, #fff8f3 0%, #ffeede 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 87, 34, 0.08),
+    0 14px 30px rgba(255, 87, 34, 0.15);
 }
 
 .image-option-card img {
   width: 100%;
   aspect-ratio: 1 / 1;
   object-fit: cover;
-  border-radius: 8px;
+  border-radius: 14px;
 }
 
 /* Toggle Switch */
