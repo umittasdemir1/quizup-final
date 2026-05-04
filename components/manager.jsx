@@ -6,10 +6,25 @@ const Manager = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ employee: { fullName: '', store: '' }, questionIds: [] });
+  const [form, setForm] = useState({
+    employee: { fullName: '', store: '' },
+    questionIds: [],
+    sessionMode: 'individual',
+    timerMode: 'per_question',
+    totalTimerSeconds: 600,
+  });
   const [errors, setErrors] = useState({});
   const [qrUrl, setQrUrl] = useState('');
+  const [createdSessionId, setCreatedSessionId] = useState(null);
+  const [createdSessionMode, setCreatedSessionMode] = useState('individual');
   const qrRef = useRef(null);
+
+  // Lobi state (açık oturum QR ekranı için)
+  const [lobbyParticipants, setLobbyParticipants] = useState([]);
+  const [lobbyStartedAt, setLobbyStartedAt] = useState(null);
+  const [lobbyTimeLeft, setLobbyTimeLeft] = useState(null);
+  const lobbyIntervalRef = useRef(null);
+  const lobbySessionPollRef = useRef(null);
   const [showFilters, setShowFilters] = useState(false);
   const [showSort, setShowSort] = useState(false);
   const [filters, setFilters] = useState({
@@ -148,6 +163,45 @@ const Manager = () => {
       window.removeEventListener('company-changed', handleCompanyChange);
     };
   }, []);
+
+  // Açık oturum lobi: katılımcıları ve sayacı izle
+  useEffect(() => {
+    if (!createdSessionId || createdSessionMode !== 'open') return;
+
+    const LOBBY_DURATION = 60;
+
+    const unsubParticipants = window.db.onSessionParticipantsSnapshot(createdSessionId, (data) => {
+      setLobbyParticipants(data);
+    });
+
+    const pollSession = async () => {
+      try {
+        const fresh = await window.db.getSessionById(createdSessionId);
+        if (fresh?.lobbyStartedAt && !lobbyStartedAt) {
+          setLobbyStartedAt(fresh.lobbyStartedAt);
+        }
+      } catch (e) { /* sessiz */ }
+      lobbySessionPollRef.current = setTimeout(pollSession, 2000);
+    };
+    pollSession();
+
+    return () => {
+      unsubParticipants();
+      clearTimeout(lobbySessionPollRef.current);
+    };
+  }, [createdSessionId, createdSessionMode]);
+
+  useEffect(() => {
+    if (!lobbyStartedAt) return;
+    const LOBBY_DURATION = 60;
+    const tick = () => {
+      const elapsed = Math.floor((Date.now() - new Date(lobbyStartedAt).getTime()) / 1000);
+      setLobbyTimeLeft(Math.max(0, LOBBY_DURATION - elapsed));
+    };
+    tick();
+    lobbyIntervalRef.current = setInterval(tick, 1000);
+    return () => clearInterval(lobbyIntervalRef.current);
+  }, [lobbyStartedAt]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -447,12 +501,19 @@ const Manager = () => {
   }, [questions, packageFilters, packageSearch, packageSort]);
 
   const reset = () => {
-    setForm({ employee: { fullName: '', store: '' }, questionIds: [] });
+    setForm({ employee: { fullName: '', store: '' }, questionIds: [], sessionMode: 'individual', timerMode: 'per_question', totalTimerSeconds: 600 });
     setShowForm(false);
     setQrUrl('');
+    setCreatedSessionId(null);
+    setCreatedSessionMode('individual');
     setErrors({});
     setFilters({ categories: [], difficulties: [], types: [], timers: [] });
     setSearch('');
+    setLobbyParticipants([]);
+    setLobbyStartedAt(null);
+    setLobbyTimeLeft(null);
+    clearInterval(lobbyIntervalRef.current);
+    clearTimeout(lobbySessionPollRef.current);
   };
 
   const toggleQ = (id) => {
@@ -519,18 +580,22 @@ const Manager = () => {
       }
 
       const data = {
-        employee: {
-          fullName: form.employee.fullName.trim(),
-          store: form.employee.store.trim()
-        },
+        employee: form.sessionMode === 'open'
+          ? {}
+          : { fullName: form.employee.fullName.trim(), store: form.employee.store.trim() },
         createdBy: currentUser?.uid || null,
         createdByApplicationPin: creatorPin,
         questionIds: form.questionIds,
+        sessionMode: form.sessionMode,
+        timerMode: form.timerMode,
+        totalTimerSeconds: form.timerMode === 'total' ? Number(form.totalTimerSeconds) : null,
       };
 
       const session = await window.db.addSession(data, companyId);
       const url = location.origin + location.pathname + '#/quiz/' + session.id;
       setQrUrl(url);
+      setCreatedSessionId(session.id);
+      setCreatedSessionMode(form.sessionMode);
 
       setTimeout(() => {
         if (qrRef.current) {
@@ -697,43 +762,152 @@ const Manager = () => {
       extra={!showForm && !qrUrl && <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ Yeni Quiz</button>}
     >
       {qrUrl ? (
-        <div className="card p-8 text-center space-y-6">
-          <div className="inline-block p-6 bg-white rounded-2xl shadow-card">
-            <div ref={qrRef}></div>
-          </div>
-          <div>
-            <p className="font-semibold text-lg text-dark-900 mb-2">Quiz Hazır!</p>
-            <p className="text-sm text-dark-600 mb-4">Personel bu QR kodu okutarak quize başlayabilir</p>
+        <div className="card p-8 space-y-6">
+          {/* QR + Bağlantı */}
+          <div className="text-center">
+            <div className="inline-block p-6 bg-white rounded-2xl shadow-card mb-4">
+              <div ref={qrRef}></div>
+            </div>
+            <p className="font-semibold text-lg text-dark-900 mb-1">Quiz Hazır!</p>
+            <p className="text-sm text-dark-600 mb-2">
+              {createdSessionMode === 'open'
+                ? 'QR kodu paylaşın, katılımcılar kendi bilgilerini girerek lobiye katılır'
+                : 'Personel bu QR kodu okutarak quize başlayabilir'}
+            </p>
             <a href={qrUrl} target="_blank" className="text-primary-500 text-sm hover:underline break-all">{qrUrl}</a>
           </div>
-          <button className="btn btn-primary" onClick={reset}>Yeni Quiz Oluştur</button>
+
+          {/* Açık oturum: lobi sayacı + katılımcı listesi */}
+          {createdSessionMode === 'open' && (
+            <div className="border-t pt-6">
+              <div className="flex items-center justify-between mb-4">
+                <p className="font-semibold text-dark-900">
+                  Lobi {lobbyStartedAt
+                    ? (lobbyTimeLeft > 0 ? `— ${lobbyTimeLeft} sn` : '— Başlıyor...')
+                    : '— Bekleniyor'}
+                </p>
+                <span className="chip chip-blue">{lobbyParticipants.length} katılımcı</span>
+              </div>
+
+              {lobbyParticipants.length === 0 ? (
+                <p className="text-sm text-dark-400 text-center py-4">Henüz kimse katılmadı</p>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {lobbyParticipants.map((p) => (
+                    <div key={p.id} className="flex justify-between items-center px-3 py-2 rounded-lg bg-gray-50 border border-gray-100">
+                      <span className="font-medium text-sm text-dark-900">{p.fullName}</span>
+                      <span className="text-xs text-dark-500">{p.store}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="text-center">
+            <button className="btn btn-primary" onClick={reset}>Yeni Quiz Oluştur</button>
+          </div>
         </div>
       ) : showForm ? (
         <div className="card p-6 space-y-6">
           <h3 className="text-xl font-bold text-dark-900">Yeni Quiz Oturumu</h3>
 
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold mb-2 text-dark-700">Personel Adı *</label>
-              <input
-                className={`field ${errors.fullName ? 'error' : ''}`}
-                value={form.employee.fullName}
-                onChange={e => updateEmployee('fullName', e.target.value)}
-                placeholder="Ümit TAŞDEMİR"
-              />
-              {errors.fullName && <div className="error-text">{errors.fullName}</div>}
+          {/* Oturum Türü Seçimi */}
+          <div>
+            <label className="block text-sm font-semibold mb-3 text-dark-700">Oturum Türü *</label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <button
+                type="button"
+                className={`session-type-card${form.sessionMode === 'individual' && form.timerMode === 'per_question' ? ' active' : ''}`}
+                onClick={() => setForm(f => ({ ...f, sessionMode: 'individual', timerMode: 'per_question' }))}
+              >
+                <div className="session-type-icon">⏱</div>
+                <div className="session-type-title">Bireysel</div>
+                <div className="session-type-desc">Soru Başına Süre</div>
+              </button>
+              <button
+                type="button"
+                className={`session-type-card${form.sessionMode === 'individual' && form.timerMode === 'total' ? ' active' : ''}`}
+                onClick={() => setForm(f => ({ ...f, sessionMode: 'individual', timerMode: 'total' }))}
+              >
+                <div className="session-type-icon">⏰</div>
+                <div className="session-type-title">Bireysel</div>
+                <div className="session-type-desc">Toplam Süre</div>
+              </button>
+              <button
+                type="button"
+                className={`session-type-card${form.sessionMode === 'open' ? ' active' : ''}`}
+                onClick={() => setForm(f => ({ ...f, sessionMode: 'open', timerMode: 'per_question' }))}
+              >
+                <div className="session-type-icon">👥</div>
+                <div className="session-type-title">Açık Oturum</div>
+                <div className="session-type-desc">Çok Katılımcılı</div>
+              </button>
             </div>
-            <div>
-              <label className="block text-sm font-semibold mb-2 text-dark-700">Mağaza *</label>
-              <input
-                className={`field ${errors.store ? 'error' : ''}`}
-                value={form.employee.store}
-                onChange={e => updateEmployee('store', e.target.value)}
-                placeholder="Midtown"
-              />
-              {errors.store && <div className="error-text">{errors.store}</div>}
-            </div>
+
+            {/* Açık Oturum timer alt seçimi */}
+            {form.sessionMode === 'open' && (
+              <div className="flex gap-2 mt-3">
+                <button
+                  type="button"
+                  className={`btn text-sm px-4 py-2 ${form.timerMode === 'per_question' ? 'btn-primary' : 'btn-ghost'}`}
+                  onClick={() => setForm(f => ({ ...f, timerMode: 'per_question' }))}
+                >
+                  Soru Başına Süre
+                </button>
+                <button
+                  type="button"
+                  className={`btn text-sm px-4 py-2 ${form.timerMode === 'total' ? 'btn-primary' : 'btn-ghost'}`}
+                  onClick={() => setForm(f => ({ ...f, timerMode: 'total' }))}
+                >
+                  Toplam Süre
+                </button>
+              </div>
+            )}
+
+            {/* Toplam süre girişi */}
+            {form.timerMode === 'total' && (
+              <div className="mt-3">
+                <label className="block text-sm font-semibold mb-1 text-dark-700">Toplam Süre (dakika) *</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="180"
+                  className={`field w-40 ${errors.totalTimerSeconds ? 'error' : ''}`}
+                  value={Math.round(form.totalTimerSeconds / 60) || ''}
+                  onChange={e => setForm(f => ({ ...f, totalTimerSeconds: Number(e.target.value) * 60 }))}
+                  placeholder="10"
+                />
+                {errors.totalTimerSeconds && <div className="error-text">{errors.totalTimerSeconds}</div>}
+              </div>
+            )}
           </div>
+
+          {/* Bireysel oturumlarda personel bilgileri */}
+          {form.sessionMode !== 'open' && (
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold mb-2 text-dark-700">Personel Adı *</label>
+                <input
+                  className={`field ${errors.fullName ? 'error' : ''}`}
+                  value={form.employee.fullName}
+                  onChange={e => updateEmployee('fullName', e.target.value)}
+                  placeholder="Ümit TAŞDEMİR"
+                />
+                {errors.fullName && <div className="error-text">{errors.fullName}</div>}
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-2 text-dark-700">Mağaza *</label>
+                <input
+                  className={`field ${errors.store ? 'error' : ''}`}
+                  value={form.employee.store}
+                  onChange={e => updateEmployee('store', e.target.value)}
+                  placeholder="Midtown"
+                />
+                {errors.store && <div className="error-text">{errors.store}</div>}
+              </div>
+            </div>
+          )}
 
           <div>
             <div className="flex items-center justify-between mb-3">
@@ -1065,13 +1239,26 @@ const Manager = () => {
               <div key={s.id} className="card p-6">
                 <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
                   <div className="flex-1 min-w-0 w-full">
-                    <div className="flex items-center gap-3 mb-2 flex-wrap">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <span className={`chip ${s.status === 'completed' ? 'chip-green' : 'chip-orange'}`}>
                         {s.status === 'completed' ? 'Tamamlandı' : 'Bekliyor'}
                       </span>
+                      {s.sessionMode === 'open' ? (
+                        <span className="chip chip-blue">👥 Açık Oturum</span>
+                      ) : (
+                        <span className="chip bg-gray-100 text-gray-600">
+                          {s.timerMode === 'total' ? '⏰ Toplam Süre' : '⏱ Soru Başına Süre'}
+                        </span>
+                      )}
                     </div>
-                    <p className="font-semibold text-lg text-dark-900 break-words">{s.employee?.fullName || '-'}</p>
-                    <p className="text-sm text-dark-600 break-words">{s.employee?.store || '-'}</p>
+                    <p className="font-semibold text-lg text-dark-900 break-words">
+                      {s.sessionMode === 'open' ? 'Açık Oturum' : (s.employee?.fullName || '-')}
+                    </p>
+                    <p className="text-sm text-dark-600 break-words">
+                      {s.sessionMode === 'open'
+                        ? (s.timerMode === 'total' ? `Toplam süre: ${Math.round((s.totalTimerSeconds || 600) / 60)} dk` : 'Soru başına süreli')
+                        : (s.employee?.store || '-')}
+                    </p>
                     <p className="text-xs text-dark-400 mt-2">
                       {(s.questionIds || []).length} soru • {fmtDate(s.createdAt)}
                     </p>

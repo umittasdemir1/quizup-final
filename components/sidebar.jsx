@@ -426,8 +426,8 @@ const Sidebar = () => {
     setCurrentUser(getCurrentUser());
   }, [route]);
 
-  // Hide sidebar on landing and login pages
-  const hideSidebar = route === '/' || route === '/login' || route.startsWith('/login');
+  // Hide sidebar on landing, login and quiz pages
+  const hideSidebar = route === '/' || route === '/login' || route.startsWith('/login') || route.startsWith('/quiz/');
 
   // Logo click handler
   const handleLogoClick = () => {

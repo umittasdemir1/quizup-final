@@ -1,5 +1,4 @@
 const { useState, useEffect, useRef, useCallback, memo } = React;
-const { createPortal } = ReactDOM;
 
 // Get or create anonymous user ID
 const getAnonymousId = () => {
@@ -36,11 +35,7 @@ const CircularTimer = memo(({ timeLeft, totalSeconds, isActive }) => {
 
   const showEndingAnimation = safeTime <= 5 && isActive;
 
-  const headerSlot = typeof document !== 'undefined'
-    ? document.getElementById('header-timer-slot')
-    : null;
-
-  const timerNode = (
+  return (
     <div className="circular-timer" role="timer" aria-label={`Kalan süre: ${safeTime} saniye`}>
       <svg
         className="circular-timer-ring"
@@ -74,16 +69,6 @@ const CircularTimer = memo(({ timeLeft, totalSeconds, isActive }) => {
       </div>
     </div>
   );
-
-  if (headerSlot) {
-    return createPortal(timerNode, headerSlot);
-  }
-
-  return (
-    <div className="floating-timer" aria-live="polite">
-      {timerNode}
-    </div>
-  );
 });
 
 const Quiz = ({ sessionId }) => {
@@ -99,6 +84,29 @@ const Quiz = ({ sessionId }) => {
   const [timerActive, setTimerActive] = useState(false);
   const timerRef = useRef(null);
   const cardRef = useRef(null);
+  const revealTimerRef = useRef(null);
+
+  const [showAnswer, setShowAnswer] = useState(false);
+
+  // Açık oturum katılımcı bilgileri
+  const [participantInfo, setParticipantInfo] = useState(null);
+  const [participantForm, setParticipantForm] = useState({ fullName: '', store: '' });
+  const [participantErrors, setParticipantErrors] = useState({});
+  const [joiningLobby, setJoiningLobby] = useState(false);
+
+  // Lobi
+  const [lobbyParticipants, setLobbyParticipants] = useState([]);
+  const [lobbyTimeLeft, setLobbyTimeLeft] = useState(null);
+  const [lobbyStartedAt, setLobbyStartedAt] = useState(null);
+  const [countdown, setCountdown] = useState(null); // 3,2,1 geri sayım
+  const [quizStarted, setQuizStarted] = useState(false);
+  const lobbyIntervalRef = useRef(null);
+  const countdownRef = useRef(null);
+
+  // Toplam süre sayacı
+  const [sessionTimeLeft, setSessionTimeLeft] = useState(null);
+  const [sessionTimerExpired, setSessionTimerExpired] = useState(false);
+  const sessionTimerRef = useRef(null);
 
   const [currentUser, setCurrentUser] = useState(() => {
     try {
@@ -215,6 +223,11 @@ const Quiz = ({ sessionId }) => {
 
         setQuizStartTime(Date.now());
 
+        // Toplam süre modunda sayacı başlat (açık oturumda katılımcı kaydından sonra başlar)
+        if (sd.timerMode === 'total' && sd.totalTimerSeconds && sd.sessionMode !== 'open') {
+          setSessionTimeLeft(sd.totalTimerSeconds);
+        }
+
         if (window.locationUtils) {
           window.locationUtils.getLocation().then(loc => {
             window.devLog('Location obtained:', loc);
@@ -232,6 +245,70 @@ const Quiz = ({ sessionId }) => {
     })();
   }, [sessionId]);
 
+  // Lobi: lobbyStartedAt değişince sayacı yeniden hesapla
+  useEffect(() => {
+    if (!lobbyStartedAt) return;
+
+    const LOBBY_DURATION = 60;
+
+    const tick = () => {
+      const elapsed = Math.floor((Date.now() - new Date(lobbyStartedAt).getTime()) / 1000);
+      const left = Math.max(0, LOBBY_DURATION - elapsed);
+      setLobbyTimeLeft(left);
+
+      if (left <= 0) {
+        clearInterval(lobbyIntervalRef.current);
+        // 3-2-1 geri sayım
+        let c = 3;
+        setCountdown(c);
+        countdownRef.current = setInterval(() => {
+          c -= 1;
+          if (c <= 0) {
+            clearInterval(countdownRef.current);
+            setCountdown(null);
+            setQuizStarted(true);
+          } else {
+            setCountdown(c);
+          }
+        }, 1000);
+      }
+    };
+
+    tick();
+    lobbyIntervalRef.current = setInterval(tick, 1000);
+    return () => {
+      clearInterval(lobbyIntervalRef.current);
+      clearInterval(countdownRef.current);
+    };
+  }, [lobbyStartedAt]);
+
+  // Lobi: katılımcıları ve güncel lobbyStartedAt'ı izle
+  useEffect(() => {
+    if (!participantInfo || !session || session.sessionMode !== 'open') return;
+
+    const unsubParticipants = window.db.onSessionParticipantsSnapshot(sessionId, (data) => {
+      setLobbyParticipants(data);
+    });
+
+    // lobbyStartedAt'ı session'dan düzenli oku (yokken biri ilk katıldığında set edilir)
+    let sessionPollTimer;
+    const pollSession = async () => {
+      try {
+        const fresh = await window.db.getSessionById(sessionId);
+        if (fresh?.lobbyStartedAt && !lobbyStartedAt) {
+          setLobbyStartedAt(fresh.lobbyStartedAt);
+        }
+      } catch (e) { /* sessiz */ }
+      sessionPollTimer = setTimeout(pollSession, 2000);
+    };
+    pollSession();
+
+    return () => {
+      unsubParticipants();
+      clearTimeout(sessionPollTimer);
+    };
+  }, [participantInfo, sessionId]);
+
   const setAns = (qid, val) => {
     if (timedOutQuestions[qid]) {
       return;
@@ -245,6 +322,8 @@ const Quiz = ({ sessionId }) => {
 
   useEffect(() => {
     setShowSkipConfirm(false);
+    setShowAnswer(false);
+    if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
   }, [idx]);
 
   // 📜 Scroll to top when question changes - Optimized for mobile
@@ -267,7 +346,8 @@ const Quiz = ({ sessionId }) => {
       // Record start time for this question
       setQuestionStartTime(Date.now());
       
-      if (currentQ.hasTimer && currentQ.timerSeconds) {
+      // Total timer modunda soru başına sayaç kullanılmaz
+      if (session?.timerMode !== 'total' && currentQ.hasTimer && currentQ.timerSeconds) {
         setTimeLeft(currentQ.timerSeconds);
         setTimerTotal(currentQ.timerSeconds);
         setTimerActive(true);
@@ -339,6 +419,29 @@ const Quiz = ({ sessionId }) => {
     };
   }, [timerActive, timeLeft, idx, questions.length, answers]);
 
+  // Toplam süre sayacı — sadece sayar, submit'i flag ile tetikler
+  useEffect(() => {
+    if (sessionTimeLeft === null || sessionTimeLeft <= 0) return;
+    sessionTimerRef.current = setInterval(() => {
+      setSessionTimeLeft(t => {
+        if (t <= 1) {
+          clearInterval(sessionTimerRef.current);
+          setSessionTimerExpired(true);
+          return 0;
+        }
+        return t - 1;
+      });
+    }, 1000);
+    return () => clearInterval(sessionTimerRef.current);
+  }, [sessionTimeLeft !== null && sessionTimeLeft > 0 ? 1 : 0]);
+
+  // Flag set edilince fresh closure'la submit çağır
+  useEffect(() => {
+    if (!sessionTimerExpired) return;
+    setSessionTimerExpired(false);
+    submit(true, true);
+  }, [sessionTimerExpired]);
+
   // ⏱️ Record time spent on question
   const recordQuestionTime = (questionId, status = null) => {
     if (questionStartTime) {
@@ -383,6 +486,20 @@ const Quiz = ({ sessionId }) => {
       if (!wasTimedOut && !hasAnswer) {
         setSkipConfirmAction('next');
         setShowSkipConfirm(true);
+        return;
+      }
+
+      // MCQ ve cevap varsa cevabı göster
+      if (questions[idx].type === 'mcq' && hasAnswer && !showAnswer) {
+        setShowAnswer(true);
+        setTimerActive(false);
+        if (timerRef.current) clearInterval(timerRef.current);
+        // Doğru cevapsa 1sn sonra otomatik geç
+        if (answers[questionId] === questions[idx].correctAnswer) {
+          revealTimerRef.current = setTimeout(() => {
+            advanceToNextQuestion();
+          }, 1000);
+        }
         return;
       }
 
@@ -573,7 +690,7 @@ const Quiz = ({ sessionId }) => {
         ownerUid,
         ownerType: isAnonymousOwner ? 'anonymous' : 'authenticated',
         sessionId,
-        employee: session.employee,
+        employee: session.sessionMode === 'open' ? (participantInfo || {}) : session.employee,
         answers,
         score: {
           correct,
@@ -594,7 +711,10 @@ const Quiz = ({ sessionId }) => {
       };
 
       const savedResult = await window.db.addResult(result, companyId);
-      await window.db.updateSession(sessionId, { status: 'completed' });
+      // Açık oturumlar aktif kalır, diğerleri tamamlandı olarak işaretlenir
+      if (session.sessionMode !== 'open') {
+        await window.db.updateSession(sessionId, { status: 'completed' });
+      }
 
       // Save test ID to localStorage for anonymous users
       const anonId = getAnonymousId();
@@ -625,91 +745,179 @@ const Quiz = ({ sessionId }) => {
   if (!session) return <Page title="Quiz"><div className="card p-6 text-red-600">Oturum bulunamadı.</div></Page>;
   if (questions.length === 0) return <Page title="Quiz"><div className="card p-6">Bu oturumda soru yok.</div></Page>;
 
+  // Açık oturum: katılımcı bilgi formu
+  if (session.sessionMode === 'open' && !participantInfo) {
+    const handleParticipantSubmit = async () => {
+      const errs = {};
+      if (!participantForm.fullName.trim()) errs.fullName = 'Adınızı giriniz';
+      if (!participantForm.store.trim()) errs.store = 'Mağaza giriniz';
+      if (Object.keys(errs).length > 0) { setParticipantErrors(errs); return; }
+      setJoiningLobby(true);
+      try {
+        await window.db.joinSessionLobby(sessionId, {
+          fullName: participantForm.fullName.trim(),
+          store: participantForm.store.trim(),
+        });
+        const info = { fullName: participantForm.fullName.trim(), store: participantForm.store.trim() };
+        setParticipantInfo(info);
+        // lobbyStartedAt'ı hemen çek
+        const fresh = await window.db.getSessionById(sessionId);
+        if (fresh?.lobbyStartedAt) setLobbyStartedAt(fresh.lobbyStartedAt);
+      } catch (e) {
+        toast('Lobiye katılırken hata oluştu', 'error');
+      } finally {
+        setJoiningLobby(false);
+      }
+    };
+    return (
+      <div className="quiz-fullscreen">
+        <div className="quiz-content">
+          <div className="max-w-md mx-auto">
+            <h2 className="text-xl font-semibold text-dark-900 mb-6">Quize Başlamadan Önce</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold mb-1 text-dark-700">Adınız Soyadınız *</label>
+                <input
+                  className={`field ${participantErrors.fullName ? 'error' : ''}`}
+                  value={participantForm.fullName}
+                  onChange={e => { setParticipantForm(f => ({ ...f, fullName: e.target.value })); setParticipantErrors(e2 => { const n = { ...e2 }; delete n.fullName; return n; }); }}
+                  placeholder="Adınız Soyadınız"
+                  autoFocus
+                />
+                {participantErrors.fullName && <div className="error-text">{participantErrors.fullName}</div>}
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1 text-dark-700">Mağaza *</label>
+                <input
+                  className={`field ${participantErrors.store ? 'error' : ''}`}
+                  value={participantForm.store}
+                  onChange={e => { setParticipantForm(f => ({ ...f, store: e.target.value })); setParticipantErrors(e2 => { const n = { ...e2 }; delete n.store; return n; }); }}
+                  placeholder="Mağaza adı"
+                  onKeyDown={e => e.key === 'Enter' && handleParticipantSubmit()}
+                />
+                {participantErrors.store && <div className="error-text">{participantErrors.store}</div>}
+              </div>
+              <button className="btn btn-primary w-full mt-2" onClick={handleParticipantSubmit} disabled={joiningLobby}>
+                {joiningLobby ? 'Katılınıyor...' : 'Hazır'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Açık oturum: lobi bekleme ekranı
+  if (session.sessionMode === 'open' && participantInfo && !quizStarted) {
+    return (
+      <div className="quiz-fullscreen">
+        <div className="quiz-content">
+          <div className="max-w-md mx-auto text-center">
+
+            {countdown !== null ? (
+              <div className="lobby-countdown-big">{countdown}</div>
+            ) : (
+              <>
+                <div className="lobby-timer-ring">
+                  <span className="lobby-timer-value">{lobbyTimeLeft !== null ? lobbyTimeLeft : '—'}</span>
+                </div>
+                <p className="text-sm text-dark-500 mt-3">Quiz {lobbyTimeLeft !== null ? lobbyTimeLeft : '—'} saniye içinde başlıyor</p>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const q = questions[idx];
   const progress = ((idx + 1) / questions.length) * 100;
   const isTimedOut = timedOutQuestions[q.id];
+  const isTotalTimer = session.timerMode === 'total' && sessionTimeLeft !== null;
+
+  // Açık oturum + total timer: quiz başlayınca sayacı başlat
+  if (session.sessionMode === 'open' && session.timerMode === 'total' && session.totalTimerSeconds && sessionTimeLeft === null && quizStarted) {
+    setSessionTimeLeft(session.totalTimerSeconds);
+  }
 
   return (
-    <Page className="pt-0 pb-8"
-    >
-      {q.hasTimer && q.timerSeconds && (
-        <CircularTimer timeLeft={timeLeft} totalSeconds={timerTotal} isActive={timerActive} />
-      )}
-      <div className="max-w-3xl mx-auto" style={{ paddingTop: '4px' }}>
-        <div className="mb-3">
-          <div className="flex items-center justify-between mb-1.5">
-            <span style={{
-              fontSize: '13px',
-              fontWeight: '600',
-              color: '#64748b',
-              letterSpacing: '0.02em'
-            }}>
-              {idx + 1}/{questions.length}
-            </span>
+    <div className="quiz-fullscreen">
+      {/* Quiz Top Bar */}
+      <div className="quiz-topbar">
+        {/* X butonu */}
+        <button
+          className="quiz-topbar-quit"
+          onClick={() => setShowAbandonModal(true)}
+          title="Quizden Çık"
+          aria-label="Quizden Çık"
+        >
+          <div className="quiz-topbar-quit-inner">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </div>
-          <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-gradient-to-r from-primary-500 to-accent-500 transition-all duration-500"
-              style={{ width: progress + '%' }}
-            ></div>
+        </button>
+
+        {/* Progress bar */}
+        <div className="quiz-topbar-center">
+          <div className="quiz-progress-track">
+            <div className="quiz-progress-fill" style={{ width: `${progress}%` }} />
           </div>
         </div>
 
-        <div className="card p-5 sm:p-8 space-y-4 sm:space-y-6" ref={cardRef}>
-          <div>
+        {/* Timer */}
+        <div className="quiz-topbar-timer">
+          {isTotalTimer ? (
+            <div className="quiz-total-timer">
+              {Math.floor(sessionTimeLeft / 60)}:{String(sessionTimeLeft % 60).padStart(2, '0')}
+            </div>
+          ) : (
+            q.hasTimer && q.timerSeconds && (
+              <CircularTimer timeLeft={timeLeft} totalSeconds={timerTotal} isActive={timerActive} />
+            )
+          )}
+        </div>
+      </div>
 
-            {q.questionImageUrl && (
-              <div className="question-image-container mb-3 sm:mb-4">
-                <img src={q.questionImageUrl} alt="Soru Görseli" />
-              </div>
-            )}
-            <h2 className="text-xl sm:text-2xl font-medium text-dark-900 mb-4 sm:mb-6 leading-snug" dangerouslySetInnerHTML={{ __html: sanitizeHTML(q.questionText) }} />
-          </div>
+      <div className="quiz-content">
+        <div className="max-w-2xl mx-auto" ref={cardRef}>
 
+          {/* Soru metni */}
+          {q.questionImageUrl && (
+            <div className="question-image-container mb-3">
+              <img src={q.questionImageUrl} alt="Soru Görseli" />
+            </div>
+          )}
+          <h2 className="text-lg sm:text-xl font-medium text-dark-900 leading-relaxed mb-4 px-1" dangerouslySetInnerHTML={{ __html: sanitizeHTML(q.questionText) }} />
+
+          {/* Şıklar */}
           {q.type === 'mcq' ? (
             q.hasImageOptions && q.optionImageUrls && q.optionImageUrls.length > 0 ? (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 {(q.options || []).map((o, i) => (
                   q.optionImageUrls[i] ? (
-                    <label
+                    <div
                       key={i}
-                      className={'image-option-card ' + (answers[q.id] === o ? 'selected' : '') + (isTimedOut ? ' disabled' : '')}
+                      className={'image-option-card ' + (showAnswer ? (o === q.correctAnswer ? 'correct' : o === answers[q.id] ? 'wrong' : '') : (answers[q.id] === o ? 'selected' : '')) + (isTimedOut ? ' disabled' : '')}
+                      onClick={() => !showAnswer && setAns(q.id, o)}
                     >
-                      <input
-                        type="radio"
-                        name={'q-' + q.id}
-                        className="hidden"
-                        checked={answers[q.id] === o}
-                        onChange={() => setAns(q.id, o)}
-                        disabled={isTimedOut}
-                      />
                       <img src={q.optionImageUrls[i]} alt={`Seçenek ${i + 1}`} />
-                      <div className="text-center mt-2 font-medium text-dark-900" dangerouslySetInnerHTML={{ __html: sanitizeHTML(o) }} />
-                    </label>
+                      <div className="text-center mt-2 text-sm font-medium text-dark-900 leading-relaxed" dangerouslySetInnerHTML={{ __html: sanitizeHTML(o) }} />
+                    </div>
                   ) : null
                 ))}
               </div>
             ) : (
-              <div className={'space-y-3' + (isTimedOut ? ' pointer-events-none opacity-60' : '')}>
+              <div className={'space-y-2' + ((isTimedOut || showAnswer) ? ' pointer-events-none' : '') + (isTimedOut ? ' opacity-60' : '')}>
                 {(q.options || []).map((o, i) => (
-                  <label
+                  <div
                     key={i}
-                    className={'option-card ' + (answers[q.id] === o ? 'selected' : '')}
-                    style={{ cursor: 'pointer', display: 'block' }}
+                    className={'option-card ' + (showAnswer ? (o === q.correctAnswer ? 'correct' : o === answers[q.id] ? 'wrong' : '') : (answers[q.id] === o ? 'selected' : ''))}
+                    onClick={() => setAns(q.id, o)}
                   >
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="radio"
-                        name={'q-' + q.id}
-                        className="w-5 h-5 flex-shrink-0"
-                        checked={answers[q.id] === o}
-                        onChange={() => setAns(q.id, o)}
-                        style={{ cursor: 'pointer' }}
-                        disabled={isTimedOut}
-                      />
-                      <span className="font-medium text-dark-900 flex-1" dangerouslySetInnerHTML={{ __html: sanitizeHTML(o) }} />
-                    </div>
-                  </label>
+                    <span className="text-[15px] font-normal text-dark-900 leading-relaxed" dangerouslySetInnerHTML={{ __html: sanitizeHTML(o) }} />
+                  </div>
                 ))}
               </div>
             )
@@ -723,11 +931,11 @@ const Quiz = ({ sessionId }) => {
             ></textarea>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            {/* Previous Button */}
-            <button 
-              className="nav-pill nav-pill-prev relative" 
-              onClick={prev} 
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginTop: '20px' }}>
+            {/* Geri Butonu */}
+            <button
+              className="nav-pill nav-pill-prev relative"
+              onClick={prev}
               disabled={idx === 0}
             >
               <div className="nav-pill-icon">
@@ -735,7 +943,7 @@ const Quiz = ({ sessionId }) => {
                   <polyline points="15 18 9 12 15 6"></polyline>
                 </svg>
               </div>
-              <span className="nav-pill-text">Prev</span>
+              <span className="nav-pill-text">Geri</span>
               {idx > 0 && (
                 <span className="absolute -top-1 -right-1 text-xs bg-white rounded-full w-5 h-5 flex items-center justify-center shadow-md">
                   <LockClosedIcon size={12} strokeWidth={2} className="text-gray-600" />
@@ -743,10 +951,10 @@ const Quiz = ({ sessionId }) => {
               )}
             </button>
 
-            {/* Next/Submit Button */}
+            {/* İleri/Bitir Butonu */}
             {idx < questions.length - 1 ? (
               <button className="nav-pill nav-pill-next" onClick={next}>
-                <span className="nav-pill-text">Next</span>
+                <span className="nav-pill-text">İleri</span>
                 <div className="nav-pill-icon">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="9 18 15 12 9 6"></polyline>
@@ -759,7 +967,7 @@ const Quiz = ({ sessionId }) => {
                 onClick={() => submit()}
                 disabled={submitting}
               >
-                <span className="nav-pill-text">{submitting ? 'Saving...' : 'Save'}</span>
+                <span className="nav-pill-text">{submitting ? 'Kaydediliyor...' : 'Bitir'}</span>
                 <div className="nav-pill-icon">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20 6 9 17 4 12"></polyline>
@@ -768,21 +976,8 @@ const Quiz = ({ sessionId }) => {
               </button>
             )}
 
-            {/* Quit Button - sağda */}
-            <button
-              style={{ padding: '8px', borderRadius: '50%', background: '#fff1f0', border: '2px solid #fecaca', color: '#dc2626', transition: 'all 0.2s', cursor: 'pointer' }}
-              onClick={() => setShowAbandonModal(true)}
-              title="Quizden Çık"
-            >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                <polyline points="16 17 21 12 16 7" />
-                <line x1="21" y1="12" x2="9" y2="12" />
-              </svg>
-            </button>
           </div>
-        </div>
-        
+
         {/* Password Modal */}
         {showPasswordModal && (
           <>
@@ -867,7 +1062,8 @@ const Quiz = ({ sessionId }) => {
             </div>
           </>
         )}
-      </div>
+        </div> {/* max-w-2xl */}
+      </div> {/* quiz-content */}
 
       {/* Abandon Quiz Modal */}
       {showAbandonModal && (
@@ -898,7 +1094,7 @@ const Quiz = ({ sessionId }) => {
           </div>
         </>
       )}
-    </Page>
+    </div>
   );
 };
 

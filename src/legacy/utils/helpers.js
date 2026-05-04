@@ -184,19 +184,27 @@ const validateQuestion = (form) => {
 
 const validateSession = (form) => {
   const errors = {};
-  
-  if (!form.employee?.fullName?.trim()) {
-    errors.fullName = 'Personel adı gereklidir';
+
+  if (form.sessionMode !== 'open') {
+    if (!form.employee?.fullName?.trim()) {
+      errors.fullName = 'Personel adı gereklidir';
+    }
+    if (!form.employee?.store?.trim()) {
+      errors.store = 'Mağaza bilgisi gereklidir';
+    }
   }
-  
-  if (!form.employee?.store?.trim()) {
-    errors.store = 'Mağaza bilgisi gereklidir';
-  }
-  
+
   if (!form.questionIds || form.questionIds.length === 0) {
     errors.questions = 'En az 1 soru seçilmelidir';
   }
-  
+
+  if (form.timerMode === 'total') {
+    const secs = Number(form.totalTimerSeconds);
+    if (!secs || secs < 30) {
+      errors.totalTimerSeconds = 'En az 30 saniye giriniz';
+    }
+  }
+
   return errors;
 };
 
@@ -228,8 +236,8 @@ const LoadingSpinner = ({ size = 40, text = 'Yükleniyor...' }) => (
 );
 
 // Page Component
-const Page = ({ title, subtitle, extra, children }) => (
-  <div className="max-w-7xl mx-auto px-4 py-8">
+const Page = ({ title, subtitle, extra, children, className }) => (
+  <div className={`max-w-7xl mx-auto px-4 py-8 ${className || ''}`}>
     <div className="flex justify-between items-start mb-6">
       <div>
         <h1 className="text-3xl font-bold text-dark-900">{title}</h1>

@@ -73,6 +73,10 @@ const mapSession = (s) => ({
   questionIds: s.question_ids || [],
   _questionSupabaseIds: s.question_ids || [],
   status: s.status,
+  sessionMode: s.session_mode || 'individual',
+  timerMode: s.timer_mode || 'per_question',
+  totalTimerSeconds: s.total_timer_seconds || null,
+  lobbyStartedAt: s.lobby_started_at || null,
   createdAt: s.created_at,
   completedAt: s.completed_at,
 });
@@ -262,6 +266,9 @@ async function addSession(data, companyId) {
     created_by_application_pin: data.createdByApplicationPin || null,
     question_ids: questionIds,
     status: 'active',
+    session_mode: data.sessionMode || 'individual',
+    timer_mode: data.timerMode || 'per_question',
+    total_timer_seconds: data.totalTimerSeconds || null,
   };
   const { data: result, error } = await supabase.from('quiz_sessions').insert(row).select('*, companies:company_id(name)').single();
   if (error) throw error;
@@ -273,6 +280,47 @@ async function updateSession(sessionId, data) {
   if (data.status !== undefined) { row.status = data.status; if (data.status === 'completed') row.completed_at = new Date().toISOString(); }
   const { error } = await supabase.from('quiz_sessions').update(row).eq('id', sessionId);
   if (error) throw error;
+}
+
+// ─── LOBİ ────────────────────────────────────────────────────────────────────
+
+async function joinSessionLobby(sessionId, { fullName, store }) {
+  // Katılımcıyı ekle
+  const { data: participant, error: pErr } = await supabase
+    .from('session_participants')
+    .insert({ session_id: sessionId, full_name: fullName, store })
+    .select()
+    .single();
+  if (pErr) throw pErr;
+
+  // lobby_started_at yoksa şimdi set et
+  const { data: sess } = await supabase
+    .from('quiz_sessions')
+    .select('lobby_started_at')
+    .eq('id', sessionId)
+    .single();
+  if (!sess?.lobby_started_at) {
+    await supabase
+      .from('quiz_sessions')
+      .update({ lobby_started_at: new Date().toISOString() })
+      .eq('id', sessionId);
+  }
+
+  return participant;
+}
+
+async function getSessionParticipants(sessionId) {
+  const { data, error } = await supabase
+    .from('session_participants')
+    .select('*')
+    .eq('session_id', sessionId)
+    .order('joined_at', { ascending: true });
+  if (error) throw error;
+  return (data || []).map(p => ({ id: p.id, fullName: p.full_name, store: p.store, joinedAt: p.joined_at }));
+}
+
+function onSessionParticipantsSnapshot(sessionId, callback) {
+  return createSubscription(() => getSessionParticipants(sessionId), callback, 2000);
 }
 
 async function deleteSession(sessionId) {
@@ -602,6 +650,7 @@ async function removeSession(userId, sessionId) {
 const db = {
   getQuestions, getQuestionsByIds, onQuestionsSnapshot, addQuestion, updateQuestion, deleteQuestion,
   getSessions, getSessionById, onSessionsSnapshot, addSession, updateSession, deleteSession,
+  joinSessionLobby, getSessionParticipants, onSessionParticipantsSnapshot,
   getResults, getResultById, onResultsSnapshot, addResult, deleteResult,
   getPackages, onPackagesSnapshot, addPackage, deletePackage,
   getBranding, setBranding,
