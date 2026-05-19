@@ -116,7 +116,7 @@ const Dashboard = () => {
       }
     } catch(e) {
       window.devError('Dashboard load error:', e);
-      toast('Dashboard yüklenirken hata oluştu', 'error');
+      toast('Ana Sayfa yüklenirken hata oluştu', 'error');
     } finally {
       setLoading(false);
     }
@@ -134,7 +134,7 @@ const Dashboard = () => {
     return () => window.removeEventListener('company-changed', handleCompanyChange);
   }, []);
 
-  if (loading) return <Page title="Dashboard"><LoadingSpinner text="Dashboard yükleniyor..." /></Page>;
+  if (loading) return <Page title="Ana Sayfa"><LoadingSpinner text="Ana Sayfa yükleniyor..." /></Page>;
 
   // KPI Calculations
   const totalQuestions = questions.length;
@@ -286,7 +286,7 @@ const Dashboard = () => {
   };
 
   return (
-    <Page title="Dashboard" subtitle="Genel Bakış ve İstatistikler">
+    <Page title="Ana Sayfa" subtitle="Genel Bakış ve İstatistikler">
       {/* Demo Badge */}
       <DemoBadge />
 
@@ -295,8 +295,8 @@ const Dashboard = () => {
         {/* Soru Havuzu Card */}
         <div className="card p-6 bg-gradient-to-br from-primary-50 to-white border-2 border-primary-100 hover:shadow-lg transition-all">
           <div className="flex items-start justify-between mb-4">
-            <div className="p-3 bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl shadow-lg">
-              <span className="text-3xl">📚</span>
+            <div className="p-3 bg-white rounded-2xl shadow-md">
+              <img src="/assets/kpi-questions.svg" width="32" height="32" alt="" />
             </div>
             <span className="px-3 py-1 bg-primary-100 text-primary-700 text-xs font-semibold rounded-full">Soru Havuzu</span>
           </div>
@@ -310,8 +310,8 @@ const Dashboard = () => {
         {/* Quiz Oturumları Card */}
         <div className="card p-6 bg-gradient-to-br from-secondary-50 to-white border-2 border-secondary-100 hover:shadow-lg transition-all">
           <div className="flex items-start justify-between mb-4">
-            <div className="p-3 bg-gradient-to-br from-secondary-500 to-secondary-600 rounded-2xl shadow-lg">
-              <span className="text-3xl">📊</span>
+            <div className="p-3 bg-white rounded-2xl shadow-md">
+              <img src="/assets/kpi-sessions.svg" width="32" height="32" alt="" />
             </div>
             <span className="px-3 py-1 bg-secondary-100 text-secondary-700 text-xs font-semibold rounded-full">Quiz Oturumları</span>
           </div>
@@ -329,8 +329,8 @@ const Dashboard = () => {
         {/* Ortalama Süre Card */}
         <div className="card p-6 bg-gradient-to-br from-accent-50 to-white border-2 border-accent-100 hover:shadow-lg transition-all">
           <div className="flex items-start justify-between mb-4">
-            <div className="p-3 bg-gradient-to-br from-accent-500 to-accent-600 rounded-2xl shadow-lg">
-              <span className="text-3xl">⏱️</span>
+            <div className="p-3 bg-white rounded-2xl shadow-md">
+              <img src="/assets/kpi-time.svg" width="32" height="32" alt="" />
             </div>
             <span className="px-3 py-1 bg-accent-100 text-accent-700 text-xs font-semibold rounded-full">Ortalama Süre</span>
           </div>
@@ -344,8 +344,8 @@ const Dashboard = () => {
         {/* Ortalama Başarı Card */}
         <div className="card p-6 bg-gradient-to-br from-green-50 to-white border-2 border-green-100 hover:shadow-lg transition-all">
           <div className="flex items-start justify-between mb-4">
-            <div className="p-3 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-lg">
-              <span className="text-3xl">{avgScore >= 70 ? '🏆' : avgScore >= 50 ? '⭐' : '📈'}</span>
+            <div className="p-3 bg-white rounded-2xl shadow-md">
+              <img src="/assets/kpi-score.svg" width="32" height="32" alt="" />
             </div>
             <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full">Ortalama Başarı</span>
           </div>

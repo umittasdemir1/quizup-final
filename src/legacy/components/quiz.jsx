@@ -647,8 +647,8 @@ const Quiz = ({ sessionId }) => {
       {q.hasTimer && q.timerSeconds && (
         <CircularTimer timeLeft={timeLeft} totalSeconds={timerTotal} isActive={timerActive} />
       )}
-      <div className="max-w-3xl mx-auto">
-        <div className="mb-6">
+      <div className="max-w-3xl mx-auto quiz-mobile-compact">
+        <div className="mb-4">
           <div className="flex justify-between text-sm mb-2">
             <span className="font-semibold text-dark-700">Soru {idx + 1} / {questions.length}</span>
             <span className="text-dark-500">{Math.round(progress)}% Tamamlandı</span>
@@ -661,7 +661,7 @@ const Quiz = ({ sessionId }) => {
           </div>
         </div>
 
-        <div className="card p-8 space-y-6" ref={cardRef}>
+        <div className="card p-8 space-y-4 quiz-mobile-card" ref={cardRef}>
           <div>
             <div className="flex gap-2 mb-4">
               <span className="chip chip-blue">{typeLabel(q.type)}</span>

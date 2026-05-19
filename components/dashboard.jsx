@@ -116,7 +116,7 @@ const Dashboard = () => {
       }
     } catch(e) {
       window.devError('Dashboard load error:', e);
-      toast('Dashboard yüklenirken hata oluştu', 'error');
+      toast('Ana Sayfa yüklenirken hata oluştu', 'error');
     } finally {
       setLoading(false);
     }
@@ -134,7 +134,7 @@ const Dashboard = () => {
     return () => window.removeEventListener('company-changed', handleCompanyChange);
   }, []);
 
-  if (loading) return <Page title="Dashboard"><LoadingSpinner text="Dashboard yükleniyor..." /></Page>;
+  if (loading) return <Page title="Ana Sayfa"><LoadingSpinner text="Ana Sayfa yükleniyor..." /></Page>;
 
   // KPI Calculations
   const totalQuestions = questions.length;
@@ -286,83 +286,38 @@ const Dashboard = () => {
   };
 
   return (
-    <Page title="Dashboard" subtitle="Genel Bakış ve İstatistikler">
+    <Page title="Ana Sayfa" subtitle="Genel Bakış ve İstatistikler">
       {/* Demo Badge */}
       <DemoBadge />
 
       {/* KPI Cards - Professional Design */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
         {/* Soru Havuzu Card */}
-        <div className="card p-6 bg-gradient-to-br from-primary-50 to-white border-2 border-primary-100 hover:shadow-lg transition-all">
-          <div className="flex items-start justify-between mb-4">
-            <div className="p-3 bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl shadow-lg">
-              <span className="text-3xl">📚</span>
-            </div>
-            <span className="px-3 py-1 bg-primary-100 text-primary-700 text-xs font-semibold rounded-full">Soru Havuzu</span>
-          </div>
-          <div className="dashboard-kpi-number text-primary-600 mb-1">{totalQuestions}</div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-dark-600">{activeQuestions} aktif soru</span>
-            <span className="text-xs text-primary-500 font-semibold">●●●</span>
-          </div>
+        <div className="dashboard-kpi-card">
+          <img src="/assets/kpi-questions.svg" width="86" height="86" alt="" className="mb-4" />
+          <div className="dashboard-kpi-number text-primary-600 mb-1 text-center whitespace-nowrap">{totalQuestions}</div>
+          <div className="text-sm text-dark-500 text-center">Soru Havuzu</div>
         </div>
 
         {/* Quiz Oturumları Card */}
-        <div className="card p-6 bg-gradient-to-br from-secondary-50 to-white border-2 border-secondary-100 hover:shadow-lg transition-all">
-          <div className="flex items-start justify-between mb-4">
-            <div className="p-3 bg-gradient-to-br from-secondary-500 to-secondary-600 rounded-2xl shadow-lg">
-              <span className="text-3xl">📊</span>
-            </div>
-            <span className="px-3 py-1 bg-secondary-100 text-secondary-700 text-xs font-semibold rounded-full">Quiz Oturumları</span>
-          </div>
-          <div className="dashboard-kpi-number text-secondary-600 mb-1">{totalSessions}</div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-dark-600">{completedSessions} tamamlandı</span>
-            <div className="flex gap-0.5">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="w-1 bg-secondary-400 rounded-full" style={{ height: `${8 + i * 3}px` }}></div>
-              ))}
-            </div>
-          </div>
+        <div className="dashboard-kpi-card">
+          <img src="/assets/kpi-sessions.svg" width="86" height="86" alt="" className="mb-4" />
+          <div className="dashboard-kpi-number text-secondary-600 mb-1 text-center whitespace-nowrap">{totalSessions}</div>
+          <div className="text-sm text-dark-500 text-center">Quiz Oturumları</div>
         </div>
 
         {/* Ortalama Süre Card */}
-        <div className="card p-6 bg-gradient-to-br from-accent-50 to-white border-2 border-accent-100 hover:shadow-lg transition-all">
-          <div className="flex items-start justify-between mb-4">
-            <div className="p-3 bg-gradient-to-br from-accent-500 to-accent-600 rounded-2xl shadow-lg">
-              <span className="text-3xl">⏱️</span>
-            </div>
-            <span className="px-3 py-1 bg-accent-100 text-accent-700 text-xs font-semibold rounded-full">Ortalama Süre</span>
-          </div>
-          <div className="dashboard-kpi-number text-accent-600 mb-1">{formatTime(avgQuizTime)}</div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-dark-600">{avgQuestionTime} sn/soru</span>
-            <ClockIcon size={18} strokeWidth={2} className="text-accent-400" />
-          </div>
+        <div className="dashboard-kpi-card">
+          <img src="/assets/kpi-time.svg" width="86" height="86" alt="" className="mb-4" />
+          <div className="dashboard-kpi-number text-accent-600 mb-1 text-center whitespace-nowrap">{formatTime(avgQuizTime)}</div>
+          <div className="text-sm text-dark-500 text-center">Ortalama Süre</div>
         </div>
 
         {/* Ortalama Başarı Card */}
-        <div className="card p-6 bg-gradient-to-br from-green-50 to-white border-2 border-green-100 hover:shadow-lg transition-all">
-          <div className="flex items-start justify-between mb-4">
-            <div className="p-3 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-lg">
-              <span className="text-3xl">{avgScore >= 70 ? '🏆' : avgScore >= 50 ? '⭐' : '📈'}</span>
-            </div>
-            <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full">Ortalama Başarı</span>
-          </div>
-          <div className="dashboard-kpi-number mb-1" style={{ color: avgScore >= 70 ? '#10b981' : avgScore >= 50 ? '#f59e0b' : '#ef4444' }}>
-            {avgScore}%
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-dark-600">{totalResults} test</span>
-            <div className="flex items-center gap-1">
-              <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div className="h-full rounded-full" style={{
-                  width: `${avgScore}%`,
-                  background: avgScore >= 70 ? '#10b981' : avgScore >= 50 ? '#f59e0b' : '#ef4444'
-                }}></div>
-              </div>
-            </div>
-          </div>
+        <div className="dashboard-kpi-card">
+          <img src="/assets/kpi-score.svg" width="86" height="86" alt="" className="mb-4" />
+          <div className="dashboard-kpi-number mb-1 text-center whitespace-nowrap" style={{ color: avgScore >= 70 ? '#10b981' : avgScore >= 50 ? '#f59e0b' : '#ef4444' }}>{avgScore}%</div>
+          <div className="text-sm text-dark-500 text-center">Ortalama Başarı</div>
         </div>
       </div>
 

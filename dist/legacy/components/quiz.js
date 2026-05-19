@@ -587,7 +587,7 @@
         setSubmitting(false);
       }
     };
-    if (loading) return /* @__PURE__ */ React.createElement(Page, { title: "Quiz" }, /* @__PURE__ */ React.createElement(LoadingSpinner, { text: "Quiz y\xFCkleniyor..." }));
+    if (loading) return null;
     if (!session) return /* @__PURE__ */ React.createElement(Page, { title: "Quiz" }, /* @__PURE__ */ React.createElement("div", { className: "card p-6 text-red-600" }, "Oturum bulunamad\u0131."));
     if (questions.length === 0) return /* @__PURE__ */ React.createElement(Page, { title: "Quiz" }, /* @__PURE__ */ React.createElement("div", { className: "card p-6" }, "Bu oturumda soru yok."));
     if (session.sessionMode === "open" && !participantInfo) {

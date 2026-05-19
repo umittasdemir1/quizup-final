@@ -741,7 +741,7 @@ const Quiz = ({ sessionId }) => {
     }
   };
 
-  if (loading) return <Page title="Quiz"><LoadingSpinner text="Quiz yükleniyor..." /></Page>;
+  if (loading) return null;
   if (!session) return <Page title="Quiz"><div className="card p-6 text-red-600">Oturum bulunamadı.</div></Page>;
   if (questions.length === 0) return <Page title="Quiz"><div className="card p-6">Bu oturumda soru yok.</div></Page>;
 

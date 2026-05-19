@@ -8,8 +8,9 @@ export default {
   theme: {
     extend: {
       fontFamily: {
+        sans: ['Roboto', 'sans-serif'],
         poppins: ['Poppins', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
-        roboto: ['Roboto', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        roboto: ['Roboto', 'sans-serif'],
         inter: ['Inter', 'system-ui', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', 'sans-serif']
       },
       colors: {

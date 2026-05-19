@@ -608,7 +608,7 @@ const Sidebar = () => {
               <>
                 <a href="#/dashboard" className={isActive('/dashboard') ? 'active' : ''}>
                   <ChartBarIcon size={20} strokeWidth={2} />
-                  <span>Dashboard</span>
+                  <span>Ana Sayfa</span>
                 </a>
 
                 <a href="#/admin" className={isActive('/admin') ? 'active' : ''}>
@@ -676,7 +676,7 @@ const Sidebar = () => {
               <>
                 <a href="#/dashboard" className={isActive('/dashboard') ? 'active' : ''}>
                   <ChartBarIcon size={20} strokeWidth={2} />
-                  <span>Dashboard</span>
+                  <span>Ana Sayfa</span>
                 </a>
 
                 <a href="#/manager" className={isActive('/manager') ? 'active' : ''}>
