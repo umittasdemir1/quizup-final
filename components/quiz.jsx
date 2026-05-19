@@ -844,20 +844,25 @@ const Quiz = ({ sessionId }) => {
     <div className="quiz-fullscreen">
       {/* Quiz Top Bar */}
       <div className="quiz-topbar">
-        {/* X butonu */}
-        <button
-          className="quiz-topbar-quit"
-          onClick={() => setShowAbandonModal(true)}
-          title="Quizden Çık"
-          aria-label="Quizden Çık"
-        >
-          <div className="quiz-topbar-quit-inner">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </div>
-        </button>
+        {/* X butonu + sayaç */}
+        <div className="quiz-topbar-left">
+          <button
+            className="quiz-topbar-quit"
+            onClick={() => setShowAbandonModal(true)}
+            title="Quizden Çık"
+            aria-label="Quizden Çık"
+          >
+            <div className="quiz-topbar-quit-inner">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </div>
+          </button>
+          <span className="quiz-topbar-counter" aria-label={`Soru ${idx + 1} / ${questions.length}`}>
+            {idx + 1}/{questions.length}
+          </span>
+        </div>
 
         {/* Progress bar */}
         <div className="quiz-topbar-center">
