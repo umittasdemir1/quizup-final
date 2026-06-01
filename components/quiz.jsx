@@ -844,8 +844,8 @@ const Quiz = ({ sessionId }) => {
     <div className="quiz-fullscreen">
       {/* Quiz Top Bar */}
       <div className="quiz-topbar">
-        {/* X butonu + sayaç */}
-        <div className="quiz-topbar-left">
+        {/* Üst satır: X butonu + süre sayacı */}
+        <div className="quiz-topbar-row quiz-topbar-row-top">
           <button
             className="quiz-topbar-quit"
             onClick={() => setShowAbandonModal(true)}
@@ -859,29 +859,31 @@ const Quiz = ({ sessionId }) => {
               </svg>
             </div>
           </button>
-          <span className="quiz-topbar-counter" aria-label={`Soru ${idx + 1} / ${questions.length}`}>
-            {idx + 1}/{questions.length}
-          </span>
-        </div>
 
-        {/* Progress bar */}
-        <div className="quiz-topbar-center">
-          <div className="quiz-progress-track">
-            <div className="quiz-progress-fill" style={{ width: `${progress}%` }} />
+          {/* Timer */}
+          <div className="quiz-topbar-timer">
+            {isTotalTimer ? (
+              <div className="quiz-total-timer">
+                {Math.floor(sessionTimeLeft / 60)}:{String(sessionTimeLeft % 60).padStart(2, '0')}
+              </div>
+            ) : (
+              q.hasTimer && q.timerSeconds && (
+                <CircularTimer timeLeft={timeLeft} totalSeconds={timerTotal} isActive={timerActive} />
+              )
+            )}
           </div>
         </div>
 
-        {/* Timer */}
-        <div className="quiz-topbar-timer">
-          {isTotalTimer ? (
-            <div className="quiz-total-timer">
-              {Math.floor(sessionTimeLeft / 60)}:{String(sessionTimeLeft % 60).padStart(2, '0')}
+        {/* Alt satır: soru sayacı + progress bar */}
+        <div className="quiz-topbar-row quiz-topbar-row-bottom">
+          <span className="quiz-topbar-counter" aria-label={`Soru ${idx + 1} / ${questions.length}`}>
+            {idx + 1}/{questions.length}
+          </span>
+          <div className="quiz-topbar-center">
+            <div className="quiz-progress-track">
+              <div className="quiz-progress-fill" style={{ width: `${progress}%` }} />
             </div>
-          ) : (
-            q.hasTimer && q.timerSeconds && (
-              <CircularTimer timeLeft={timeLeft} totalSeconds={timerTotal} isActive={timerActive} />
-            )
-          )}
+          </div>
         </div>
       </div>
 
