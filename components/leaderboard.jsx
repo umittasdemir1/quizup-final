@@ -1,4 +1,4 @@
-const { useState, useEffect } = React;
+const { useState, useEffect, useMemo } = React;
 
 const lbNormalizeName = (n) => (n || '').trim().toLocaleLowerCase('tr-TR');
 
@@ -9,25 +9,31 @@ const lbRankBadge = (rank) => {
   return rank;
 };
 
-// Single leaderboard row
-const LeaderboardRow = ({ row, highlight }) => (
+// Single leaderboard row. compact -> sadece isim + puan (sınav sonrası ekran).
+const LeaderboardRow = ({ row, highlight, compact }) => (
   <div className={'lb-row' + (highlight ? ' lb-row-me' : '') + (row.rank <= 3 ? ' lb-row-top' : '')}>
     <div className={'lb-rank lb-rank-' + (row.rank <= 3 ? row.rank : 'n')}>{lbRankBadge(row.rank)}</div>
     <div className="lb-person">
       <div className="lb-name">{row.name}{highlight ? <span className="lb-you">Sen</span> : null}</div>
-      <div className="lb-meta">
-        {row.examCount} sınav · En iyi %{row.bestPercent}
-      </div>
+      {!compact && (
+        <div className="lb-meta">
+          {row.examCount} sınav · En iyi %{row.bestPercent}
+        </div>
+      )}
     </div>
-    <div className="lb-xp">{window.formatXp(row.totalXp)}</div>
+    <div className="lb-xp">
+      <img className="lb-xp-icon" src="/assets/xp-icon.png" alt="" aria-hidden="true" />
+      {window.formatXp(row.totalXp)}
+    </div>
   </div>
 );
 
 const Leaderboard = ({ sessionId, resultId }) => {
   const isPostQuiz = !!resultId;
   const [loading, setLoading] = useState(true);
-  const [rows, setRows] = useState([]);
+  const [allResults, setAllResults] = useState([]);
   const [me, setMe] = useState(null);
+  const [range, setRange] = useState('all'); // 'daily' | 'weekly' | 'all'
 
   useEffect(() => {
     let active = true;
@@ -55,7 +61,7 @@ const Leaderboard = ({ sessionId, resultId }) => {
 
         const results = await window.db.getResults(companyId ? { companyId } : {});
         if (!active) return;
-        setRows(window.aggregateLeaderboard(results));
+        setAllResults(results);
       } catch (e) {
         window.devError('Leaderboard load error:', e);
         if (active) toast('Liderlik tablosu yüklenemedi', 'error');
@@ -67,20 +73,58 @@ const Leaderboard = ({ sessionId, resultId }) => {
     return () => { active = false; };
   }, [resultId, isPostQuiz]);
 
+  // Tarih aralığına göre filtrele + topla. Sınav sonrası ekran her zaman "tüm zamanlar".
+  const rows = useMemo(() => {
+    let list = allResults;
+    if (!isPostQuiz && range !== 'all') {
+      const windowMs = range === 'daily' ? 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
+      const cutoff = Date.now() - windowMs;
+      list = allResults.filter((r) => {
+        const t = r?.submittedAt ? new Date(r.submittedAt).getTime() : 0;
+        return t >= cutoff;
+      });
+    }
+    return window.aggregateLeaderboard(list);
+  }, [allResults, range, isPostQuiz]);
+
   if (loading) {
-    return (
-      <div className="lb-wrap">
+    return isPostQuiz ? (
+      <div className="lb-screen">
         <LoadingSpinner text="Liderlik tablosu yükleniyor..." />
       </div>
+    ) : (
+      <Page title="Liderlik Tablosu">
+        <LoadingSpinner text="Liderlik tablosu yükleniyor..." />
+      </Page>
     );
   }
 
   // ---- Admin mode (sidebar page) ----
   if (!isPostQuiz) {
+    const rangeLabels = { daily: 'Günlük', weekly: 'Haftalık', all: 'Tüm Zamanlar' };
+    const emptyText = range === 'daily'
+      ? 'Bugün henüz sonuç yok.'
+      : range === 'weekly'
+        ? 'Son 7 günde sonuç yok.'
+        : 'Henüz sonuç yok.';
     return (
-      <Page title="Liderlik Tablosu" subtitle="Çalışanların tüm sınavlardaki toplam puan sıralaması">
+      <Page title="Liderlik Tablosu" subtitle="Çalışanların toplam puan sıralaması">
+        <div className="lb-tabs" role="tablist">
+          {['daily', 'weekly', 'all'].map((key) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={range === key}
+              className={'lb-tab' + (range === key ? ' active' : '')}
+              onClick={() => setRange(key)}
+            >
+              {rangeLabels[key]}
+            </button>
+          ))}
+        </div>
         {rows.length === 0 ? (
-          <div className="card p-8 text-center text-dark-500">Henüz sonuç yok.</div>
+          <div className="card p-8 text-center text-dark-500">{emptyText}</div>
         ) : (
           <div className="lb-list lb-list-admin">
             {rows.map((r) => <LeaderboardRow key={r.key} row={r} highlight={false} />)}
@@ -95,44 +139,39 @@ const Leaderboard = ({ sessionId, resultId }) => {
   const myIndex = rows.findIndex((r) => r.key === myName);
   const myRow = myIndex >= 0 ? rows[myIndex] : null;
   const earnedXp = Number(me?.score?.xp) || 0;
-  const bd = me?.score?.xpBreakdown || {};
 
   // İlk 10 + (gerekirse) kendi satırını ayrıca göster
   const topRows = rows.slice(0, 10);
   const showMeSeparately = myRow && myIndex >= 10;
 
   return (
-    <div className="lb-wrap">
+    <div className="lb-screen">
       <div className="lb-card">
         <div className="lb-hero">
           <div className="lb-hero-trophy">🏆</div>
           <div className="lb-hero-title">Tebrikler{me?.employee?.fullName ? `, ${me.employee.fullName}` : ''}!</div>
           <div className="lb-hero-earned">
-            <span className="lb-hero-earned-num">+{earnedXp.toLocaleString('tr-TR')}</span>
+            <span className="lb-hero-earned-num">
+              <img className="lb-hero-earned-icon" src="/assets/xp-icon.png" alt="" aria-hidden="true" />
+              +{earnedXp.toLocaleString('tr-TR')}
+            </span>
             <span className="lb-hero-earned-label">puan kazandın</span>
           </div>
-          {(bd.easy || bd.medium || bd.hard) ? (
-            <div className="lb-breakdown">
-              {bd.easy ? <span className="lb-chip lb-chip-easy">Kolay ×{bd.easy}</span> : null}
-              {bd.medium ? <span className="lb-chip lb-chip-medium">Orta ×{bd.medium}</span> : null}
-              {bd.hard ? <span className="lb-chip lb-chip-hard">Zor ×{bd.hard}</span> : null}
-            </div>
-          ) : null}
           {myRow ? (
             <div className="lb-standing">
-              Sıralaman: <strong>#{myRow.rank}</strong> / {rows.length} · Toplam {window.formatXp(myRow.totalXp)}
+              Sıralaman: <strong>#{myRow.rank}</strong> / {rows.length}
             </div>
           ) : null}
         </div>
 
         <div className="lb-list">
           {topRows.map((r) => (
-            <LeaderboardRow key={r.key} row={r} highlight={r.key === myName} />
+            <LeaderboardRow key={r.key} row={r} highlight={r.key === myName} compact />
           ))}
           {showMeSeparately ? (
             <>
               <div className="lb-gap">···</div>
-              <LeaderboardRow row={myRow} highlight={true} />
+              <LeaderboardRow row={myRow} highlight={true} compact />
             </>
           ) : null}
         </div>
