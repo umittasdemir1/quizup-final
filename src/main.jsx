@@ -84,6 +84,7 @@ const legacyScripts = [
   '/legacy/components/dashboard.js',
   '/legacy/components/tests.js',
   '/legacy/components/result.js',
+  '/legacy/components/leaderboard.js',
   '/legacy/components/branding.js',
   '/legacy/components/locationmap.js',
   '/legacy/components/CompanyManagement.js',

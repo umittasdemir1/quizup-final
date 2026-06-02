@@ -29,6 +29,7 @@ const files = [
   'components/dashboard.jsx',
   'components/tests.jsx',
   'components/result.jsx',
+  'components/leaderboard.jsx',
   'components/branding.jsx',
   'components/locationmap.jsx',
   'components/CompanyManagement.jsx',

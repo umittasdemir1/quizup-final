@@ -631,6 +631,11 @@ const Sidebar = () => {
                   <span>Testler</span>
                 </a>
 
+                <a href="#/leaderboard" className={isActive('/leaderboard') ? 'active' : ''}>
+                  <TrophyIcon size={20} strokeWidth={2} />
+                  <span>Liderlik Tablosu</span>
+                </a>
+
                 <a href="#/suggest" className={isActive('/suggest') ? 'active' : ''}>
                   <LightBulbIcon size={20} strokeWidth={2} />
                   <span>Soru Öner</span>
@@ -692,6 +697,11 @@ const Sidebar = () => {
                 <a href="#/tests" className={isActive('/tests') ? 'active' : ''}>
                   <DocumentTextIcon size={20} strokeWidth={2} />
                   <span>Testler</span>
+                </a>
+
+                <a href="#/leaderboard" className={isActive('/leaderboard') ? 'active' : ''}>
+                  <TrophyIcon size={20} strokeWidth={2} />
+                  <span>Liderlik Tablosu</span>
                 </a>
 
                 <a href="#/suggest" className={isActive('/suggest') ? 'active' : ''}>

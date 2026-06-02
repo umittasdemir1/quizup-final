@@ -1,4 +1,4 @@
-const { useState, useEffect, useRef, useCallback, memo } = React;
+const { useState, useEffect, useRef, useCallback, useMemo, memo } = React;
 
 // Get or create anonymous user ID
 const getAnonymousId = () => {
@@ -8,6 +8,25 @@ const getAnonymousId = () => {
     localStorage.setItem('anonUserId', anonId);
   }
   return anonId;
+};
+
+// Build a per-participant question set: questions and their options are
+// shuffled deterministically from a seed so each participant gets a different
+// order, while the same participant always gets a stable order.
+// correctAnswer is compared by value, so shuffling options is safe.
+const buildParticipantQuestions = (raw, seedBase) => {
+  const shuffle = window.seededShuffle || ((a) => a.slice());
+  const ordered = shuffle(raw, seedBase + '|Q');
+  return ordered.map(q => {
+    if (!q || q.type !== 'mcq') return q;
+    const opts = Array.isArray(q.options) ? q.options : [];
+    if (opts.length <= 1) return q;
+    const perm = shuffle(opts.map((_, i) => i), seedBase + '|O|' + q.id);
+    const options = perm.map(i => opts[i]);
+    const hasImgs = Array.isArray(q.optionImageUrls) && q.optionImageUrls.length > 0;
+    const optionImageUrls = hasImgs ? perm.map(i => q.optionImageUrls[i]) : q.optionImageUrls;
+    return { ...q, options, optionImageUrls };
+  });
 };
 
 // 🚀 Performance: Memoize CircularTimer component to prevent unnecessary re-renders
@@ -73,7 +92,7 @@ const CircularTimer = memo(({ timeLeft, totalSeconds, isActive }) => {
 
 const Quiz = ({ sessionId }) => {
   const [session, setSession] = useState(null);
-  const [questions, setQuestions] = useState([]);
+  const [rawQuestions, setRawQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [idx, setIdx] = useState(0);
   const [answers, setAnswers] = useState({});
@@ -93,6 +112,17 @@ const Quiz = ({ sessionId }) => {
   const [participantForm, setParticipantForm] = useState({ fullName: '', store: '' });
   const [participantErrors, setParticipantErrors] = useState({});
   const [joiningLobby, setJoiningLobby] = useState(false);
+
+  // Soruları ve şıkları katılımcıya özel olarak karıştır (deterministik seed).
+  // Farklı katılımcı -> farklı sıra; aynı katılımcı -> aynı sıra.
+  // correctAnswer değere göre kontrol edildiği için şık karıştırmak güvenli.
+  const questions = useMemo(() => {
+    if (!rawQuestions.length) return [];
+    const participantKey = (session?.sessionMode === 'open' && participantInfo)
+      ? `${participantInfo.fullName || ''}|${participantInfo.store || ''}`
+      : getAnonymousId();
+    return buildParticipantQuestions(rawQuestions, `${sessionId}:${participantKey}`);
+  }, [rawQuestions, sessionId, session?.sessionMode, participantInfo]);
 
   // Lobi
   const [lobbyParticipants, setLobbyParticipants] = useState([]);
@@ -121,7 +151,27 @@ const Quiz = ({ sessionId }) => {
   const [quizStartTime, setQuizStartTime] = useState(null);
   const [questionStartTime, setQuestionStartTime] = useState(null);
   const [questionTimes, setQuestionTimes] = useState({});
-  
+
+  // 🏆 Canlı XP: yalnızca MEVCUT sorudan ÖNCEKİ (geçilmiş) doğru cevaplardan
+  // kazanılan XP. Mevcut soru hesaba katılmaz; böylece şık seçince XP değişip
+  // doğru cevabı belli etmez. Kayıtlı süreyi kullanır -> bitişteki XP ile tutarlı.
+  const liveXp = useMemo(() => {
+    let xp = 0;
+    const currentId = questions[idx]?.id;
+    questions.forEach(q => {
+      if (q.type !== 'mcq' || q.id === currentId) return;
+      const isCorrect = !timedOutQuestions[q.id] && answers[q.id] === q.correctAnswer;
+      if (!isCorrect) return;
+      xp += window.computeQuestionXp({
+        difficulty: q.difficulty,
+        correct: true,
+        timeUsed: questionTimes[q.id]?.timeSpent || 0,
+        timeLimit: q.hasTimer ? q.timerSeconds : 0
+      });
+    });
+    return xp;
+  }, [questions, answers, timedOutQuestions, questionTimes, idx]);
+
   // 📍 Location State
   const [userLocation, setUserLocation] = useState(null);
 
@@ -219,7 +269,7 @@ const Quiz = ({ sessionId }) => {
           setSessionOwnerPin(null);
         }
         const qs = await window.db.getQuestionsByIds(sd.questionIds || []);
-        setQuestions(qs.filter(Boolean));
+        setRawQuestions(qs.filter(Boolean));
 
         setQuizStartTime(Date.now());
 
@@ -682,6 +732,25 @@ const Quiz = ({ sessionId }) => {
       const timeoutCount = questionTimesArray.filter(item => item.status === 'timeout').length;
       const skippedCount = questionTimesArray.filter(item => item.status === 'skipped').length;
 
+      // 🎯 XP: zorluk ağırlıklı + hız bonusu (sadece doğru MCQ cevapları)
+      let xp = 0;
+      const xpBreakdown = { easy: 0, medium: 0, hard: 0 };
+      questions.forEach(q => {
+        if (q.type !== 'mcq') return;
+        const isCorrect = !timedOutQuestions[q.id] && answers[q.id] === q.correctAnswer;
+        if (!isCorrect) return;
+        const qt = questionTimesArray.find(it => it.questionId === q.id);
+        const timeLimit = q.hasTimer ? q.timerSeconds : 0;
+        xp += window.computeQuestionXp({
+          difficulty: q.difficulty,
+          correct: true,
+          timeUsed: qt?.timeSpent || 0,
+          timeLimit
+        });
+        const diffKey = String(q.difficulty || '').toLowerCase();
+        xpBreakdown[xpBreakdown[diffKey] != null ? diffKey : 'medium'] += 1;
+      });
+
       const ownerUid = window.__quizupCurrentAuthUser?.uid || getAnonymousId();
       const isAnonymousOwner = !window.__quizupCurrentAuthUser || window.__quizupCurrentAuthUser.isAnonymous !== false;
       const companyId = session.companyId;
@@ -697,7 +766,9 @@ const Quiz = ({ sessionId }) => {
           total: questions.length,
           percent: Math.round((correct / questions.length) * 100),
           timeouts: timeoutCount,
-          skipped: skippedCount
+          skipped: skippedCount,
+          xp,
+          xpBreakdown
         },
         timeTracking: {
           totalTime,
@@ -727,7 +798,7 @@ const Quiz = ({ sessionId }) => {
       toast('Quiz tamamlandı!', 'success');
 
       setTimeout(() => {
-        window.location.hash = `#/result?sessionId=${sessionId}&resultId=${savedResult.id}`;
+        window.location.hash = `#/finish?sessionId=${sessionId}&resultId=${savedResult.id}`;
       }, 100);
     } catch(e) {
       window.devError('Submit error:', e);
@@ -859,6 +930,12 @@ const Quiz = ({ sessionId }) => {
               </svg>
             </div>
           </button>
+
+          {/* Canlı XP */}
+          <div className="quiz-topbar-xp" aria-label={`Toplam ${liveXp} XP`} title="Kazanılan XP">
+            <img className="quiz-topbar-xp-icon" src="/assets/xp-icon.png" alt="" aria-hidden="true" />
+            {liveXp.toLocaleString('tr-TR')}
+          </div>
 
           {/* Timer */}
           <div className="quiz-topbar-timer">

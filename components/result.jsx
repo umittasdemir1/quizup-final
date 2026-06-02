@@ -552,7 +552,19 @@ const Result = ({ sessionId, resultId }) => {
     <Page 
       title="Sonuç" 
       subtitle={(session?.employee?.fullName || 'Personel') + ' • ' + (session?.employee?.store || '')} 
-      extra={<button className="btn btn-primary flex items-center gap-2" onClick={downloadPDF}><ArrowDownTrayIcon size={18} strokeWidth={2} /> PDF İndir</button>}
+      extra={
+        <div className="flex items-center gap-2">
+          {sessionId && resultId && (
+            <button
+              className="btn btn-secondary flex items-center gap-2"
+              onClick={() => { window.location.hash = `#/finish?sessionId=${sessionId}&resultId=${resultId}`; }}
+            >
+              <TrophyIcon size={18} strokeWidth={2} /> Liderlik Tablosu
+            </button>
+          )}
+          <button className="btn btn-primary flex items-center gap-2" onClick={downloadPDF}><ArrowDownTrayIcon size={18} strokeWidth={2} /> PDF İndir</button>
+        </div>
+      }
     >
       <div className="grid lg:grid-cols-3 gap-6 mb-6">
         {/* Score Circle - Fixed inline display */}
@@ -583,6 +595,18 @@ const Result = ({ sessionId, resultId }) => {
             </div>
             <div className="text-sm text-dark-500 mt-1">Başarı Oranı</div>
           </div>
+          {typeof data.score?.xp === 'number' && (
+            <div className="result-xp-badge">
+              <span className="result-xp-num">🏆 {Number(data.score.xp).toLocaleString('tr-TR')} XP</span>
+              {data.score.xpBreakdown && (data.score.xpBreakdown.easy || data.score.xpBreakdown.medium || data.score.xpBreakdown.hard) ? (
+                <span className="result-xp-bd">
+                  {data.score.xpBreakdown.easy ? `Kolay ×${data.score.xpBreakdown.easy}  ` : ''}
+                  {data.score.xpBreakdown.medium ? `Orta ×${data.score.xpBreakdown.medium}  ` : ''}
+                  {data.score.xpBreakdown.hard ? `Zor ×${data.score.xpBreakdown.hard}` : ''}
+                </span>
+              ) : null}
+            </div>
+          )}
         </div>
 
         {/* Time Stats */}

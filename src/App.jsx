@@ -50,6 +50,7 @@ const App = () => {
   const Dashboard = window.Dashboard;
   const Quiz = window.Quiz;
   const Result = window.Result;
+  const Leaderboard = window.Leaderboard;
   const Manager = window.Manager;
   const Tests = window.Tests;
   const Admin = window.Admin;
@@ -79,6 +80,11 @@ const App = () => {
               const params = new URLSearchParams(route.split('?')[1] || '');
               return <Result sessionId={params.get('sessionId')} resultId={params.get('resultId')} />;
             })()
+          : route.startsWith('/finish') ? (() => {
+              const params = new URLSearchParams(route.split('?')[1] || '');
+              return <Leaderboard sessionId={params.get('sessionId')} resultId={params.get('resultId')} />;
+            })()
+          : route.startsWith('/leaderboard') ? (isLoggedIn() && hasRole(['admin', 'manager']) ? <Leaderboard /> : (() => { requireAuth(['admin', 'manager']); return null; })())
           : route.startsWith('/manager') ? (isLoggedIn() && hasRole(['admin', 'manager']) ? <Manager /> : (() => { requireAuth(['admin', 'manager']); return null; })())
           : route.startsWith('/tests') ? (isLoggedIn() ? <Tests /> : (() => { requireAuth(); return null; })())
           : route.startsWith('/admin') ? (isLoggedIn() && hasRole('admin') ? <Admin /> : (() => { requireAuth('admin'); return null; })())
