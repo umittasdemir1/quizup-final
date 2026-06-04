@@ -40,6 +40,7 @@ const App = () => {
   const ScrollToTop = window.ScrollToTop;
   const Landing = window.Landing;
   const Login = window.Login;
+  const Signup = window.Signup;
   const CompanyManagement = window.CompanyManagement;
   const UserManagement = window.UserManagement;
   const SuggestedQuestions = window.SuggestedQuestions;
@@ -67,6 +68,7 @@ const App = () => {
       <main>
         {route === '/' || route === '' ? <Landing />
           : route.startsWith('/login') ? <Login />
+          : route.startsWith('/signup') ? <Signup />
           : route.startsWith('/company-management') ? (isLoggedIn() && isSuperAdmin() ? <CompanyManagement /> : (() => { requireAuth('admin'); toast('Bu sayfaya sadece Super Admin erişebilir', 'error'); location.hash = '#/dashboard'; return null; })())
           : route.startsWith('/users') ? (isLoggedIn() && hasRole('admin') ? <UserManagement /> : (() => { requireAuth('admin'); return null; })())
           : route.startsWith('/suggestions') ? (isLoggedIn() && hasRole('admin') ? <SuggestedQuestions /> : (() => { requireAuth('admin'); return null; })())

@@ -1,5 +1,5 @@
 (() => {
-  const { useState, useEffect, useRef, useCallback, memo } = React;
+  const { useState, useEffect, useRef, useCallback, useMemo, memo } = React;
   const getAnonymousId = () => {
     let anonId = localStorage.getItem("anonUserId");
     if (!anonId) {
@@ -7,6 +7,20 @@
       localStorage.setItem("anonUserId", anonId);
     }
     return anonId;
+  };
+  const buildParticipantQuestions = (raw, seedBase) => {
+    const shuffle = window.seededShuffle || ((a) => a.slice());
+    const ordered = shuffle(raw, seedBase + "|Q");
+    return ordered.map((q) => {
+      if (!q || q.type !== "mcq") return q;
+      const opts = Array.isArray(q.options) ? q.options : [];
+      if (opts.length <= 1) return q;
+      const perm = shuffle(opts.map((_, i) => i), seedBase + "|O|" + q.id);
+      const options = perm.map((i) => opts[i]);
+      const hasImgs = Array.isArray(q.optionImageUrls) && q.optionImageUrls.length > 0;
+      const optionImageUrls = hasImgs ? perm.map((i) => q.optionImageUrls[i]) : q.optionImageUrls;
+      return { ...q, options, optionImageUrls };
+    });
   };
   const CircularTimer = memo(({ timeLeft, totalSeconds, isActive }) => {
     if (!totalSeconds || totalSeconds <= 0) {
@@ -66,7 +80,7 @@
   });
   const Quiz = ({ sessionId }) => {
     const [session, setSession] = useState(null);
-    const [questions, setQuestions] = useState([]);
+    const [rawQuestions, setRawQuestions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [idx, setIdx] = useState(0);
     const [answers, setAnswers] = useState({});
@@ -83,6 +97,11 @@
     const [participantForm, setParticipantForm] = useState({ fullName: "", store: "" });
     const [participantErrors, setParticipantErrors] = useState({});
     const [joiningLobby, setJoiningLobby] = useState(false);
+    const questions = useMemo(() => {
+      if (!rawQuestions.length) return [];
+      const participantKey = (session == null ? void 0 : session.sessionMode) === "open" && participantInfo ? `${participantInfo.fullName || ""}|${participantInfo.store || ""}` : getAnonymousId();
+      return buildParticipantQuestions(rawQuestions, `${sessionId}:${participantKey}`);
+    }, [rawQuestions, sessionId, session == null ? void 0 : session.sessionMode, participantInfo]);
     const [lobbyParticipants, setLobbyParticipants] = useState([]);
     const [lobbyTimeLeft, setLobbyTimeLeft] = useState(null);
     const [lobbyStartedAt, setLobbyStartedAt] = useState(null);
@@ -104,6 +123,24 @@
     const [quizStartTime, setQuizStartTime] = useState(null);
     const [questionStartTime, setQuestionStartTime] = useState(null);
     const [questionTimes, setQuestionTimes] = useState({});
+    const liveXp = useMemo(() => {
+      var _a;
+      let xp = 0;
+      const currentId = (_a = questions[idx]) == null ? void 0 : _a.id;
+      questions.forEach((q2) => {
+        var _a2;
+        if (q2.type !== "mcq" || q2.id === currentId) return;
+        const isCorrect = !timedOutQuestions[q2.id] && answers[q2.id] === q2.correctAnswer;
+        if (!isCorrect) return;
+        xp += window.computeQuestionXp({
+          difficulty: q2.difficulty,
+          correct: true,
+          timeUsed: ((_a2 = questionTimes[q2.id]) == null ? void 0 : _a2.timeSpent) || 0,
+          timeLimit: q2.hasTimer ? q2.timerSeconds : 0
+        });
+      });
+      return xp;
+    }, [questions, answers, timedOutQuestions, questionTimes, idx]);
     const [userLocation, setUserLocation] = useState(null);
     const [showAbandonModal, setShowAbandonModal] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -184,7 +221,7 @@
             setSessionOwnerPin(null);
           }
           const qs = await window.db.getQuestionsByIds(sd.questionIds || []);
-          setQuestions(qs.filter(Boolean));
+          setRawQuestions(qs.filter(Boolean));
           setQuizStartTime(Date.now());
           if (sd.timerMode === "total" && sd.totalTimerSeconds && sd.sessionMode !== "open") {
             setSessionTimeLeft(sd.totalTimerSeconds);
@@ -536,6 +573,23 @@
         });
         const timeoutCount = questionTimesArray.filter((item) => item.status === "timeout").length;
         const skippedCount = questionTimesArray.filter((item) => item.status === "skipped").length;
+        let xp = 0;
+        const xpBreakdown = { easy: 0, medium: 0, hard: 0 };
+        questions.forEach((q2) => {
+          if (q2.type !== "mcq") return;
+          const isCorrect = !timedOutQuestions[q2.id] && answers[q2.id] === q2.correctAnswer;
+          if (!isCorrect) return;
+          const qt = questionTimesArray.find((it) => it.questionId === q2.id);
+          const timeLimit = q2.hasTimer ? q2.timerSeconds : 0;
+          xp += window.computeQuestionXp({
+            difficulty: q2.difficulty,
+            correct: true,
+            timeUsed: (qt == null ? void 0 : qt.timeSpent) || 0,
+            timeLimit
+          });
+          const diffKey = String(q2.difficulty || "").toLowerCase();
+          xpBreakdown[xpBreakdown[diffKey] != null ? diffKey : "medium"] += 1;
+        });
         const ownerUid = ((_a = window.__quizupCurrentAuthUser) == null ? void 0 : _a.uid) || getAnonymousId();
         const isAnonymousOwner = !window.__quizupCurrentAuthUser || window.__quizupCurrentAuthUser.isAnonymous !== false;
         const companyId = session.companyId;
@@ -550,7 +604,9 @@
             total: questions.length,
             percent: Math.round(correct / questions.length * 100),
             timeouts: timeoutCount,
-            skipped: skippedCount
+            skipped: skippedCount,
+            xp,
+            xpBreakdown
           },
           timeTracking: {
             totalTime,
@@ -574,7 +630,7 @@
         }
         toast("Quiz tamamland\u0131!", "success");
         setTimeout(() => {
-          window.location.hash = `#/result?sessionId=${sessionId}&resultId=${savedResult.id}`;
+          window.location.hash = `#/finish?sessionId=${sessionId}&resultId=${savedResult.id}`;
         }, 100);
       } catch (e) {
         window.devError("Submit error:", e);
@@ -659,7 +715,7 @@
     if (session.sessionMode === "open" && session.timerMode === "total" && session.totalTimerSeconds && sessionTimeLeft === null && quizStarted) {
       setSessionTimeLeft(session.totalTimerSeconds);
     }
-    return /* @__PURE__ */ React.createElement("div", { className: "quiz-fullscreen" }, /* @__PURE__ */ React.createElement("div", { className: "quiz-topbar" }, /* @__PURE__ */ React.createElement("div", { className: "quiz-topbar-left" }, /* @__PURE__ */ React.createElement(
+    return /* @__PURE__ */ React.createElement("div", { className: "quiz-fullscreen" }, /* @__PURE__ */ React.createElement("div", { className: "quiz-topbar" }, /* @__PURE__ */ React.createElement("div", { className: "quiz-topbar-row quiz-topbar-row-top" }, /* @__PURE__ */ React.createElement(
       "button",
       {
         className: "quiz-topbar-quit",
@@ -668,7 +724,7 @@
         "aria-label": "Quizden \xC7\u0131k"
       },
       /* @__PURE__ */ React.createElement("div", { className: "quiz-topbar-quit-inner" }, /* @__PURE__ */ React.createElement("svg", { width: "26", height: "26", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.5", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("line", { x1: "18", y1: "6", x2: "6", y2: "18" }), /* @__PURE__ */ React.createElement("line", { x1: "6", y1: "6", x2: "18", y2: "18" })))
-    ), /* @__PURE__ */ React.createElement("span", { className: "quiz-topbar-counter", "aria-label": `Soru ${idx + 1} / ${questions.length}` }, idx + 1, "/", questions.length)), /* @__PURE__ */ React.createElement("div", { className: "quiz-topbar-center" }, /* @__PURE__ */ React.createElement("div", { className: "quiz-progress-track" }, /* @__PURE__ */ React.createElement("div", { className: "quiz-progress-fill", style: { width: `${progress}%` } }))), /* @__PURE__ */ React.createElement("div", { className: "quiz-topbar-timer" }, isTotalTimer ? /* @__PURE__ */ React.createElement("div", { className: "quiz-total-timer" }, Math.floor(sessionTimeLeft / 60), ":", String(sessionTimeLeft % 60).padStart(2, "0")) : q.hasTimer && q.timerSeconds && /* @__PURE__ */ React.createElement(CircularTimer, { timeLeft, totalSeconds: timerTotal, isActive: timerActive }))), /* @__PURE__ */ React.createElement("div", { className: "quiz-content" }, /* @__PURE__ */ React.createElement("div", { className: "max-w-2xl mx-auto", ref: cardRef }, q.questionImageUrl && /* @__PURE__ */ React.createElement("div", { className: "question-image-container mb-3" }, /* @__PURE__ */ React.createElement("img", { src: q.questionImageUrl, alt: "Soru G\xF6rseli" })), /* @__PURE__ */ React.createElement("h2", { className: "text-lg sm:text-xl font-medium text-dark-900 leading-relaxed mb-4 px-1", dangerouslySetInnerHTML: { __html: sanitizeHTML(q.questionText) } }), q.type === "mcq" ? q.hasImageOptions && q.optionImageUrls && q.optionImageUrls.length > 0 ? /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-3" }, (q.options || []).map((o, i) => q.optionImageUrls[i] ? /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ React.createElement("div", { className: "quiz-topbar-xp", "aria-label": `Toplam ${liveXp} XP`, title: "Kazan\u0131lan XP" }, /* @__PURE__ */ React.createElement("img", { className: "quiz-topbar-xp-icon", src: "/assets/xp-icon.png", alt: "", "aria-hidden": "true" }), liveXp.toLocaleString("tr-TR")), /* @__PURE__ */ React.createElement("div", { className: "quiz-topbar-timer" }, isTotalTimer ? /* @__PURE__ */ React.createElement("div", { className: "quiz-total-timer" }, Math.floor(sessionTimeLeft / 60), ":", String(sessionTimeLeft % 60).padStart(2, "0")) : q.hasTimer && q.timerSeconds && /* @__PURE__ */ React.createElement(CircularTimer, { timeLeft, totalSeconds: timerTotal, isActive: timerActive }))), /* @__PURE__ */ React.createElement("div", { className: "quiz-topbar-row quiz-topbar-row-bottom" }, /* @__PURE__ */ React.createElement("span", { className: "quiz-topbar-counter", "aria-label": `Soru ${idx + 1} / ${questions.length}` }, idx + 1, "/", questions.length), /* @__PURE__ */ React.createElement("div", { className: "quiz-topbar-center" }, /* @__PURE__ */ React.createElement("div", { className: "quiz-progress-track" }, /* @__PURE__ */ React.createElement("div", { className: "quiz-progress-fill", style: { width: `${progress}%` } }))))), /* @__PURE__ */ React.createElement("div", { className: "quiz-content" }, /* @__PURE__ */ React.createElement("div", { className: "max-w-2xl mx-auto", ref: cardRef }, q.questionImageUrl && /* @__PURE__ */ React.createElement("div", { className: "question-image-container mb-3" }, /* @__PURE__ */ React.createElement("img", { src: q.questionImageUrl, alt: "Soru G\xF6rseli" })), /* @__PURE__ */ React.createElement("h2", { className: "text-lg sm:text-xl font-medium text-dark-900 leading-relaxed mb-4 px-1", dangerouslySetInnerHTML: { __html: sanitizeHTML(q.questionText) } }), q.type === "mcq" ? q.hasImageOptions && q.optionImageUrls && q.optionImageUrls.length > 0 ? /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-3" }, (q.options || []).map((o, i) => q.optionImageUrls[i] ? /* @__PURE__ */ React.createElement(
       "div",
       {
         key: i,

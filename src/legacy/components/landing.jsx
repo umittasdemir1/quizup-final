@@ -102,7 +102,7 @@ const Landing = () => {
           </div>
 
           <h2 className="display-medium text-dark-900 hero-subtitle">
-            Test. Learn.<br/>Level Up.
+            Test Et. Öğren.<br/>Seviye Atla.
           </h2>
 
           <div className="flex flex-col gap-3 hero-btn w-full md:w-auto">
@@ -110,7 +110,7 @@ const Landing = () => {
               className="btn btn-primary px-8 py-4"
               onClick={() => location.hash = '#/login'}
             >
-              Get Started
+              Hemen Başla
             </button>
 
             {isDemoAvailable && (
@@ -133,17 +133,6 @@ const Landing = () => {
               </>
             )}
 
-            {!isDemoAvailable && demoSettings && (
-              <div className="text-sm text-dark-600 flex flex-col items-center md:items-start gap-2">
-                <div className="font-medium">Demo Dönemi Sona Erdi</div>
-                <a
-                  href="mailto:tasdemir_umit@hotmail.com?subject=QuizUp%2B%20Demo%20Talebi&body=Merhaba%2C%20QuizUp%2B%20hakk%C4%B1nda%20bilgi%20almak%20istiyorum."
-                  className="btn btn-outline px-6 py-2 text-sm"
-                >
-                  Bize Ulaşın
-                </a>
-              </div>
-            )}
           </div>
 
           <div className="flex gap-8 pt-6">

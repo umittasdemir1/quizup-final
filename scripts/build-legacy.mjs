@@ -19,6 +19,7 @@ const files = [
   'components/ScrollToTop.jsx',
   'components/landing.jsx',
   'components/login.jsx',
+  'components/signup.jsx',
   'components/usermanagement.jsx',
   'components/suggestquestion.jsx',
   'components/suggestedquestions.jsx',

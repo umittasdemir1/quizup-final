@@ -38,6 +38,88 @@
     }
   };
   const typeLabel = (t) => t === "mcq" ? "\xC7oktan Se\xE7meli" : t === "open" ? "Klasik (Serbest Yan\u0131t)" : t || "Bilinmiyor";
+  const hashString = (str) => {
+    let hash = 2166136261;
+    const s = String(str == null ? "" : str);
+    for (let i = 0; i < s.length; i++) {
+      hash ^= s.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  };
+  const mulberry32 = (seed) => {
+    let a = seed >>> 0;
+    return () => {
+      a |= 0;
+      a = a + 1831565813 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  };
+  const seededShuffle = (arr, seedStr) => {
+    const out = Array.isArray(arr) ? arr.slice() : [];
+    const rnd = mulberry32(hashString(seedStr));
+    for (let i = out.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      const tmp = out[i];
+      out[i] = out[j];
+      out[j] = tmp;
+    }
+    return out;
+  };
+  const XP_BASE = { easy: 100, medium: 200, hard: 300 };
+  const baseXpForDifficulty = (difficulty) => {
+    const key = String(difficulty || "").toLowerCase();
+    return XP_BASE[key] != null ? XP_BASE[key] : XP_BASE.medium;
+  };
+  const computeQuestionXp = ({ difficulty, correct, timeUsed, timeLimit }) => {
+    if (!correct) return 0;
+    const base = baseXpForDifficulty(difficulty);
+    const limit = Number(timeLimit);
+    if (!limit || limit <= 0) return base;
+    const used = Math.max(0, Math.min(Number(timeUsed) || 0, limit));
+    const factor = 1 - 0.5 * (used / limit);
+    return Math.round(base * factor);
+  };
+  const formatXp = (n) => Math.round(Number(n) || 0).toLocaleString("tr-TR");
+  const aggregateLeaderboard = (results) => {
+    const groups = /* @__PURE__ */ new Map();
+    (Array.isArray(results) ? results : []).forEach((r) => {
+      var _a, _b, _c, _d, _e;
+      const name = (((_a = r == null ? void 0 : r.employee) == null ? void 0 : _a.fullName) || "").trim();
+      if (!name) return;
+      const key = name.toLocaleLowerCase("tr-TR");
+      const xp = Number((_b = r == null ? void 0 : r.score) == null ? void 0 : _b.xp) || 0;
+      const percent = Number((_c = r == null ? void 0 : r.score) == null ? void 0 : _c.percent) || 0;
+      const time = Number((_d = r == null ? void 0 : r.timeTracking) == null ? void 0 : _d.totalTime) || 0;
+      if (!groups.has(key)) {
+        groups.set(key, {
+          key,
+          name,
+          store: (((_e = r == null ? void 0 : r.employee) == null ? void 0 : _e.store) || "").trim(),
+          totalXp: 0,
+          examCount: 0,
+          bestPercent: 0,
+          totalTime: 0
+        });
+      }
+      const g = groups.get(key);
+      g.totalXp += xp;
+      g.examCount += 1;
+      g.bestPercent = Math.max(g.bestPercent, percent);
+      g.totalTime += time;
+    });
+    const list = Array.from(groups.values()).sort((a, b) => {
+      if (b.totalXp !== a.totalXp) return b.totalXp - a.totalXp;
+      if (b.examCount !== a.examCount) return b.examCount - a.examCount;
+      return a.totalTime - b.totalTime;
+    });
+    list.forEach((g, i) => {
+      g.rank = i + 1;
+    });
+    return list;
+  };
   const sanitizeHTML = (dirty) => {
     if (!dirty) return "";
     if (typeof dirty !== "string") return String(dirty);
@@ -595,6 +677,12 @@
   window.waitBackend = waitBackend;
   window.fmtDate = fmtDate;
   window.typeLabel = typeLabel;
+  window.seededShuffle = seededShuffle;
+  window.hashString = hashString;
+  window.XP_BASE = XP_BASE;
+  window.computeQuestionXp = computeQuestionXp;
+  window.aggregateLeaderboard = aggregateLeaderboard;
+  window.formatXp = formatXp;
   window.sanitizeHTML = sanitizeHTML;
   window.toast = toast;
   window.validateQuestion = validateQuestion;

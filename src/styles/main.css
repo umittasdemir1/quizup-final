@@ -38,8 +38,8 @@ body:has(.quiz-fullscreen) {
   height: 100svh;
   display: flex;
   flex-direction: column;
-  /* Üstte beyaz, alta doğru marka turuncusunun yumuşak tonu (sabit, içerik üstünde kayar) */
-  background: linear-gradient(180deg, #ffffff 0%, #fff6ef 50%, #ffe9d9 100%);
+  background: #ffffff;
+  position: relative;
   overflow: hidden;
 }
 
@@ -197,6 +197,8 @@ body:has(.quiz-fullscreen) {
 }
 
 .quiz-content {
+  position: relative;
+  z-index: 1;
   padding-top: 92px;
   padding-top: calc(92px + env(safe-area-inset-top, 0px));
   padding-bottom: 32px;
@@ -363,31 +365,9 @@ main {
 
 /* Background Gradients */
 .bg-landing {
-  background: linear-gradient(135deg, #E3F2FD 0%, #FFF3E0 100%);
+  background: #ffffff;
   position: relative;
   overflow: hidden;
-}
-
-.bg-landing::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  right: -20%;
-  width: 800px;
-  height: 800px;
-  background: radial-gradient(circle, rgba(255,87,34,0.12) 0%, transparent 70%);
-  border-radius: 50%;
-}
-
-.bg-landing::after {
-  content: '';
-  position: absolute;
-  bottom: -30%;
-  left: -10%;
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(circle, rgba(33,150,243,0.12) 0%, transparent 70%);
-  border-radius: 50%;
 }
 
 .bg-soft {
@@ -501,6 +481,64 @@ main {
   color: #dc2626;
   font-size: 0.875rem;
   margin-top: 0.25rem;
+}
+
+/* Login / Signup form alanları — minimal, ince siyah kenarlık (şık kutuları stili) */
+.auth-form label {
+  font-size: 1.05rem;
+  font-weight: 400;
+  color: #374151;
+}
+
+.auth-form .field {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  font-size: 1.1rem;
+  font-weight: 400;
+}
+
+.auth-form .field:focus {
+  border-color: #e2e8f0;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+/* Input içi sol ikon */
+.auth-form .field-with-icon {
+  position: relative;
+}
+
+.auth-form .field-with-icon .field-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #374151;
+  pointer-events: none;
+}
+
+.auth-form .field-with-icon .field {
+  padding-left: 2.75rem;
+}
+
+/* Input içi sağ buton (şifre göster/gizle) */
+.auth-form .field-with-icon .field-toggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: #374151;
+}
+
+.auth-form .field-with-icon:has(.field-toggle) .field {
+  padding-right: 2.75rem;
 }
 
 /* Chips */

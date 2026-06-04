@@ -74,6 +74,7 @@ const legacyScripts = [
   '/legacy/components/ScrollToTop.js',
   '/legacy/components/landing.js',
   '/legacy/components/login.js',
+  '/legacy/components/signup.js',
   '/legacy/components/usermanagement.js',
   '/legacy/components/suggestquestion.js',
   '/legacy/components/suggestedquestions.js',

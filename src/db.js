@@ -493,6 +493,24 @@ async function resetPasswordForEmail(email) {
   if (error) throw error;
 }
 
+// Self-servis kayıt: yeni firma + admin profili oluşturur (public signup edge function).
+async function signUpAccount({ email, password, firstName, lastName, companyName }) {
+  const { data, error } = await supabase.functions.invoke('signup', {
+    body: { email, password, firstName, lastName, companyName },
+  });
+  if (error) {
+    // Edge function 4xx döndüğünde gövdedeki mesajı çıkar
+    let message = error.message;
+    try {
+      const body = await error.context?.json?.();
+      if (body?.error) message = body.error;
+    } catch { /* yok say */ }
+    throw new Error(message);
+  }
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+
 // ─── COMPANIES ────────────────────────────────────────────────────────────────
 
 async function getCompanies() {
@@ -660,7 +678,7 @@ const db = {
   getSetting, resolveCompanyId,
   uploadFile, deleteFile,
   updateSessionHeartbeat, registerSession, removeSession,
-  createUser, resetPasswordForEmail,
+  createUser, resetPasswordForEmail, signUpAccount,
 };
 
 window.db = db;
