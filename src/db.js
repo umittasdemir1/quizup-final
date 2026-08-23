@@ -615,20 +615,35 @@ async function getSetting(key) {
 
 // ─── STORAGE ─────────────────────────────────────────────────────────────────
 
-const BUCKET = 'quizup';
-
+// Yükleme, storage RLS'ini bypass etmek için `upload-image` edge function
+// üzerinden yapılır: fonksiyon çağıranın JWT'sini doğrular, yalnızca
+// admin/manager/süper-admin ise service role ile bucket'a yazar.
+// (Storage servisi projenin ES256 imza anahtarlarını doğrulamadığı için
+// doğrudan authenticated upload RLS'e takılıyordu.)
 async function uploadFile(path, file) {
-  const { data, error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: true });
-  if (error) throw error;
-  const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(data.path);
-  return urlData.publicUrl;
+  const form = new FormData();
+  form.append('path', path);
+  form.append('file', file);
+  const { data, error } = await supabase.functions.invoke('upload-image', { body: form });
+  if (error) {
+    let message = error.message;
+    try {
+      const ctx = await error.context?.json?.();
+      if (ctx?.error) message = ctx.error;
+    } catch { /* yoksay */ }
+    throw new Error(message);
+  }
+  if (data?.error) throw new Error(data.error);
+  return data.url;
 }
 
 async function deleteFile(path) {
   // Dış URL'leri silmeye çalışma; sadece Supabase bucket path'lerini sil.
   if (/^https?:\/\//i.test(path || '')) return;
-  const { error } = await supabase.storage.from(BUCKET).remove([path]);
-  if (error) console.warn('[db.storage]', error.message);
+  const { data, error } = await supabase.functions.invoke('upload-image', {
+    body: { action: 'delete', path },
+  });
+  if (error || data?.error) console.warn('[db.storage]', error?.message || data?.error);
 }
 
 // ─── SESSION TRACKING ────────────────────────────────────────────────────────
