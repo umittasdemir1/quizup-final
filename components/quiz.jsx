@@ -1182,4 +1182,5 @@ const Quiz = ({ sessionId }) => {
   );
 };
 
+window.CircularTimer = CircularTimer;
 window.Quiz = Quiz;

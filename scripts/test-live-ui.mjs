@@ -2,8 +2,8 @@
 // by test-live-quizzes.sql and test-live-api.mjs; this test checks the actual UI.
 // Install jsdom outside the app: npm install --prefix /tmp/quizup-dom-test jsdom@26
 import assert from 'node:assert/strict';
-import { build } from 'esbuild';
-import { mkdir } from 'node:fs/promises';
+import { build, transform } from 'esbuild';
+import { mkdir, readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 const { JSDOM } = await import(process.env.JSDOM_MODULE || '/tmp/quizup-dom-test/node_modules/jsdom/lib/api.js');
 const dom = new JSDOM('<div id="root"></div>', { url: 'https://quizup.test/', pretendToBeVisual: true });
@@ -16,6 +16,8 @@ window.HTMLDialogElement.prototype.showModal = function () { this.open = true; }
 window.HTMLDialogElement.prototype.close = function () { this.open = false; };
 const React = await import('react');
 const { act } = React;
+globalThis.React = React;
+new Function((await transform(await readFile('components/quiz.jsx', 'utf8'), { loader: 'jsx', format: 'iife' })).code)();
 const { createRoot } = await import('react-dom/client');
 window.Page = ({ children, title }) => React.createElement('section', null, React.createElement('h1', null, title), children);
 
@@ -112,5 +114,45 @@ try {
   assert.match(document.body.textContent, /Yarışma tamamlandı/);
   assert.match(document.body.textContent, /Berabere/);
   assert.equal(document.querySelectorAll('.live-ranking li').length, 2);
+  await act(async () => root.unmount());
+  state = { mode: 'open', phase: 'question', total: 2, questionIndex: 0,
+    deadline: new Date(Date.now() + 60000).toISOString(), moderator: false,
+    playerId: 'p1', active: true, participants: players, participantCount: 2,
+    answeredCount: 0, answer: null, question, answerFeedback: null };
+  await mount(false);
+  assert.ok(document.querySelector('.quiz-fullscreen .quiz-content .max-w-2xl'));
+  assert.equal(document.querySelector('.live-question'), null, 'Open exam uses individual layout');
+  assert.ok(document.querySelector('.quiz-topbar .circular-timer'));
+  assert.equal(document.querySelector('.circular-timer-value').textContent.trim(), '60');
+  assert.equal(document.querySelector('.quiz-topbar-counter').textContent, '1/2');
+  assert.equal(document.querySelector('.quiz-progress-fill').style.width, '50%');
+  const openCalls = calls.length;
+  await click(document.querySelector('.option-card:nth-child(2)'));
+  assert.equal(document.querySelector('.option-card:nth-child(2)').getAttribute('aria-pressed'), 'true');
+  assert.ok([...document.querySelectorAll('.option-card')].every(b => b.disabled));
+  assert.equal(document.querySelector('.live-answer-sheet'), null, 'Duel explanation stays out of open mode');
+  state = { ...state, phase: 'reveal', answeredCount: 2, question: { ...question, correctAnswer: 'Ankara' } };
+  await sync();
+  assert.ok(document.querySelector('.option-card.correct'));
+  assert.ok(document.querySelector('.option-card.wrong'));
+  assert.match(document.body.textContent, /sonraki soru/);
+  const content = document.querySelector('.quiz-content');
+  content.scrollTop = 300;
+  state = { ...state, phase: 'question', questionIndex: 1, answer: null, answeredCount: 0,
+    answerFeedback: null, question: { ...question, optionImages: ['/a.png', '/b.png', '', ''] } };
+  await sync();
+  assert.equal(content.scrollTop, 0, 'Only question transition resets inner scroll');
+  assert.equal(document.querySelector('.quiz-topbar-counter').textContent, '2/2');
+  assert.equal(document.querySelectorAll('.image-option-card').length, 4, 'Image layout preserves every shared option');
+  state = { ...state, question: { id: 'text', type: 'open', text: 'Yanıtınızı açıklayın.' } };
+  await sync();
+  assert.ok(document.querySelector('textarea.field.min-h-\\[200px\\]'));
+  assert.ok(document.querySelector('.nav-pill-submit'));
+  assert.ok(calls.slice(openCalls).every(c => ['state', 'answer'].includes(c.action)), 'UI never advances the shared question');
+  await click(document.querySelector('.quiz-topbar-quit'));
+  assert.ok(document.querySelector('[role="dialog"]'));
+  await click([...document.querySelectorAll('button')].find(b => b.textContent === 'Devam et'));
+  assert.ok(document.querySelector('.quiz-fullscreen'));
+  console.log('PASS: open exam uses individual fullscreen/header/timer/progress/text and image options; immutable answers, shared reveal, server-driven transitions, open text and quit confirmation');
   console.log('PASS: participant form, persistent capability, original four-option bank question, individual-style option cards, 60-second display, immutable answer, right/wrong feedback, quit confirmation, moderator start/finish, final ranking');
 } finally { if (root) await act(async () => root.unmount()); dom.window.close(); }

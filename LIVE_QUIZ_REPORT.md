@@ -69,3 +69,11 @@ Soru havuzundaki yeni/düzenlenen sorular için isteğe bağlı “Doğru Yanıt
 `20260913004000_duel_answer_explanations.sql` Supabase MCP ile uygulandı. Soru açıklaması oturumun soru kopyasına alınır; yeni oluşturulan oturumlarda kullanılır. RPC yalnızca cevabı kaydedilmiş aktif 1 vs 1 katılımcısına kendi açıklamasını gönderir. Diğer modlar açıklama panelini göstermez. RLS, tenant sınırları, kimlik doğrulama ve CORS kuralları değiştirilmedi; production/localhost aynı RPC akışını kullanır.
 
 Doğrulama: `test-answer-explanation-form.mjs`, `test-live-ui.mjs`, `test-scroll-updates.mjs`, `npm run build` ve `git diff --check` geçti. `test-live-quizzes.sql` MCP üzerinden çalıştırıldı: doğru/yanlış açıklamaları, cevapsız rakip ve yabancı token için gizlilik, oturum senkronizasyonu ve mevcut yetki testleri geçti; test verileri transaction rollback ile kaldırıldı.
+
+## Çoklu sınavda bireysel ekran tasarımı — 2026-09-13
+
+Açık/çok katılımcılı oturumun aktif katılımcı sınav ekranı bireysel sınavdaki `quiz-fullscreen`, üst bar, soru sayacı, mavi ilerleme çubuğu, 672 px içerik genişliği, soru yazıları ve metin/görsel seçenek sınıflarını kullanır. Dairesel sayaç bireysel sınavdaki aynı `CircularTimer` bileşenidir; değerini canlı oturumun sunucu saatinden alır. Üst barın ortası katılımcı sayısını gösterir. Uzun içeriğin kaydırılması `.quiz-content` içinde kalır.
+
+`OpenQuizScreen` yalnızca görünümü ve yeni soruda içerik kaydırmasını yönetir. RPC, 60 saniyelik ortak zaman, cevapların kilitlenmesi, herkes cevapladığında erken kapanış ve otomatik soru geçişi `LiveQuiz` akışında kalır. Soru sırası ve seçenek sırası değiştirilmedi. 1 vs 1, moderatör, lobi ve sonuç ekranlarının akışı korunur; veritabanı/RLS/CORS değişikliği yoktur.
+
+`test-live-ui.mjs` artık çoklu ekranın tam ekran/üst bar/ortak dairesel sayaç/ilerleme, metin ve görsel şıklar, değiştirilemeyen cevaplar, doğru-yanlış gösterimi, sunucuyla soru geçişi, açık uçlu yanıt ve ayrılma onayını da doğrular. Testler ve üretim derlemesi geçti. Gerçek Android/iOS cihaz testi yapılmadı.

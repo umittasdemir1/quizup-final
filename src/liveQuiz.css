@@ -23,7 +23,7 @@
 .live-progress { height: 6px; background: #f1f5f9; border-radius: 10px; margin-bottom: 30px; overflow: hidden; }
 .live-progress > div { height: 100%; background: #f97316; }
 .live-question-image { max-height: 300px; max-width: 100%; object-fit: contain; margin: 20px auto; }
-.live-question .option-card:focus-visible { outline: 3px solid #2563eb; outline-offset: 4px; }
+.live-question .option-card:focus-visible, .open-quiz-screen .option-card:focus-visible, .open-quiz-screen .image-option-card:focus-visible { outline: 3px solid #2563eb; outline-offset: 4px; }
 .live-feedback { margin-top: 24px; font-weight: 650; }
 .live-answer-count { font-size: 13px; }
 .live-error { padding: 14px 18px; border: 1px solid #fecaca; border-radius: 14px; background: #fef2f2; color: #991b1b; margin-bottom: 18px; }
