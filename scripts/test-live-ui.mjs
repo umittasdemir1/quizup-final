@@ -72,7 +72,9 @@ try {
   await sync();
   assert.ok(document.querySelector('.duel-quiz-screen.quiz-fullscreen'), 'Duel uses the individual fullscreen layout');
   assert.equal(document.querySelectorAll('.duel-answer-button').length, 2);
-  assert.equal(document.querySelector('.duel-answer-button.true').textContent.replace(/\s/g, ''), 'O​Doğru'.replace('​', ''));
+  assert.equal(document.querySelector('.duel-answer-button.true').textContent.trim(), 'O');
+  assert.equal(document.querySelector('.duel-answer-button.false').textContent.trim(), '×');
+  assert.equal(document.querySelector('.duel-answer-button.true').getAttribute('aria-label'), 'Doğru');
   assert.ok(document.querySelector('.quiz-topbar .circular-timer'));
   await click(document.querySelector('.duel-answer-button.false'));
   assert.equal(calls.find(c => c.action === 'answer').payload.questionIndex, 0);
