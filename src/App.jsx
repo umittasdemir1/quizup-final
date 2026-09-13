@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import QuizRouter from './QuizRouter.jsx';
 
 const App = () => {
   window.useAnon?.();
@@ -49,7 +50,6 @@ const App = () => {
   const QuestionBank = window.QuestionBank;
   const Branding = window.Branding;
   const Dashboard = window.Dashboard;
-  const Quiz = window.Quiz;
   const Result = window.Result;
   const Leaderboard = window.Leaderboard;
   const Manager = window.Manager;
@@ -77,7 +77,8 @@ const App = () => {
           : route.startsWith('/questions') ? (isLoggedIn() && hasRole(['admin', 'manager']) ? <QuestionBank /> : (() => { requireAuth(['admin', 'manager']); return null; })())
           : route.startsWith('/branding') ? (isLoggedIn() && hasRole('admin') ? <Branding /> : (() => { requireAuth('admin'); return null; })())
           : route.startsWith('/dashboard') ? (isLoggedIn() && hasRole(['admin', 'manager']) ? <Dashboard /> : (() => { requireAuth(['admin', 'manager']); return null; })())
-          : route.startsWith('/quiz/') ? <Quiz sessionId={route.split('/')[2]} />
+          : route.startsWith('/quiz/') ? <QuizRouter key={route} sessionId={route.split('/')[2]} />
+          : route.startsWith('/moderate/') ? <QuizRouter key={route} sessionId={route.split('/')[2]} moderator />
           : route.startsWith('/result') ? (() => {
               const params = new URLSearchParams(route.split('?')[1] || '');
               return <Result sessionId={params.get('sessionId')} resultId={params.get('resultId')} />;

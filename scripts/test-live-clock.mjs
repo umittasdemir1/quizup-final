@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import { clockAnchor, secondsRemaining } from '../src/liveClock.js';
+
+const server = '2026-09-13T12:00:00.000Z';
+const deadline = '2026-09-13T12:01:00.000Z';
+const anchor = clockAnchor(server, 100, 300);
+assert.equal(secondsRemaining(deadline, anchor, 300), 60);
+assert.equal(secondsRemaining(deadline, anchor, 10300), 50);
+assert.equal(secondsRemaining(deadline, anchor, 60300), 0);
+assert.equal(secondsRemaining(deadline, anchor, 90000), 0);
+assert.equal(secondsRemaining(null, anchor, 300), null);
+const originalNow = Date.now;
+Date.now = () => 0;
+assert.equal(secondsRemaining(deadline, anchor, 10300), 50);
+Date.now = () => originalNow() + 86400000;
+assert.equal(secondsRemaining(deadline, anchor, 10300), 50);
+Date.now = originalNow;
+const resumed = clockAnchor('2026-09-13T12:00:45.000Z', 2000, 2200);
+assert.equal(secondsRemaining(deadline, resumed, 2200), 15);
+console.log('8 clock assertions passed: delay, expiry, clock skew, resume.');

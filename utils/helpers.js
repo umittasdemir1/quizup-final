@@ -287,7 +287,7 @@ const validateQuestion = (form) => {
 const validateSession = (form) => {
   const errors = {};
 
-  if (form.sessionMode !== 'open') {
+  if (!['open', 'duel'].includes(form.sessionMode)) {
     if (!form.employee?.fullName?.trim()) {
       errors.fullName = 'Personel adı gereklidir';
     }
@@ -296,8 +296,9 @@ const validateSession = (form) => {
     }
   }
 
-  if (!form.questionIds || form.questionIds.length === 0) {
-    errors.questions = 'En az 1 soru seçilmelidir';
+  const liveMode = ['open', 'duel'].includes(form.sessionMode);
+  if (!form.questionIds?.length || (liveMode && form.questionIds.length > 100)) {
+    errors.questions = liveMode ? '1–100 soru seçilmelidir' : 'En az 1 soru seçilmelidir';
   }
 
   if (form.timerMode === 'total') {

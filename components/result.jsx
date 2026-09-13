@@ -7,11 +7,11 @@ const ensurePdfFont = (pdf) => {
   if (!base64) return false;
   const cleaned = sanitizeBase64(base64);
   try {
-    if (!window.__QUIZUP_PDF_FONT_REGISTERED) {
+    if (!pdf.__quizupFontRegistered) {
       pdf.addFileToVFS('DejaVuSans.ttf', cleaned);
       pdf.addFont('DejaVuSans.ttf', 'DejaVuSans', 'normal');
       pdf.addFont('DejaVuSans.ttf', 'DejaVuSans', 'bold');
-      window.__QUIZUP_PDF_FONT_REGISTERED = true;
+      pdf.__quizupFontRegistered = true;
     }
     pdf.setFont('DejaVuSans', 'normal');
     return true;

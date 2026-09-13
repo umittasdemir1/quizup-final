@@ -1,4 +1,4 @@
-import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { transform } from 'esbuild';
 
@@ -41,7 +41,9 @@ const files = [
 
 const outRoot = 'public/legacy';
 
-await rm(outRoot, { recursive: true, force: true });
+// Keep the directory stable: removing it breaks Vite's public-file watcher
+// when a production build runs alongside the development server.
+await mkdir(outRoot, { recursive: true });
 
 // Copy-only files (skip esbuild)
 for (const file of copyOnlyFiles) {

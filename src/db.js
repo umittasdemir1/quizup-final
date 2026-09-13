@@ -259,6 +259,14 @@ function onSessionsSnapshot(companyId, callback) {
 
 async function addSession(data, companyId) {
   const questionIds = (data.questionIds || []).filter(isUUID);
+  if (['open', 'duel'].includes(data.sessionMode)) {
+    const { data: id, error } = await supabase.rpc('create_live_quiz', {
+      p_company_id: companyId, p_mode: data.sessionMode,
+      p_question_ids: questionIds,
+    });
+    if (error) throw error;
+    return getSessionById(id);
+  }
   const row = {
     company_id: companyId,
     employee: data.employee || {},
@@ -280,6 +288,14 @@ async function updateSession(sessionId, data) {
   if (data.status !== undefined) { row.status = data.status; if (data.status === 'completed') row.completed_at = new Date().toISOString(); }
   const { error } = await supabase.from('quiz_sessions').update(row).eq('id', sessionId);
   if (error) throw error;
+}
+
+async function liveQuiz(sessionId, action = 'state', token = null, payload = {}) {
+  const { data, error } = await supabase.rpc('live_quiz', {
+    p_session_id: sessionId, p_action: action, p_token: token, p_payload: payload,
+  });
+  if (error) throw error;
+  return data;
 }
 
 // ─── LOBİ ────────────────────────────────────────────────────────────────────
@@ -683,7 +699,7 @@ async function removeSession(userId, sessionId) {
 const db = {
   getQuestions, getQuestionsByIds, onQuestionsSnapshot, addQuestion, updateQuestion, deleteQuestion,
   getSessions, getSessionById, onSessionsSnapshot, addSession, updateSession, deleteSession,
-  joinSessionLobby, getSessionParticipants, onSessionParticipantsSnapshot,
+  joinSessionLobby, getSessionParticipants, onSessionParticipantsSnapshot, liveQuiz,
   getResults, getResultById, onResultsSnapshot, addResult, deleteResult,
   getPackages, onPackagesSnapshot, addPackage, deletePackage,
   getBranding, setBranding,
