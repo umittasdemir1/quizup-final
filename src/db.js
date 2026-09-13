@@ -46,6 +46,7 @@ const mapQuestion = (q) => ({
   difficulty: q.difficulty,
   options: q.options || [],
   correctAnswer: q.correct_answer,
+  answerExplanation: q.answer_explanation || '',
   isActive: q.is_active,
   hasTimer: q.has_timer,
   timerSeconds: q.timer_seconds,
@@ -196,6 +197,7 @@ async function addQuestion(data, companyId) {
     difficulty: data.difficulty || null,
     options: Array.isArray(data.options) ? data.options : [],
     correct_answer: data.correctAnswer || null,
+    answer_explanation: data.answerExplanation?.trim() || '',
     is_active: data.isActive !== false,
     has_timer: data.hasTimer || false,
     timer_seconds: data.timerSeconds || null,
@@ -217,6 +219,7 @@ async function updateQuestion(questionId, data) {
   const map = {
     questionText: 'question_text', type: 'type', category: 'category',
     difficulty: 'difficulty', options: 'options', correctAnswer: 'correct_answer',
+    answerExplanation: 'answer_explanation',
     isActive: 'is_active', hasTimer: 'has_timer', timerSeconds: 'timer_seconds',
     questionImageUrl: 'question_image_url', hasQuestionImage: 'has_question_image',
     hasImageOptions: 'has_image_options', optionImageUrls: 'option_image_urls',

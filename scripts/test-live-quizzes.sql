@@ -19,6 +19,7 @@ begin
     values(c,'Bir haftada yedi gün vardır.','mcq','["Doğru","Yanlış"]','Doğru',true) returning id into q1;
   insert into public.questions(company_id,question_text,type,options,correct_answer,is_active)
     values(c,'İki artı iki beştir.','mcq','["Doğru","Yanlış"]','Yanlış',true) returning id into q2;
+  update public.questions set answer_explanation='Bir haftada 7 gün vardır.' where id=q1;
   insert into public.question_packages(company_id,name,question_ids,question_count,is_active)
     values(c,'Ortak test paketi',array[q1,q2],2,true) returning id into pkg;
   select question_ids into qids from public.question_packages where id=pkg;
@@ -53,15 +54,22 @@ begin
   if st->>'deadline' <> first_deadline then raise exception 'Duplicate start reset timer'; end if;
   perform set_config('request.jwt.claim.sub','',true);
   st := public.live_quiz(sid,'state',t1);
-  if (st->'question') ? 'correctAnswer' then raise exception 'Answer key leaked'; end if;
+  if (st->'question') ? 'correctAnswer' or (st->'question') ? 'answerExplanation' or st->>'answerFeedback' is not null then raise exception 'Answer key/explanation leaked'; end if;
   peer := public.live_quiz(sid,'state',t2);
   if st->'question' <> peer->'question' or st->>'deadline' <> peer->>'deadline' then raise exception 'Duel participants are not synchronized'; end if;
   st := public.live_quiz(sid,'answer',t1,'{"questionIndex":0,"answer":"Doğru"}');
   if st->>'phase' <> 'question' then raise exception 'Ended before all answers'; end if;
+  if st->'answerFeedback'->>'text' <> 'Bir haftada 7 gün vardır.' or st->'answerFeedback'->>'isCorrect' <> 'true' then raise exception 'Correct participant explanation missing'; end if;
+  peer := public.live_quiz(sid,'state',t2);
+  if peer->>'answerFeedback' is not null or (peer->'question') ? 'answerExplanation' then raise exception 'Explanation leaked to unanswered peer'; end if;
+  peer := public.live_quiz(sid,'state',t3);
+  if peer->>'answerFeedback' is not null then raise exception 'Explanation leaked to stranger'; end if;
+
   st := public.live_quiz(sid,'answer',t1,'{"questionIndex":0,"answer":"Yanlış"}');
   if st->>'answer' <> 'Doğru' then raise exception 'Answer was changed'; end if;
   st := public.live_quiz(sid,'answer',t2,'{"questionIndex":0,"answer":"Yanlış"}');
   if st->>'phase' <> 'reveal' or st->'question'->>'correctAnswer' <> 'Doğru' then raise exception 'Early reveal failed'; end if;
+  if st->'answerFeedback'->>'text' <> 'Bir haftada 7 gün vardır.' or st->'answerFeedback'->>'isCorrect' <> 'false' then raise exception 'Wrong participant explanation missing'; end if;
   update public.live_quiz_rooms set deadline=clock_timestamp()-interval '10 seconds' where session_id=sid;
   st := public.live_quiz(sid,'state',t1);
   if st->>'phase' <> 'reveal' then raise exception 'Duel advanced without moderator'; end if;
@@ -69,7 +77,7 @@ begin
   st := public.live_quiz(sid,'next',null,'{"phase":"reveal","questionIndex":0}');
   perform set_config('request.jwt.claim.sub','',true);
   st := public.live_quiz(sid,'answer',t1,'{"questionIndex":0,"answer":"Doğru"}');
-  if st->>'answer' is not null then raise exception 'Stale answer applied'; end if;
+  if st->>'answer' is not null or st->>'answerFeedback' is not null then raise exception 'Stale answer/feedback applied'; end if;
   update public.live_quiz_rooms set deadline=clock_timestamp()-interval '1 second' where session_id=sid;
   st := public.live_quiz(sid,'answer',t2,'{"questionIndex":1,"answer":"Yanlış"}');
   if st->>'answer' is not null or st->>'phase' <> 'reveal' then raise exception 'Late answer accepted'; end if;

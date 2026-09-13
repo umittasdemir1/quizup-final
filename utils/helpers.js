@@ -281,6 +281,11 @@ const validateQuestion = (form) => {
     }
   }
   
+  if (form.hasAnswerExplanation) {
+    if (!form.answerExplanation?.trim()) errors.answerExplanation = 'Doğru yanıt açıklamasını yazın';
+    else if (form.answerExplanation.trim().length > 2000) errors.answerExplanation = 'Açıklama en fazla 2000 karakter olabilir';
+  }
+
   return errors;
 };
 

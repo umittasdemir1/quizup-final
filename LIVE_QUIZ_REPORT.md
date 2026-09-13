@@ -59,3 +59,13 @@ npm run build
 ```
 
 SQL testini Supabase SQL/MCP ile çalıştırın. `test-live-api.mjs` için yalnızca test amacıyla oluşturulmuş, henüz başlamamış tek sorulu açık oturum ve düello UUID’lerini sırayla verin; betik yaklaşık 70 saniyede gerçek katılımcı ve sonuç kayıtları oluşturur. Deneme sonunda bu kayıtları temizleyin.
+
+## 1 vs 1 doğru yanıt açıklaması — 2026-09-13
+
+Soru havuzundaki yeni/düzenlenen sorular için isteğe bağlı “Doğru Yanıt Ekle” anahtarı eklendi. Açıldığında 1–2000 karakterlik açıklama gerekir; kapatıldığında kayıtlı açıklama temizlenir. Doğru şık seçimi ayrı olarak korunur.
+
+1 vs 1 katılımcısının cevabı kaydedildikten sonra doğru/yanlış durumu ve açıklama alttan açılan panelde gösterilir. Her iki cevap sonucunda da görünür. Kapatılan panel polling ile tekrar açılmaz; sonraki soruda eski açıklama kapanır. Native dialog odak yönetimi, Escape, azaltılmış hareket tercihi ve mobil güvenli alan desteği kullanır. Gerçek Android/iOS cihaz testi yapılmadı.
+
+`20260913004000_duel_answer_explanations.sql` Supabase MCP ile uygulandı. Soru açıklaması oturumun soru kopyasına alınır; yeni oluşturulan oturumlarda kullanılır. RPC yalnızca cevabı kaydedilmiş aktif 1 vs 1 katılımcısına kendi açıklamasını gönderir. Diğer modlar açıklama panelini göstermez. RLS, tenant sınırları, kimlik doğrulama ve CORS kuralları değiştirilmedi; production/localhost aynı RPC akışını kullanır.
+
+Doğrulama: `test-answer-explanation-form.mjs`, `test-live-ui.mjs`, `test-scroll-updates.mjs`, `npm run build` ve `git diff --check` geçti. `test-live-quizzes.sql` MCP üzerinden çalıştırıldı: doğru/yanlış açıklamaları, cevapsız rakip ve yabancı token için gizlilik, oturum senkronizasyonu ve mevcut yetki testleri geçti; test verileri transaction rollback ile kaldırıldı.

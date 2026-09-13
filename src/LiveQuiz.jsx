@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import db from './db.js';
+import AnswerFeedbackSheet from './AnswerFeedbackSheet.jsx';
 import { clockAnchor, secondsRemaining } from './liveClock.js';
 import './liveQuiz.css';
 
@@ -18,6 +19,7 @@ export default function LiveQuiz({ sessionId, moderatorView = false }) {
   const [remaining, setRemaining] = useState(null);
   const [connected, setConnected] = useState(false);
   const [showLeave, setShowLeave] = useState(false);
+  const [dismissedFeedback, setDismissedFeedback] = useState(null);
   const [token, setToken] = useState(null);
   const anchor = useRef(null);
   const stateRef = useRef(null);
@@ -121,6 +123,10 @@ export default function LiveQuiz({ sessionId, moderatorView = false }) {
   const q = state?.question;
   const revealed = state?.phase === 'reveal';
   const locked = busy || !connected || state?.phase !== 'question' || Boolean(state?.answer) || remaining === 0;
+  const feedbackKey = `${sessionId}:${state?.questionIndex}`;
+  const showFeedback = duel && !moderatorView && state?.active && Boolean(state?.answer)
+    && ['question', 'reveal'].includes(state?.phase) && state?.answerFeedback?.text
+    && dismissedFeedback !== feedbackKey && !showLeave;
   const players = state?.participants || [];
   const nextQuestion = () => act('next', { phase: state.phase, questionIndex: state.questionIndex });
   const participantCards = players.filter(p => p.active).map((p, i) => <div className="live-player" key={p.id}><span className="live-avatar">{i + 1}</span><strong>{p.fullName}</strong><small>{state.phase === 'lobby' ? p.store : p.answered ? '✓ Cevapladı' : 'Bekleniyor'}</small></div>);
@@ -180,6 +186,7 @@ export default function LiveQuiz({ sessionId, moderatorView = false }) {
               {revealed && (duel ? moderator ? <button className="btn btn-primary" disabled={busy || !connected} onClick={nextQuestion}>{state.questionIndex + 1 === state.total ? 'Düelloyu bitir' : 'Sonraki soruyu sor'}</button> : <p>Moderatörün devam etmesi bekleniyor…</p> : <p>{remaining > 0 ? `${remaining} saniye sonra ${state.questionIndex + 1 === state.total ? 'sonuçlar' : 'sonraki soru'}…` : 'Oturum güncelleniyor…'}</p>)}
             </div>}
         </>}
+      {showFeedback && <AnswerFeedbackSheet key={feedbackKey} feedback={state.answerFeedback} onClose={() => setDismissedFeedback(feedbackKey)} />}
       {showLeave && <div className="live-modal-backdrop"><div className="card live-card" role="dialog" aria-modal="true" aria-labelledby="leave-title"><h2 id="leave-title">Yarışmadan ayrılsın mı?</h2><p>Bu oturuma tekrar katılamazsınız. Verdiğiniz cevaplar korunur.</p><div className="live-actions"><button autoFocus className="btn btn-secondary" onClick={() => setShowLeave(false)} disabled={busy}>Devam et</button><button className="btn btn-danger" onClick={() => act('leave')} disabled={busy}>Oturumdan ayrıl</button></div></div></div>}
     </div>
   </Page>;

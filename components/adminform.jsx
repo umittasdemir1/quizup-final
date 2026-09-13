@@ -108,6 +108,23 @@ const AdminForm = ({
         </>
       )}
 
+      <div className="card p-4">
+        <div className="flex items-center gap-3">
+          <svg className="w-6 h-6 text-accent-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m8 12 3 3 5-6" /><circle cx="12" cy="12" r="9" /></svg>
+          <label htmlFor="answer-explanation-toggle" className="font-semibold text-dark-900">Doğru Yanıt Ekle</label>
+          <label className="toggle-switch">
+            <input id="answer-explanation-toggle" type="checkbox" checked={Boolean(form.hasAnswerExplanation)} onChange={e => updateField('hasAnswerExplanation', e.target.checked)} aria-controls="answer-explanation-field" />
+            <span className="toggle-slider"></span>
+          </label>
+        </div>
+        {form.hasAnswerExplanation && <div className="mt-4" id="answer-explanation-field">
+          <label htmlFor="answer-explanation" className="block text-sm font-semibold mb-2 text-dark-700">Doğru yanıt açıklaması *</label>
+          <textarea id="answer-explanation" className={`field min-h-[100px] ${errors.answerExplanation ? 'error' : ''}`} value={form.answerExplanation || ''} onChange={e => updateField('answerExplanation', e.target.value)} maxLength={2000} placeholder="Örn: Luca modelinin doğru fiyatı 4.400 TL’dir." aria-describedby="answer-explanation-help" aria-invalid={Boolean(errors.answerExplanation)} />
+          <p id="answer-explanation-help" className="text-xs text-dark-500 mt-2">1 vs 1’de katılımcı cevap verdikten sonra bu açıklama alttan açılan panelde gösterilir. Doğru şıkkı yukarıdaki Doğru Cevap alanından seçin.</p>
+          {errors.answerExplanation && <div className="error-text" role="alert">{errors.answerExplanation}</div>}
+        </div>}
+      </div>
+
       {/* TIMER SECTION */}
       <div className="card p-4">
         <div className="flex items-center gap-3">

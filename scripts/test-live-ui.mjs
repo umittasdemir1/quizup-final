@@ -12,6 +12,8 @@ globalThis.document = dom.window.document;
 globalThis.localStorage = dom.window.localStorage;
 globalThis.navigator = dom.window.navigator;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+window.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+window.HTMLDialogElement.prototype.close = function () { this.open = false; };
 const React = await import('react');
 const { act } = React;
 const { createRoot } = await import('react-dom/client');
@@ -28,7 +30,7 @@ const players = [{ id: 'p1', fullName: 'Test Bir', store: 'Test', active: true }
 globalThis.__liveTestDb = { liveQuiz: async (sid, action, token, payload) => {
   calls.push({ sid, action, token, payload });
   if (action === 'join') state = { ...state, playerId: 'p1', active: true, participantCount: 2, participants: players };
-  if (action === 'answer') state = { ...state, answer: payload.answer, answeredCount: 1 };
+  if (action === 'answer') state = { ...state, answer: payload.answer, answeredCount: 1, answerFeedback: { text: 'Türkiye’nin başkenti Ankara’dır.', isCorrect: payload.answer === 'Ankara' } };
   if (action === 'leave') state = { ...state, active: false };
   if (action === 'next') state = state.phase === 'lobby'
     ? { ...state, phase: 'question', question, deadline: new Date(Date.now() + 60000).toISOString() }
@@ -72,6 +74,22 @@ try {
   assert.equal(document.querySelector('.option-card:nth-child(2)').getAttribute('aria-pressed'), 'true');
   assert.equal(document.querySelector('.option-card:first-child').disabled, true);
   assert.match(document.body.textContent, /Cevabınız kaydedildi/);
+  assert.equal(document.querySelector('dialog.live-answer-sheet').open, true);
+  assert.match(document.querySelector('.live-sheet-status').textContent, /Yanlış cevap/);
+  assert.match(document.querySelector('.live-sheet-explanation').textContent, /Ankara/);
+  await click([...document.querySelectorAll('button')].find(b => b.textContent === 'Anladım'));
+  await sync();
+  assert.equal(document.querySelector('.live-answer-sheet'), null, 'Polling cannot reopen dismissed explanation');
+  state = { ...state, questionIndex: 1, answer: null, answerFeedback: null };
+  await sync();
+  assert.equal(document.querySelector('.live-answer-sheet'), null, 'No explanation before answering');
+  await click(document.querySelector('.option-card:first-child'));
+  assert.match(document.querySelector('.live-sheet-status').textContent, /Doğru cevap!/);
+  state = { ...state, questionIndex: 2, answer: null, answerFeedback: null };
+  await sync();
+  assert.equal(document.querySelector('.live-answer-sheet'), null, 'Moderator advancing dismisses the old explanation');
+  state = { ...state, questionIndex: 0, answer: 'İstanbul', answerFeedback: null };
+
   state = { ...state, phase: 'reveal', question: { ...question, correctAnswer: 'Ankara' } };
   await sync();
   assert.ok(document.querySelector('.option-card.correct'));
