@@ -50,7 +50,7 @@ export default function OpenQuizScreen({ state, remaining, locked, busy, error, 
           <textarea className="field min-h-[200px]" aria-label="Cevabınız" placeholder="Cevabınızı buraya yazınız..." maxLength={4000} required disabled={locked} value={state.answer || draft} onChange={event => onDraftChange(event.target.value)} />
           <div className="flex justify-center mt-5"><button className="nav-pill nav-pill-submit" disabled={locked || !draft.trim()}><span className="nav-pill-text">{busy ? 'Kaydediliyor…' : 'Cevabı gönder'}</span><span className="nav-pill-icon" aria-hidden="true">✓</span></button></div>
         </form>}
-        <div className="mt-5 text-center text-sm text-dark-600 tabular-nums" role="status" aria-label={`${state.answeredCount} cevaplayan, ${state.participantCount} toplam katılımcı`}>
+        <div className="mt-12 text-center text-sm text-dark-600 tabular-nums" role="status" aria-label={`${state.answeredCount} cevaplayan, ${state.participantCount} toplam katılımcı`}>
           {state.answeredCount} | {state.participantCount}
         </div>
       </div>
