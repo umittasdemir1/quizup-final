@@ -68,7 +68,7 @@
 .duel-question-text { margin: 0 auto; max-width: 640px; }
 .duel-answer-buttons { display: flex; justify-content: center; align-items: center; gap: clamp(28px, 8vw, 64px); margin: clamp(32px, 7vh, 64px) auto 0; }
 .duel-answer-button { width: clamp(112px, 28vw, 164px); aspect-ratio: 1; display: grid; place-items: center; flex: 0 0 auto; border: 3px solid; border-radius: 50%; font-weight: 700; transition: transform .15s ease, box-shadow .15s ease, opacity .15s ease; }
-.duel-answer-button span { font-size: clamp(72px, 18vw, 128px); line-height: .7; font-family: Arial, sans-serif; font-weight: 500; }
+.duel-answer-button span { font-size: clamp(72px, 18vw, 128px); line-height: .7; font-family: Georgia, 'Times New Roman', serif; font-weight: 700; }
 .duel-answer-button.true { color: #15803d; background: #f0fdf4; border-color: #22c55e; }
 .duel-answer-button.false { color: #dc2626; background: #fef2f2; border-color: #ef4444; }
 .duel-answer-button:not(:disabled):hover { transform: translateY(-4px) scale(1.03); box-shadow: 0 14px 28px rgba(15, 23, 42, .14); }
