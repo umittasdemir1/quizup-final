@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import db from './db.js';
 import AnswerFeedbackSheet from './AnswerFeedbackSheet.jsx';
 import OpenQuizScreen from './OpenQuizScreen.jsx';
+import DuelQuizScreen from './DuelQuizScreen.jsx';
 import { clockAnchor, secondsRemaining } from './liveClock.js';
 import './liveQuiz.css';
 
@@ -133,6 +134,14 @@ export default function LiveQuiz({ sessionId, moderatorView = false }) {
   const participantCards = players.filter(p => p.active).map((p, i) => <div className="live-player" key={p.id}><span className="live-avatar">{i + 1}</span><strong>{p.fullName}</strong><small>{state.phase === 'lobby' ? p.store : p.answered ? '✓ Cevapladı' : 'Bekleniyor'}</small></div>);
 
   const leaveDialog = showLeave && <div className="live-modal-backdrop"><div className="card live-card" role="dialog" aria-modal="true" aria-labelledby="leave-title"><h2 id="leave-title">Yarışmadan ayrılsın mı?</h2><p>Bu oturuma tekrar katılamazsınız. Verdiğiniz cevaplar korunur.</p><div className="live-actions"><button autoFocus className="btn btn-secondary" onClick={() => setShowLeave(false)} disabled={busy}>Devam et</button><button className="btn btn-danger" onClick={() => act('leave')} disabled={busy}>Oturumdan ayrıl</button></div></div></div>;
+  if (state?.mode === 'duel' && !moderatorView && state.active && q && ['question', 'reveal'].includes(state.phase)) {
+    return <>
+      <DuelQuizScreen state={state} remaining={remaining} locked={locked} busy={busy} error={error} onLeave={() => setShowLeave(true)} onAnswer={answer => act('answer', { questionIndex: state.questionIndex, answer })} />
+      {showFeedback && <AnswerFeedbackSheet key={feedbackKey} feedback={state.answerFeedback} onClose={() => setDismissedFeedback(feedbackKey)} />}
+      {leaveDialog}
+    </>;
+  }
+
   if (state?.mode === 'open' && !moderatorView && state.active && q && ['question', 'reveal'].includes(state.phase)) {
     return <>
       <OpenQuizScreen state={state} remaining={remaining} locked={locked} busy={busy} error={error} draft={draft} onDraftChange={setDraft} onLeave={() => setShowLeave(true)} onAnswer={answer => act('answer', { questionIndex: state.questionIndex, answer })} />

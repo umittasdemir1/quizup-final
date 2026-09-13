@@ -62,3 +62,17 @@
 .live-sheet-explanation { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; font-size: 17px; margin-bottom: 28px; }
 @keyframes live-sheet-enter { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @media (prefers-reduced-motion: reduce) { .live-answer-sheet { animation: none; } }
+
+.duel-answer-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(16px, 4vw, 28px); max-width: 560px; margin: 0 auto; }
+.duel-answer-button { min-height: clamp(150px, 29vw, 220px); display: grid; place-content: center; gap: 12px; border: 2px solid; border-radius: 24px; font-weight: 700; transition: transform .15s ease, box-shadow .15s ease, opacity .15s ease; }
+.duel-answer-button span { font-size: clamp(72px, 15vw, 124px); line-height: .8; font-family: Arial, sans-serif; font-weight: 700; }
+.duel-answer-button small { font-size: 15px; font-weight: 650; }
+.duel-answer-button.true { color: #15803d; background: #f0fdf4; border-color: #86efac; }
+.duel-answer-button.false { color: #dc2626; background: #fef2f2; border-color: #fca5a5; }
+.duel-answer-button:not(:disabled):hover { transform: translateY(-3px); box-shadow: 0 12px 24px rgba(15, 23, 42, .12); }
+.duel-answer-button.selected { box-shadow: 0 0 0 4px currentColor; }
+.duel-answer-button.correct { color: #166534; background: #dcfce7; border-color: #22c55e; }
+.duel-answer-button.wrong { color: #991b1b; background: #fee2e2; border-color: #ef4444; }
+.duel-answer-button:disabled { cursor: default; opacity: .78; }
+.duel-answer-button:focus-visible { outline: 3px solid #2563eb; outline-offset: 4px; }
+@media (max-width: 380px) { .duel-answer-buttons { gap: 12px; } .duel-answer-button { border-radius: 18px; } }

@@ -28,14 +28,15 @@ let state = {
   answeredCount: 0, answer: null, question: null,
 };
 const question = { id: 'q1', text: 'Türkiye’nin başkenti hangisidir?', type: 'mcq', options: ['Ankara', 'İstanbul', 'İzmir', 'Bursa'] };
+const duelQuestion = { id: 'duel-q1', text: 'Luca modelinin fiyatı 4.400 TL’dir.', type: 'mcq', options: ['Doğru', 'Yanlış'] };
 const players = [{ id: 'p1', fullName: 'Test Bir', store: 'Test', active: true }, { id: 'p2', fullName: 'Test İki', store: 'Test', active: true }];
 globalThis.__liveTestDb = { liveQuiz: async (sid, action, token, payload) => {
   calls.push({ sid, action, token, payload });
   if (action === 'join') state = { ...state, playerId: 'p1', active: true, participantCount: 2, participants: players };
-  if (action === 'answer') state = { ...state, answer: payload.answer, answeredCount: 1, answerFeedback: { text: 'Türkiye’nin başkenti Ankara’dır.', isCorrect: payload.answer === 'Ankara' } };
+  if (action === 'answer') state = { ...state, answer: payload.answer, answeredCount: 1, answerFeedback: { text: 'Luca modelinin doğru fiyatı 4.400 TL’dir.', isCorrect: payload.answer === 'Doğru' } };
   if (action === 'leave') state = { ...state, active: false };
   if (action === 'next') state = state.phase === 'lobby'
-    ? { ...state, phase: 'question', question, deadline: new Date(Date.now() + 60000).toISOString() }
+    ? { ...state, phase: 'question', question: state.mode === 'duel' ? duelQuestion : question, deadline: new Date(Date.now() + 60000).toISOString() }
     : { ...state, phase: 'finished', question: null, participants: players.map(p => ({ ...p, score: { xp: 100, correct: 1 } })) };
   return { ...state, serverNow: new Date().toISOString() };
 } };
@@ -67,37 +68,38 @@ try {
   assert.equal(calls.find(c => c.action === 'join').payload.fullName, 'Test Bir');
   assert.match(document.body.textContent, /Düello lobisi/);
   assert.equal(document.querySelectorAll('.live-player').length, 2);
-  state = { ...state, phase: 'question', question, deadline: new Date(Date.now() + 60000).toISOString() };
+  state = { ...state, phase: 'question', question: duelQuestion, deadline: new Date(Date.now() + 60000).toISOString() };
   await sync();
-  assert.equal(document.querySelectorAll('.option-card').length, 4);
-  assert.match(document.querySelector('.live-timer').textContent, /60 sn/);
-  await click(document.querySelector('.option-card:nth-child(2)'));
+  assert.ok(document.querySelector('.duel-quiz-screen.quiz-fullscreen'), 'Duel uses the individual fullscreen layout');
+  assert.equal(document.querySelectorAll('.duel-answer-button').length, 2);
+  assert.equal(document.querySelector('.duel-answer-button.true').textContent.replace(/\s/g, ''), 'O​Doğru'.replace('​', ''));
+  assert.ok(document.querySelector('.quiz-topbar .circular-timer'));
+  await click(document.querySelector('.duel-answer-button.false'));
   assert.equal(calls.find(c => c.action === 'answer').payload.questionIndex, 0);
-  assert.equal(document.querySelector('.option-card:nth-child(2)').getAttribute('aria-pressed'), 'true');
-  assert.equal(document.querySelector('.option-card:first-child').disabled, true);
-  assert.match(document.body.textContent, /Cevabınız kaydedildi/);
+  assert.equal(document.querySelector('.duel-answer-button.false').getAttribute('aria-pressed'), 'true');
+  assert.ok([...document.querySelectorAll('.duel-answer-button')].every(button => button.disabled));
   assert.equal(document.querySelector('dialog.live-answer-sheet').open, true);
   assert.match(document.querySelector('.live-sheet-status').textContent, /Yanlış cevap/);
-  assert.match(document.querySelector('.live-sheet-explanation').textContent, /Ankara/);
+  assert.match(document.querySelector('.live-sheet-explanation').textContent, /4.400 TL/);
   await click([...document.querySelectorAll('button')].find(b => b.textContent === 'Anladım'));
   await sync();
   assert.equal(document.querySelector('.live-answer-sheet'), null, 'Polling cannot reopen dismissed explanation');
   state = { ...state, questionIndex: 1, answer: null, answerFeedback: null };
   await sync();
   assert.equal(document.querySelector('.live-answer-sheet'), null, 'No explanation before answering');
-  await click(document.querySelector('.option-card:first-child'));
+  await click(document.querySelector('.duel-answer-button.true'));
   assert.match(document.querySelector('.live-sheet-status').textContent, /Doğru cevap!/);
   state = { ...state, questionIndex: 2, answer: null, answerFeedback: null };
   await sync();
   assert.equal(document.querySelector('.live-answer-sheet'), null, 'Moderator advancing dismisses the old explanation');
-  state = { ...state, questionIndex: 0, answer: 'İstanbul', answerFeedback: null };
+  state = { ...state, questionIndex: 0, answer: 'Yanlış', answerFeedback: null };
 
-  state = { ...state, phase: 'reveal', question: { ...question, correctAnswer: 'Ankara' } };
+  state = { ...state, phase: 'reveal', question: { ...duelQuestion, correctAnswer: 'Doğru' } };
   await sync();
-  assert.ok(document.querySelector('.option-card.correct'));
-  assert.ok(document.querySelector('.option-card.wrong'));
-  assert.match(document.body.textContent, /Moderatörün devam etmesi bekleniyor/);
-  await click([...document.querySelectorAll('button')].find(b => b.textContent === 'Ayrıl'));
+  assert.ok(document.querySelector('.duel-answer-button.correct'));
+  assert.ok(document.querySelector('.duel-answer-button.wrong'));
+  assert.doesNotMatch(document.body.textContent, /Moderatörün devam etmesi bekleniyor|Doğru cevap|Yanlış cevap/);
+  await click(document.querySelector('.quiz-topbar-quit'));
   assert.ok(document.querySelector('[role="dialog"]'));
   await click([...document.querySelectorAll('button')].find(b => b.textContent === 'Oturumdan ayrıl'));
   assert.match(document.body.textContent, /Oturumdan ayrıldınız/);
@@ -108,7 +110,7 @@ try {
   await click([...document.querySelectorAll('button')].find(b => b.textContent === 'İlk soruyu sor'));
   assert.ok(calls.some(c => c.action === 'next' && c.payload.phase === 'lobby'));
   assert.ok([...document.querySelectorAll('.option-card')].every(b => b.disabled));
-  state = { ...state, phase: 'reveal', question: { ...question, correctAnswer: 'Ankara' } };
+  state = { ...state, phase: 'reveal', question: { ...duelQuestion, correctAnswer: 'Doğru' } };
   await sync();
   await click([...document.querySelectorAll('button')].find(b => b.textContent === 'Düelloyu bitir'));
   assert.match(document.body.textContent, /Yarışma tamamlandı/);
@@ -161,5 +163,5 @@ try {
   await click([...document.querySelectorAll('button')].find(b => b.textContent === 'Devam et'));
   assert.ok(document.querySelector('.quiz-fullscreen'));
   console.log('PASS: open exam uses individual fullscreen/header/timer/progress/text and image options; immutable answers, shared reveal, server-driven transitions, open text and quit confirmation');
-  console.log('PASS: participant form, persistent capability, original four-option bank question, individual-style option cards, 60-second display, immutable answer, right/wrong feedback, quit confirmation, moderator start/finish, final ranking');
+  console.log('PASS: participant form, full-screen true/false duel buttons, immutable answer, right/wrong feedback, quit confirmation, moderator start/finish, final ranking');
 } finally { if (root) await act(async () => root.unmount()); dom.window.close(); }

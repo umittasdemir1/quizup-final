@@ -1,5 +1,12 @@
 const { useState, useEffect, useRef, useMemo } = React;
 
+const isDuelQuestion = question => {
+  const options = Array.isArray(question?.options) ? question.options.map(value => String(value).trim()) : [];
+  return question?.type === 'mcq' && options.length === 2
+    && options.includes('Doğru') && options.includes('Yanlış')
+    && ['Doğru', 'Yanlış'].includes(String(question?.correctAnswer || '').trim());
+};
+
 const Manager = () => {
   const [sessions, setSessions] = useState([]);
   const [questions, setQuestions] = useState([]);
@@ -306,6 +313,7 @@ const Manager = () => {
     }));
 
     const filtered = base.filter(({ data }) => {
+      if (form.sessionMode === 'duel' && !isDuelQuestion(data)) return false;
       if (filters.categories.length > 0 && (!data.category || !filters.categories.includes(data.category))) {
         return false;
       }
@@ -372,7 +380,7 @@ const Manager = () => {
     });
 
     return sorted;
-  }, [questions, filters, search, sortOption]);
+  }, [questions, filters, search, sortOption, form.sessionMode]);
 
   // 📦 Package Modal: Visible questions with independent filters
   const visiblePackageQuestions = useMemo(() => {
@@ -702,6 +710,11 @@ const Manager = () => {
       setSelectedPackageId(null);
       setForm(prev => ({ ...prev, questionIds: [] }));
     } else {
+      const packageQuestions = pkg.questionIds.map(id => questions.find(question => question.id === id));
+      if (form.sessionMode === 'duel' && packageQuestions.some(question => !isDuelQuestion(question))) {
+        toast('1’e 1 için paket yalnızca Doğru / Yanlış sorularından oluşmalıdır', 'error');
+        return;
+      }
       setSelectedPackageId(packageId);
       setForm(prev => ({ ...prev, questionIds: [...pkg.questionIds] }));
     }
@@ -759,7 +772,12 @@ const Manager = () => {
                   type="button"
                   aria-pressed={form.sessionMode === mode && form.timerMode === timer}
                   className={`session-type-card${form.sessionMode === mode && form.timerMode === timer ? ' active' : ''}`}
-                  onClick={() => { setForm(f => ({ ...f, sessionMode: mode, timerMode: timer })); setErrors({}); }}
+                  onClick={() => {
+                    setSelectedPackageId(null);
+                    setForm(f => ({ ...f, sessionMode: mode, timerMode: timer,
+                      questionIds: mode === 'duel' ? f.questionIds.filter(id => isDuelQuestion(questions.find(question => question.id === id))) : f.questionIds }));
+                    setErrors({});
+                  }}
                 >
                   <div className="session-type-icon">{icon}</div>
                   <div className="session-type-title">{title}</div>
@@ -768,8 +786,8 @@ const Manager = () => {
               ))}
             </div>
 
-            {form.sessionMode === 'open' && <p className="text-sm text-dark-500 mt-3">Her soru 60 saniye. Herkes cevapladığında soru kapanır; doğru/yanlış sonucu 4 saniye gösterilir ve birlikte ilerlenir.</p>}
-            {form.sessionMode === 'duel' && <p className="text-sm text-dark-500 mt-3">Havuzdan veya paketten seçilen aynı sorular, iki katılımcı ve moderatör kontrolü. Her soruda en fazla 60 saniye; sonraki soruyu siz açarsınız. Puan eşitliğinde hız bonusu belirleyicidir.</p>}
+            {form.sessionMode === 'open' && <p className="text-sm text-dark-500 mt-3">Her soru 60 saniye. Herkes cevapladığında soru kapanır; doğru/yanlış sonucu 3 saniye gösterilir ve birlikte ilerlenir.</p>}
+            {form.sessionMode === 'duel' && <p className="text-sm text-dark-500 mt-3">Yalnızca Doğru / Yanlış soruları kullanılır. İki katılımcı aynı soruları görür; moderatör sonraki soruyu açar. Her soruda en fazla 60 saniye vardır.</p>}
 
             {/* Toplam süre girişi */}
             {form.timerMode === 'total' && (
@@ -818,7 +836,7 @@ const Manager = () => {
           <div>
             <div className="flex items-center justify-between mb-3">
               <label className="text-sm font-semibold text-dark-700">
-                Sorular Seç * ({form.questionIds.length} soru seçildi)
+                {form.sessionMode === 'duel' ? 'Doğru / Yanlış Soruları Seç' : 'Sorular Seç'} * ({form.questionIds.length} soru seçildi)
               </label>
               <div className="flex gap-2">
                 <button
@@ -1071,7 +1089,7 @@ const Manager = () => {
               {visibleQuestions.length === 0 ? (
                 <div className="text-center py-8 text-dark-500">
                   <p className="text-sm mb-2">
-                    {questions.length === 0 ? 'Aktif soru bulunmuyor' : 'Filtrelere uygun soru bulunamadı'}
+                    {questions.length === 0 ? 'Aktif soru bulunmuyor' : form.sessionMode === 'duel' ? 'Doğru / Yanlış biçiminde uygun soru bulunamadı' : 'Filtrelere uygun soru bulunamadı'}
                   </p>
                   {questions.length === 0 ? (
                     <a href="#/admin" className="btn btn-secondary mt-4">Soru Ekle</a>
@@ -1423,7 +1441,7 @@ const Manager = () => {
                 {visiblePackageQuestions.length === 0 ? (
                   <div className="text-center py-8 text-dark-500">
                     <p className="text-sm">
-                      {questions.length === 0 ? 'Aktif soru bulunmuyor' : 'Filtrelere uygun soru bulunamadı'}
+                      {questions.length === 0 ? 'Aktif soru bulunmuyor' : form.sessionMode === 'duel' ? 'Doğru / Yanlış biçiminde uygun soru bulunamadı' : 'Filtrelere uygun soru bulunamadı'}
                     </p>
                   </div>
                 ) : (

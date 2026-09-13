@@ -4,7 +4,7 @@ do $$
 declare
   c uuid; other_c uuid; uid uuid := gen_random_uuid(); sid uuid; open_sid uuid;
   t1 uuid := gen_random_uuid(); t2 uuid := gen_random_uuid(); t3 uuid := gen_random_uuid();
-  st jsonb; peer jsonb; q1 uuid; q2 uuid; pkg uuid; first_deadline text; rid uuid; denied boolean; qids uuid[];
+  st jsonb; peer jsonb; q1 uuid; q2 uuid; invalid_duel_question uuid; pkg uuid; first_deadline text; rid uuid; denied boolean; qids uuid[];
 begin
   insert into public.companies(name) values('QuizUp rollback test') returning id into c;
   insert into public.companies(name) values('QuizUp other tenant rollback test') returning id into other_c;
@@ -20,16 +20,18 @@ begin
   insert into public.questions(company_id,question_text,type,options,correct_answer,is_active)
     values(c,'İki artı iki beştir.','mcq','["Doğru","Yanlış"]','Yanlış',true) returning id into q2;
   update public.questions set answer_explanation='Bir haftada 7 gün vardır.' where id=q1;
+  insert into public.questions(company_id,question_text,type,options,correct_answer,is_active) values(c,'Bu çok şıklı bir sorudur.','mcq','["A","B","C"]','A',true) returning id into invalid_duel_question;
   insert into public.question_packages(company_id,name,question_ids,question_count,is_active)
     values(c,'Ortak test paketi',array[q1,q2],2,true) returning id into pkg;
   select question_ids into qids from public.question_packages where id=pkg;
   sid := public.create_live_quiz(c,'duel',qids);
   if (select question_ids from public.quiz_sessions where id=sid) <> qids or
-    (select count(*) from public.questions where company_id=c) <> 2 then raise exception 'Duel did not reuse package/bank questions'; end if;
+    (select count(*) from public.questions where company_id=c) <> 3 then raise exception 'Duel did not reuse package/bank questions'; end if;
   denied := false;
   begin perform public.create_live_quiz(c,'duel','{}','[{"text":"No ad-hoc questions","answer":"Doğru"}]');
   exception when others then denied := true; end;
   if not denied then raise exception 'Duel accepted ad-hoc statements instead of question IDs'; end if;
+  denied := false; begin perform public.create_live_quiz(c,'duel',array[invalid_duel_question]); exception when others then denied := true; end; if not denied then raise exception 'Duel accepted non true-false question'; end if;
   st := public.live_quiz(sid);
   if not (st->>'moderator')::boolean then raise exception 'Moderator missing'; end if;
   perform set_config('request.jwt.claim.sub','',true);

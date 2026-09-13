@@ -25,7 +25,7 @@ for (const icon of new Set(source.match(/\b[A-Z]\w*Icon\b/g))) globalThis[icon] 
 window.devError = e => { throw e; };
 window.db = {
   onSessionsSnapshot: (_, cb) => { cb([]); return () => {}; },
-  onQuestionsSnapshot: (_, cb) => { cb(qids.map((id, i) => ({ id, questionText: `Havuz sorusu ${i + 1}`, type: 'mcq', isActive: true, options: ['A', 'B'], correctAnswer: 'A' }))); return () => {}; },
+  onQuestionsSnapshot: (_, cb) => { cb(qids.map((id, i) => ({ id, questionText: `Havuz sorusu ${i + 1}`, type: 'mcq', isActive: true, options: ['Doğru', 'Yanlış'], correctAnswer: i ? 'Yanlış' : 'Doğru' }))); return () => {}; },
   onPackagesSnapshot: (_, __, cb) => { cb([{ id: 'package', name: 'Havuz Paketi', questionIds: qids, questionCount: 2, createdBy: user.uid }]); return () => {}; },
   addSession: async (data, company) => { captured.push({ data, company }); return { id: 'session' }; },
 };
@@ -60,5 +60,5 @@ try {
   assert.equal(document.querySelectorAll('label.option-card input:checked').length, 0);
   assert.ok(validateSession({ sessionMode: 'duel', questionIds: [] }).questions);
   assert.deepEqual(validateSession({ sessionMode: 'duel', questionIds: qids }), {});
-  console.log('PASS: four matching mode cards, common bank/package selector, selection retained across modes, stale package reset, duel sends original question IDs');
+  console.log('PASS: matching mode cards, common bank/package selector, duel accepts only true/false fixtures, selection and package behavior remain stable');
 } finally { await act(async () => root.unmount()); dom.window.close(); }
