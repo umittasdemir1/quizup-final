@@ -19,7 +19,7 @@ const CompanyManagement = () => {
   }, []);
 
   const loadCompanies = async () => {
-    setLoading(true);
+    // Existing cards stay mounted during background refreshes.
     try {
       const companiesList = await window.db.getCompanies();
 

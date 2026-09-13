@@ -121,8 +121,6 @@ const Branding = () => {
 
       setLogoUrl(url);
       toast(`${companyName} için logo başarıyla yüklendi`, 'success');
-
-      setTimeout(() => { window.location.reload(); }, 1500);
     } catch (e) {
       window.devError('Upload error:', e);
       toast('Logo yüklenirken hata oluştu', 'error');

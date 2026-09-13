@@ -32,43 +32,37 @@ const useAnimatedPlaceholder = () => {
   const [charIndex, setCharIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Load placeholder words from Supabase branding based on user's company
+  // Refresh branding in place without reloading the page.
   useEffect(() => {
-    (async () => {
+    let active = true;
+    let version = 0;
+    const loadWords = async () => {
+      const request = ++version;
+      let words = ['Soru ara...'];
       try {
-        // Get current user's company
-        let companyRef = null;
-        try {
-          const currentUser = getCurrentUser();
-          companyRef = currentUser?.companyId || currentUser?.company;
-        } catch (err) {
-          window.devWarn('Could not get user company for placeholder:', err);
+        const user = getCurrentUser();
+        const company = user?.companyId || user?.company;
+        if (company && window.db?.getBranding) {
+          const data = await window.db.getBranding(company);
+          const custom = (data?.searchPlaceholderWords || '').split(',').map(w => w.trim()).filter(Boolean);
+          if (custom.length) words = custom;
         }
-
-        if (companyRef && window.db?.getBranding) {
-          const brandingData = await window.db.getBranding(companyRef);
-          if (brandingData) {
-            const words = brandingData.searchPlaceholderWords || '';
-            // Parse comma-separated values and trim whitespace
-            const wordArray = words
-              .split(',')
-              .map(w => w.trim())
-              .filter(w => w.length > 0);
-
-            if (wordArray.length > 0) {
-              setPlaceholderWords(wordArray);
-              return;
-            }
-          }
-        }
-
-        // Default fallback
-        setPlaceholderWords(['Soru ara...']);
-      } catch (e) {
-        window.devError('Error loading placeholder words:', e);
-        setPlaceholderWords(['Soru ara...']);
+      } catch (error) {
+        window.devError('Error loading placeholder words:', error);
       }
-    })();
+      if (!active || request !== version) return;
+      setPlaceholderWords(words);
+      setWordIndex(0);
+      setCharIndex(0);
+      setIsDeleting(false);
+      setCurrentText('');
+    };
+    loadWords();
+    window.addEventListener('branding-updated', loadWords);
+    return () => {
+      active = false;
+      window.removeEventListener('branding-updated', loadWords);
+    };
   }, []);
 
   // Typewriter animation effect

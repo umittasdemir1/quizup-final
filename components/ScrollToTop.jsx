@@ -1,69 +1,44 @@
 const ScrollToTop = () => {
   const { useState, useEffect } = React;
   const [isVisible, setIsVisible] = useState(false);
+  const getScroller = () => document.querySelector('.quiz-content') || document.scrollingElement || document.documentElement;
 
   useEffect(() => {
-    let ticking = false;
-
-    const toggleVisibility = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          const shouldShow = window.scrollY > 200 || window.pageYOffset > 200;
-          setIsVisible(shouldShow);
-          ticking = false;
-        });
-        ticking = true;
-      }
+    let frame = null;
+    const update = () => {
+      frame = null;
+      const scroller = getScroller();
+      const offset = scroller === document.scrollingElement || scroller === document.documentElement
+        ? Math.max(window.scrollY, scroller.scrollTop) : scroller.scrollTop;
+      setIsVisible(offset > 300);
     };
-
-    window.addEventListener('scroll', toggleVisibility, { passive: true });
-
-    // Initial check
-    toggleVisibility();
-
-    return () => window.removeEventListener('scroll', toggleVisibility);
+    const schedule = () => {
+      if (frame === null) frame = window.requestAnimationFrame(update);
+    };
+    document.addEventListener('scroll', schedule, { capture: true, passive: true });
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    window.addEventListener('hashchange', schedule);
+    schedule();
+    return () => {
+      document.removeEventListener('scroll', schedule, true);
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      window.removeEventListener('hashchange', schedule);
+      if (frame !== null) window.cancelAnimationFrame(frame);
+    };
   }, []);
 
-  const scrollToTop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    window.devLog('scrollToTop clicked!');
-
-    // Multiple scroll methods for compatibility
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    document.documentElement.scrollTop = 0;
-    document.body.scrollTop = 0;
+  if (!isVisible) return null;
+  const scrollToTop = () => {
+    const scroller = getScroller();
+    const target = scroller === document.scrollingElement || scroller === document.documentElement ? window : scroller;
+    const behavior = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+    target.scrollTo({ top: 0, behavior });
   };
-
-  // TEST: Always show button
-  // if (!isVisible) return null;
-
-  return (
-    <button
-      onClick={scrollToTop}
-      onTouchStart={scrollToTop}
-      className="scroll-to-top-btn"
-      aria-label="Yukarı çık"
-      type="button"
-      style={{
-        position: 'fixed',
-        bottom: '24px',
-        right: '24px',
-        zIndex: 9999,
-        width: '40px',
-        height: '40px',
-        background: 'linear-gradient(135deg, rgba(255, 140, 0, 0.5), rgba(255, 69, 0, 0.5))',
-        border: 'none',
-        borderRadius: '50%',
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        boxShadow: '0 4px 12px rgba(255, 87, 34, 0.3)',
-        pointerEvents: 'auto'
-      }}
-    >
-      <div className="arrow-up"></div>
-    </button>
-  );
+  return <button onClick={scrollToTop} className="scroll-to-top-btn" aria-label="Yukarı çık" title="Yukarı çık" type="button">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 15 6-6 6 6" /></svg>
+  </button>;
 };
+
+window.ScrollToTop = ScrollToTop;

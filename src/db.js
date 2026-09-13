@@ -28,7 +28,7 @@ function createSubscription(fetchFn, callback, ms = 3000) {
   let timer;
   const poll = async () => {
     if (!active) return;
-    try { callback(await fetchFn()); } catch (e) { console.warn('[db]', e.message); }
+    try { const data = await fetchFn(); if (active) callback(data); } catch (e) { console.warn('[db]', e.message); }
     if (active) timer = setTimeout(poll, ms);
   };
   poll();
@@ -157,7 +157,8 @@ async function getQuestions({ companyId, activeOnly = false } = {}) {
     .from('questions')
     .select('*, companies:company_id(name)')
     .order('sort_order', { ascending: true, nullsFirst: false })
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: true })
+    .order('id', { ascending: true });
   if (companyId) q = q.eq('company_id', companyId);
   if (activeOnly) q = q.eq('is_active', true);
   const { data, error } = await q;
@@ -176,11 +177,14 @@ async function getQuestionsByIds(ids) {
   return ids.map((id) => (byId.has(id) ? mapQuestion(byId.get(id)) : null)).filter(Boolean);
 }
 
+let questionRevision = 0;
 function onQuestionsSnapshot(companyId, callback) {
-  return createSubscription(() => getQuestions({ companyId }), (data) => {
-    // Eski onSnapshot callback formatı: snap objesi değil direkt dizi
-    callback(data);
-  });
+  return createSubscription(async () => {
+    const revision = questionRevision;
+    const data = await getQuestions({ companyId });
+    // Ignore a read started before a completed mutation.
+    return revision === questionRevision ? data : null;
+  }, data => { if (data) callback(data); });
 }
 
 async function addQuestion(data, companyId) {
@@ -199,12 +203,12 @@ async function addQuestion(data, companyId) {
     has_question_image: data.hasQuestionImage || false,
     has_image_options: data.hasImageOptions || false,
     option_image_urls: Array.isArray(data.optionImageUrls) ? data.optionImageUrls : [],
-    sort_order: data.order || null,
     exam_type: data.examType || null,
     created_by: data.createdBy || getUid(),
   };
   const { data: result, error } = await supabase.from('questions').insert(row).select('*, companies:company_id(name)').single();
   if (error) throw error;
+  questionRevision += 1;
   return mapQuestion(result);
 }
 
@@ -216,18 +220,21 @@ async function updateQuestion(questionId, data) {
     isActive: 'is_active', hasTimer: 'has_timer', timerSeconds: 'timer_seconds',
     questionImageUrl: 'question_image_url', hasQuestionImage: 'has_question_image',
     hasImageOptions: 'has_image_options', optionImageUrls: 'option_image_urls',
-    order: 'sort_order', examType: 'exam_type',
+    examType: 'exam_type',
   };
   for (const [k, v] of Object.entries(map)) {
     if (data[k] !== undefined) row[v] = data[k];
   }
-  const { error } = await supabase.from('questions').update(row).eq('id', questionId);
+  const { data: updated, error } = await supabase.from('questions').update(row).eq('id', questionId).select('*, companies:company_id(name)').single();
   if (error) throw error;
+  questionRevision += 1;
+  return mapQuestion(updated);
 }
 
 async function deleteQuestion(questionId) {
   const { error } = await supabase.from('questions').delete().eq('id', questionId);
   if (error) throw error;
+  questionRevision += 1;
 }
 
 // ─── QUIZ SESSIONS ────────────────────────────────────────────────────────────
@@ -453,6 +460,7 @@ async function setBranding(companyNameOrId, data) {
   if (data.searchPlaceholderWords !== undefined) row.search_placeholder_words = data.searchPlaceholderWords;
   const { error } = await supabase.from('branding').upsert(row, { onConflict: 'company_id' });
   if (error) throw error;
+  window.dispatchEvent(new CustomEvent('branding-updated', { detail: { companyId } }));
 }
 
 // ─── PROFILES ────────────────────────────────────────────────────────────────

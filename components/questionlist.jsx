@@ -1,4 +1,59 @@
-const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, onCreateNew }) => {
+const QuestionCard = ({ question, displayOrder, handleEdit, handleDelete, toggleActive, pending }) => (
+  <div className="card p-6">
+    <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
+      <div className="flex items-start gap-4 w-full">
+        <div className="flex flex-col items-center gap-1 pt-1 text-dark-400">
+          <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 font-semibold">
+            {displayOrder}
+          </span>
+        </div>
+        <div className="flex-1 min-w-0 w-full">
+          <div className="flex items-center gap-3 mb-2 flex-wrap">
+            <span className="chip chip-blue">{typeLabel(question.type)}</span>
+            {question.category && <span className="chip chip-orange">{question.category}</span>}
+            {question.difficulty && (
+              <span className="chip bg-gray-200 text-gray-600">
+                {question.difficulty === 'easy' ? 'Kolay' : question.difficulty === 'medium' ? 'Orta' : 'Zor'}
+              </span>
+            )}
+            <span className={`chip ${question.isActive ? 'chip-green' : 'chip-orange'}`}>
+              {question.isActive ? 'Aktif' : 'Pasif'}
+            </span>
+            {question.hasTimer && Number(question.timerSeconds) > 0 && (
+              <span className="chip chip-blue">{question.timerSeconds} sn</span>
+            )}
+          </div>
+          <p className="font-semibold text-lg text-dark-900 mb-2 break-words" dangerouslySetInnerHTML={{ __html: sanitizeHTML(question.questionText) }} />
+          {question.type === 'mcq' && question.options && (
+            <div className="text-sm text-dark-600 mt-2 break-words">
+              <b>Seçenekler:</b> <span dangerouslySetInnerHTML={{ __html: sanitizeHTML(question.options.join(' • ')) }} />
+              <br />
+              <b>Doğru:</b> <span className="text-accent-600 font-semibold break-words" dangerouslySetInnerHTML={{ __html: sanitizeHTML(question.correctAnswer) }} />
+            </div>
+          )}
+          <div className="text-xs text-dark-400 mt-2">
+            Oluşturulma: {fmtDate(question.createdAt)}
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-4 flex-shrink-0">
+        <div className="flex flex-col items-center gap-1 justify-center">
+          <label className="toggle-switch">
+            <input type="checkbox" aria-label={`${question.questionText} aktif`} aria-busy={pending} disabled={pending} checked={question.isActive} onChange={() => toggleActive(question.id, question.isActive)} />
+            <span className="toggle-slider"></span>
+          </label>
+          <span className="text-xs text-dark-500">{question.isActive ? 'Aktif' : 'Pasif'}</span>
+        </div>
+        <div className="flex flex-col gap-2 items-stretch">
+          <button className="btn btn-ghost text-sm px-3 py-2" disabled={pending} onClick={() => handleEdit(question)}>Düzenle</button>
+          <button className="btn btn-danger text-sm px-3 py-2" onClick={() => handleDelete(question.id)}>Sil</button>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, onCreateNew, pendingActiveIds = new Set() }) => {
   const { useState, useEffect, useRef, useMemo } = React;
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -201,60 +256,7 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, onCre
     );
   }
 
-  const QuestionCard = ({ question, displayOrder }) => (
-    <div className="card p-6">
-      <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
-        <div className="flex items-start gap-4 w-full">
-          <div className="flex flex-col items-center gap-1 pt-1 text-dark-400">
-            <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 font-semibold">
-              {displayOrder}
-            </span>
-          </div>
-          <div className="flex-1 min-w-0 w-full">
-            <div className="flex items-center gap-3 mb-2 flex-wrap">
-              <span className="chip chip-blue">{typeLabel(question.type)}</span>
-              {question.category && <span className="chip chip-orange">{question.category}</span>}
-              {question.difficulty && (
-                <span className="chip bg-gray-200 text-gray-600">
-                  {question.difficulty === 'easy' ? 'Kolay' : question.difficulty === 'medium' ? 'Orta' : 'Zor'}
-                </span>
-              )}
-              <span className={`chip ${question.isActive ? 'chip-green' : 'chip-orange'}`}>
-                {question.isActive ? 'Aktif' : 'Pasif'}
-              </span>
-              {question.hasTimer && Number(question.timerSeconds) > 0 && (
-                <span className="chip chip-blue">{question.timerSeconds} sn</span>
-              )}
-            </div>
-            <p className="font-semibold text-lg text-dark-900 mb-2 break-words" dangerouslySetInnerHTML={{ __html: sanitizeHTML(question.questionText) }} />
-            {question.type === 'mcq' && question.options && (
-              <div className="text-sm text-dark-600 mt-2 break-words">
-                <b>Seçenekler:</b> <span dangerouslySetInnerHTML={{ __html: sanitizeHTML(question.options.join(' • ')) }} />
-                <br />
-                <b>Doğru:</b> <span className="text-accent-600 font-semibold break-words" dangerouslySetInnerHTML={{ __html: sanitizeHTML(question.correctAnswer) }} />
-              </div>
-            )}
-            <div className="text-xs text-dark-400 mt-2">
-              Oluşturulma: {fmtDate(question.createdAt)}
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-4 flex-shrink-0">
-          <div className="flex flex-col items-center gap-1 justify-center">
-            <label className="toggle-switch">
-              <input type="checkbox" checked={question.isActive} onChange={() => toggleActive(question.id, question.isActive)} />
-              <span className="toggle-slider"></span>
-            </label>
-            <span className="text-xs text-dark-500">{question.isActive ? 'Aktif' : 'Pasif'}</span>
-          </div>
-          <div className="flex flex-col gap-2 items-stretch">
-            <button className="btn btn-ghost text-sm px-3 py-2" onClick={() => handleEdit(question)}>Düzenle</button>
-            <button className="btn btn-danger text-sm px-3 py-2" onClick={() => handleDelete(question.id)}>Sil</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+
 
   return (
     <div className="grid gap-4">
@@ -460,7 +462,7 @@ const QuestionList = ({ questions, handleEdit, handleDelete, toggleActive, onCre
       ) : (
         <div className="grid gap-4">
           {visibleQuestions.map(({ data, orderNumber }) => (
-            <QuestionCard key={data.id} question={data} displayOrder={orderNumber} />
+            <QuestionCard key={data.id} question={data} displayOrder={orderNumber} handleEdit={handleEdit} handleDelete={handleDelete} toggleActive={toggleActive} pending={pendingActiveIds.has(data.id)} />
           ))}
         </div>
       )}

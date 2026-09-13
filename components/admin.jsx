@@ -1,5 +1,23 @@
 const { useState, useEffect, useRef } = React;
 
+// Keep the list mounted behind a native modal so editing cannot collapse the page.
+const QuestionEditorDialog = ({ children, onClose, busy }) => {
+  const dialogRef = useRef(null);
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    const previousFocus = document.activeElement;
+    dialog.showModal();
+    return () => {
+      dialog.close();
+      if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
+    };
+  }, []);
+  return <dialog ref={dialogRef} className="question-editor-dialog" aria-label="Soru düzenleme" onCancel={event => { event.preventDefault(); if (!busy) onClose(); }}>
+    <div className="flex justify-end px-4 pt-3"><button type="button" className="btn btn-ghost" aria-label="Düzenlemeyi kapat" disabled={busy} onClick={onClose}>✕</button></div>
+    {children}
+  </dialog>;
+};
+
 const Admin = () => {
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -7,6 +25,8 @@ const Admin = () => {
   const [editId, setEditId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const pendingActive = useRef(new Map());
+  const [pendingActiveIds, setPendingActiveIds] = useState(new Set());
   const questionImageRef = useRef(null);
   const optionImageRefs = useRef([]);
   const blankForm = {
@@ -23,8 +43,7 @@ const Admin = () => {
     questionImageUrl: '',
     imageFile: null,
     hasImageOptions: false,
-    optionImageUrls: ['', '', '', ''],
-    orderNumber: 1
+    optionImageUrls: ['', '', '', '']
   };
   const [form, setForm] = useState(blankForm);
   const [errors, setErrors] = useState({});
@@ -70,7 +89,12 @@ const Admin = () => {
           })
           .map(({ __originalIndex, ...rest }) => rest);
 
-        setQuestions(ordered);
+        setQuestions(ordered.map(q => {
+          const pending = pendingActive.current.get(q.id);
+          if (!pending) return q;
+          if (pending.confirmed && q.isActive === pending.value) pendingActive.current.delete(q.id);
+          return { ...q, isActive: pending.value };
+        }));
         setLoading(false);
       });
     };
@@ -79,6 +103,8 @@ const Admin = () => {
 
     const handleCompanyChange = () => {
       if (unsub) unsub();
+      pendingActive.current.clear();
+      setPendingActiveIds(new Set());
       setLoading(true);
       loadQuestions();
     };
@@ -91,25 +117,15 @@ const Admin = () => {
     };
   }, []);
 
-  const getDisplayOrder = (question, index) => (
-    typeof question.order === 'number' ? question.order + 1 : index + 1
-  );
-
-  const getNextOrderNumber = () => {
-    if (!questions.length) return 1;
-    const numbers = questions.map((q, index) => getDisplayOrder(q, index));
-    return Math.max(...numbers) + 1;
-  };
-
   const startCreate = () => {
-    setForm({ ...blankForm, orderNumber: getNextOrderNumber() });
+    setForm({ ...blankForm });
     setEditId(null);
     setErrors({});
     setShowForm(true);
   };
 
   const reset = () => {
-    setForm({ ...blankForm, orderNumber: getNextOrderNumber() });
+    setForm({ ...blankForm });
     setEditId(null);
     setShowForm(false);
     setErrors({});
@@ -167,8 +183,6 @@ const Admin = () => {
 
   const handleEdit = (q) => {
     setEditId(q.id);
-    const index = questions.findIndex(item => item.id === q.id);
-    const orderNumber = getDisplayOrder(q, index >= 0 ? index : questions.length);
     setForm({
       questionText: q.questionText || '',
       type: q.type || 'mcq',
@@ -183,8 +197,7 @@ const Admin = () => {
       questionImageUrl: q.questionImageUrl || '',
       imageFile: null,
       hasImageOptions: q.hasImageOptions || false,
-      optionImageUrls: q.optionImageUrls || ['', '', '', ''],
-      orderNumber
+      optionImageUrls: q.optionImageUrls || ['', '', '', '']
     });
     setShowForm(true);
     setErrors({});
@@ -195,23 +208,6 @@ const Admin = () => {
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       toast('Lütfen tüm zorunlu alanları doldurun', 'error');
-      return;
-    }
-
-    const orderNumber = parseInt(form.orderNumber, 10);
-    if (!Number.isFinite(orderNumber) || orderNumber < 1) {
-      setErrors(prev => ({ ...prev, orderNumber: 'Geçerli bir numara giriniz' }));
-      toast('Geçerli bir numara giriniz', 'error');
-      return;
-    }
-
-    const existingNumbers = questions
-      .filter(q => q.id !== editId)
-      .map((q, index) => getDisplayOrder(q, index));
-
-    if (existingNumbers.includes(orderNumber)) {
-      setErrors(prev => ({ ...prev, orderNumber: 'Numara Kullanıldı' }));
-      toast('Numara Kullanıldı', 'error');
       return;
     }
 
@@ -237,11 +233,12 @@ const Admin = () => {
         questionImageUrl: form.questionImageUrl || '',
         hasImageOptions: form.hasImageOptions,
         optionImageUrls: form.hasImageOptions ? form.optionImageUrls.filter(u => u.trim()) : [],
-        order: orderNumber - 1,
       };
 
       if (editId) {
-        await window.db.updateQuestion(editId, data);
+        const updated = await window.db.updateQuestion(editId, data);
+        pendingActive.current.delete(editId);
+        setQuestions(items => items.map(q => q.id === editId ? { ...q, ...data, ...updated } : q));
         toast('Soru güncellendi', 'success');
       } else {
         const companyId = getDbCompanyId();
@@ -250,7 +247,8 @@ const Admin = () => {
           setSaving(false);
           return;
         }
-        await window.db.addQuestion(data, companyId);
+        const added = await window.db.addQuestion(data, companyId);
+        setQuestions(items => [...items.filter(q => q.id !== added.id), added]);
         toast('Soru eklendi', 'success');
       }
       reset();
@@ -266,6 +264,7 @@ const Admin = () => {
     if (!confirm('Bu soruyu silmek istediğinizden emin misiniz?')) return;
     try {
       await window.db.deleteQuestion(id);
+      setQuestions(items => items.filter(q => q.id !== id));
       toast('Soru silindi', 'success');
     } catch(e) {
       window.devError('Delete error:', e);
@@ -274,12 +273,24 @@ const Admin = () => {
   };
 
   const toggleActive = async (id, currentStatus) => {
+    if (pendingActive.current.get(id)?.confirmed === false) return;
+    const change = { value: !currentStatus, confirmed: false };
+    pendingActive.current.set(id, change);
+    setPendingActiveIds(ids => new Set([...ids, id]));
+    setQuestions(items => items.map(q => q.id === id ? { ...q, isActive: change.value } : q));
     try {
-      await window.db.updateQuestion(id, { isActive: !currentStatus });
-      toast((!currentStatus ? 'Soru aktif edildi' : 'Soru pasif edildi'), 'success');
+      await window.db.updateQuestion(id, { isActive: change.value });
+      change.confirmed = true;
+      toast((change.value ? 'Soru aktif edildi' : 'Soru pasif edildi'), 'success');
     } catch(e) {
+      if (pendingActive.current.get(id) === change) {
+        pendingActive.current.delete(id);
+        setQuestions(items => items.map(q => q.id === id ? { ...q, isActive: currentStatus } : q));
+      }
       window.devError('Toggle error:', e);
-      toast('Durum değiştirilemedi', 'error');
+      toast('Durum kaydedilemedi; önceki duruma döndürüldü.', 'error');
+    } finally {
+      setPendingActiveIds(ids => { const next = new Set(ids); next.delete(id); return next; });
     }
   };
 
@@ -308,30 +319,32 @@ const Admin = () => {
       subtitle={`Toplam ${questions.length} soru`}
       extra={!showForm && <button className="btn btn-primary" onClick={startCreate}>+ Yeni Soru</button>}
     >
-      {showForm ? (
-        <AdminForm 
-          form={form}
-          errors={errors}
-          editId={editId}
-          saving={saving}
-          uploading={uploading}
-          questionImageRef={questionImageRef}
-          optionImageRefs={optionImageRefs}
-          updateField={updateField}
-          updateOption={updateOption}
-          uploadQuestionImage={uploadQuestionImage}
-          uploadOptionImage={uploadOptionImage}
-          handleSave={handleSave}
-          reset={reset}
-        />
-      ) : (
-        <QuestionList
-          questions={questions}
-          handleEdit={handleEdit}
-          handleDelete={handleDelete}
-          toggleActive={toggleActive}
-          onCreateNew={startCreate}
-        />
+      <QuestionList
+        questions={questions}
+        handleEdit={handleEdit}
+        handleDelete={handleDelete}
+        toggleActive={toggleActive}
+        pendingActiveIds={pendingActiveIds}
+        onCreateNew={startCreate}
+      />
+      {showForm && (
+        <QuestionEditorDialog onClose={reset} busy={saving || uploading}>
+          <AdminForm
+            form={form}
+            errors={errors}
+            editId={editId}
+            saving={saving}
+            uploading={uploading}
+            questionImageRef={questionImageRef}
+            optionImageRefs={optionImageRefs}
+            updateField={updateField}
+            updateOption={updateOption}
+            uploadQuestionImage={uploadQuestionImage}
+            uploadOptionImage={uploadOptionImage}
+            handleSave={handleSave}
+            reset={reset}
+          />
+        </QuestionEditorDialog>
       )}
     </Page>
   );
