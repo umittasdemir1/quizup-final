@@ -77,3 +77,11 @@ Açık/çok katılımcılı oturumun aktif katılımcı sınav ekranı bireysel 
 `OpenQuizScreen` yalnızca görünümü ve yeni soruda içerik kaydırmasını yönetir. RPC, 60 saniyelik ortak zaman, cevapların kilitlenmesi, herkes cevapladığında erken kapanış ve otomatik soru geçişi `LiveQuiz` akışında kalır. Soru sırası ve seçenek sırası değiştirilmedi. 1 vs 1, moderatör, lobi ve sonuç ekranlarının akışı korunur; veritabanı/RLS/CORS değişikliği yoktur.
 
 `test-live-ui.mjs` artık çoklu ekranın tam ekran/üst bar/ortak dairesel sayaç/ilerleme, metin ve görsel şıklar, değiştirilemeyen cevaplar, doğru-yanlış gösterimi, sunucuyla soru geçişi, açık uçlu yanıt ve ayrılma onayını da doğrular. Testler ve üretim derlemesi geçti. Gerçek Android/iOS cihaz testi yapılmadı.
+
+## Çoklu sınav XP ve sade gösterge revizyonu — 2026-09-13
+
+Üst barın ortasına bireyseldeki XP ikonu ve toplam XP geri eklendi. `live_quiz` RPC yanıtındaki `liveXp`, yalnızca ilgili katılımcının kapanmış sorularından, sonuç hesabındaki aynı formülle hesaplanır: doğru cevap için zorluk tabanı × (1 − 0.5 × kayıtlı süre / 60); yanlış/boş cevap 0 XP. Soru kapanmadan mevcut cevabın doğruluğu XP yoluyla açığa çıkmaz. Yenileme veya tekrar bağlantıda toplam yeniden hesaplanır, puan iki kez eklenmez.
+
+Şık altındaki doğru/yanlış açıklamaları, seçim uyarısı, bağlantı yazısı ve sonraki soru metni kaldırıldı. Bireyseldeki yeşil/kırmızı şık stilleri korundu. Katılım durumu yalnızca `cevaplayan | toplam` olarak gösterilir; örneğin `2 | 5`.
+
+`20260913005000_live_quiz_xp.sql` MCP ile uygulandı. RLS, CORS ve puan formülü değiştirilmedi. Sunucu testleri hızlı doğru (12 sn = 180 XP), yavaş doğru (48 sn = 120 XP), yanlış (0 XP), tekrar polling, cevap öncesi gizlilik ve canlı/sonuç toplamının eşleşmesini doğruladı; test verileri rollback edildi. Arayüz testleri ve üretim derlemesi geçti.

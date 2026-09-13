@@ -59,6 +59,7 @@ begin
   if st->'question' <> peer->'question' or st->>'deadline' <> peer->>'deadline' then raise exception 'Duel participants are not synchronized'; end if;
   st := public.live_quiz(sid,'answer',t1,'{"questionIndex":0,"answer":"Doğru"}');
   if st->>'phase' <> 'question' then raise exception 'Ended before all answers'; end if;
+  if (st->>'liveXp')::integer <> 0 then raise exception 'XP exposed current answer before reveal'; end if;
   if st->'answerFeedback'->>'text' <> 'Bir haftada 7 gün vardır.' or st->'answerFeedback'->>'isCorrect' <> 'true' then raise exception 'Correct participant explanation missing'; end if;
   peer := public.live_quiz(sid,'state',t2);
   if peer->>'answerFeedback' is not null or (peer->'question') ? 'answerExplanation' then raise exception 'Explanation leaked to unanswered peer'; end if;
@@ -70,6 +71,16 @@ begin
   st := public.live_quiz(sid,'answer',t2,'{"questionIndex":0,"answer":"Yanlış"}');
   if st->>'phase' <> 'reveal' or st->'question'->>'correctAnswer' <> 'Doğru' then raise exception 'Early reveal failed'; end if;
   if st->'answerFeedback'->>'text' <> 'Bir haftada 7 gün vardır.' or st->'answerFeedback'->>'isCorrect' <> 'false' then raise exception 'Wrong participant explanation missing'; end if;
+  if (st->>'liveXp')::integer <> 0 then raise exception 'Wrong answer earned XP'; end if;
+  update public.live_quiz_players set answers=jsonb_set(answers,'{0,timeUsed}','12') where session_id=sid and token_hash=md5(t1::text);
+  st := public.live_quiz(sid,'state',t1);
+  if (st->>'liveXp')::integer <> 180 then raise exception 'Fast answer XP mismatch'; end if;
+  st := public.live_quiz(sid,'state',t1);
+  if (st->>'liveXp')::integer <> 180 then raise exception 'Polling duplicated XP'; end if;
+  update public.live_quiz_players set answers=jsonb_set(answers,'{0,timeUsed}','48') where session_id=sid and token_hash=md5(t1::text);
+  st := public.live_quiz(sid,'state',t1);
+  if (st->>'liveXp')::integer <> 120 then raise exception 'Slow answer XP mismatch'; end if;
+  update public.live_quiz_players set answers=jsonb_set(answers,'{0,timeUsed}','12') where session_id=sid and token_hash=md5(t1::text);
   update public.live_quiz_rooms set deadline=clock_timestamp()-interval '10 seconds' where session_id=sid;
   st := public.live_quiz(sid,'state',t1);
   if st->>'phase' <> 'reveal' then raise exception 'Duel advanced without moderator'; end if;
@@ -89,6 +100,7 @@ begin
   if st->>'phase' <> 'finished' or rid is null or rid <> (st->>'resultId')::uuid or
     (select count(*) from public.results where session_id=sid) <> 2 then raise exception 'Result duplication/missing result'; end if;
   if (select (score->>'correct')::integer from public.results where id=rid) <> 1 then raise exception 'Wrong score'; end if;
+  if (st->>'liveXp')::integer <> 180 or (select (score->>'xp')::integer from public.results where id=rid) <> 180 then raise exception 'Live and final XP disagree'; end if;
 
   select question_ids into qids from public.quiz_sessions where id=sid;
   update public.questions set is_active=true where id=any(qids);

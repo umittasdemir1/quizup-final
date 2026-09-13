@@ -135,7 +135,14 @@ try {
   await sync();
   assert.ok(document.querySelector('.option-card.correct'));
   assert.ok(document.querySelector('.option-card.wrong'));
-  assert.match(document.body.textContent, /sonraki soru/);
+  assert.doesNotMatch(document.body.textContent, /Seçiminiz gönderildiğinde|kişi cevapladı|Canlı bağlantı|Doğru cevap|Yanlış cevap|sonraki soru/);
+  assert.match(document.querySelector('.quiz-content [role="status"]').textContent, /2 \| 2/);
+  state = { ...state, liveXp: 180 };
+  await sync();
+  assert.equal(document.querySelector('.quiz-topbar-xp').textContent.trim(), '180');
+  assert.ok(document.querySelector('.quiz-topbar-xp-icon'));
+  await sync();
+  assert.equal(document.querySelector('.quiz-topbar-xp').textContent.trim(), '180', 'Polling does not add XP twice');
   const content = document.querySelector('.quiz-content');
   content.scrollTop = 300;
   state = { ...state, phase: 'question', questionIndex: 1, answer: null, answeredCount: 0,

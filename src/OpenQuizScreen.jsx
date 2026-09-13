@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 
 // Presentation only: timing, answers and question transitions stay in LiveQuiz.
-export default function OpenQuizScreen({ state, remaining, locked, connected, busy, error, draft, onDraftChange, onAnswer, onLeave }) {
+export default function OpenQuizScreen({ state, remaining, locked, busy, error, draft, onDraftChange, onAnswer, onLeave }) {
   const contentRef = useRef(null);
   useEffect(() => {
     if (contentRef.current) contentRef.current.scrollTop = 0;
@@ -16,11 +16,6 @@ export default function OpenQuizScreen({ state, remaining, locked, connected, bu
   const optionState = option => revealed
     ? option === q.correctAnswer ? 'correct' : state.answer === option ? 'wrong' : ''
     : state.answer === option ? 'selected' : '';
-  const feedback = revealed
-    ? q.type !== 'mcq' ? 'Cevaplar toplandı. Açık uçlu yanıtları moderatör değerlendirebilir.'
-      : !state.answer ? 'Süre doldu. Bu soruya cevap vermediniz.'
-        : state.answer === q.correctAnswer ? '✓ Doğru cevap, tebrikler!' : '✕ Bu kez olmadı. Doğru cevap yukarıda.'
-    : state.answer ? 'Cevabınız kaydedildi. Diğer katılımcılar bekleniyor…' : 'Seçiminiz gönderildiğinde değiştirilemez.';
 
   return <div className="quiz-fullscreen open-quiz-screen">
     <div className="quiz-topbar">
@@ -28,9 +23,9 @@ export default function OpenQuizScreen({ state, remaining, locked, connected, bu
         <button className="quiz-topbar-quit" onClick={onLeave} title="Quizden Çık" aria-label="Quizden Çık">
           <div className="quiz-topbar-quit-inner"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true"><path d="m18 6-12 12M6 6l12 12" /></svg></div>
         </button>
-        <div className="quiz-topbar-xp" aria-label={`${state.participantCount} katılımcı`}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="9" cy="8" r="3" /><path d="M3 21v-3a6 6 0 0 1 12 0v3M16 5a3 3 0 0 1 0 6m2 3a5 5 0 0 1 3 4v3" /></svg>
-          {state.participantCount} katılımcı
+        <div className="quiz-topbar-xp" aria-label={`Toplam ${state.liveXp || 0} XP`} title="Kazanılan XP">
+          <img className="quiz-topbar-xp-icon" src="/assets/xp-icon.png" alt="" aria-hidden="true" />
+          {(state.liveXp || 0).toLocaleString('tr-TR')}
         </div>
         <div className="quiz-topbar-timer">
           {revealed ? <span className="text-sm text-dark-600">Sonuç</span> : CircularTimer && <CircularTimer timeLeft={remaining} totalSeconds={60} isActive={remaining > 0} />}
@@ -50,18 +45,13 @@ export default function OpenQuizScreen({ state, remaining, locked, connected, bu
           {(q.options || []).map((option, i) => <button key={i} type="button" className={`${imageOptions ? 'image-option-card' : 'option-card'} w-full text-left ${optionState(option)}`} disabled={locked} aria-pressed={state.answer === option} onClick={() => onAnswer(option)}>
             {imageOptions && q.optionImages[i] && <img src={q.optionImages[i]} alt={`Seçenek ${i + 1}`} />}
             <span className={imageOptions ? 'block text-center mt-2 text-sm font-medium text-dark-900 leading-relaxed' : 'text-[15px] font-normal text-dark-900 leading-relaxed'} {...textProps(option)} />
-            {revealed && option === q.correctAnswer && <small className="block mt-2">✓ Doğru cevap</small>}
-            {revealed && state.answer === option && option !== q.correctAnswer && <small className="block mt-2">✕ Yanlış cevap</small>}
           </button>)}
         </div> : <form onSubmit={event => { event.preventDefault(); onAnswer(draft); }}>
           <textarea className="field min-h-[200px]" aria-label="Cevabınız" placeholder="Cevabınızı buraya yazınız..." maxLength={4000} required disabled={locked} value={state.answer || draft} onChange={event => onDraftChange(event.target.value)} />
           <div className="flex justify-center mt-5"><button className="nav-pill nav-pill-submit" disabled={locked || !draft.trim()}><span className="nav-pill-text">{busy ? 'Kaydediliyor…' : 'Cevabı gönder'}</span><span className="nav-pill-icon" aria-hidden="true">✓</span></button></div>
         </form>}
-        <div className="mt-5 text-center text-sm text-dark-600" role="status">
-          <p className="font-medium">{feedback}</p>
-          <p className="mt-2">{state.answeredCount} / {state.participantCount} kişi cevapladı</p>
-          {revealed && <p className="mt-2">{remaining > 0 ? `${remaining} saniye sonra ${state.questionIndex + 1 === state.total ? 'sonuçlar' : 'sonraki soru'}…` : 'Oturum güncelleniyor…'}</p>}
-          <p className={`live-connection mt-3 ${connected ? '' : 'offline'}`}>{connected ? '● Canlı bağlantı' : '○ Bağlantı yenileniyor…'}</p>
+        <div className="mt-5 text-center text-sm text-dark-600 tabular-nums" role="status" aria-label={`${state.answeredCount} cevaplayan, ${state.participantCount} toplam katılımcı`}>
+          {state.answeredCount} | {state.participantCount}
         </div>
       </div>
     </div>

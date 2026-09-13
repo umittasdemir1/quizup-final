@@ -135,7 +135,7 @@ export default function LiveQuiz({ sessionId, moderatorView = false }) {
   const leaveDialog = showLeave && <div className="live-modal-backdrop"><div className="card live-card" role="dialog" aria-modal="true" aria-labelledby="leave-title"><h2 id="leave-title">Yarışmadan ayrılsın mı?</h2><p>Bu oturuma tekrar katılamazsınız. Verdiğiniz cevaplar korunur.</p><div className="live-actions"><button autoFocus className="btn btn-secondary" onClick={() => setShowLeave(false)} disabled={busy}>Devam et</button><button className="btn btn-danger" onClick={() => act('leave')} disabled={busy}>Oturumdan ayrıl</button></div></div></div>;
   if (state?.mode === 'open' && !moderatorView && state.active && q && ['question', 'reveal'].includes(state.phase)) {
     return <>
-      <OpenQuizScreen state={state} remaining={remaining} locked={locked} connected={connected} busy={busy} error={error} draft={draft} onDraftChange={setDraft} onLeave={() => setShowLeave(true)} onAnswer={answer => act('answer', { questionIndex: state.questionIndex, answer })} />
+      <OpenQuizScreen state={state} remaining={remaining} locked={locked} busy={busy} error={error} draft={draft} onDraftChange={setDraft} onLeave={() => setShowLeave(true)} onAnswer={answer => act('answer', { questionIndex: state.questionIndex, answer })} />
       {leaveDialog}
     </>;
   }
