@@ -28,7 +28,7 @@ export default function OpenQuizScreen({ state, remaining, locked, busy, error, 
           {(state.liveXp || 0).toLocaleString('tr-TR')}
         </div>
         <div className="quiz-topbar-timer">
-          {CircularTimer && <CircularTimer timeLeft={remaining} totalSeconds={revealed ? 4 : 60} isActive={remaining > 0} />}
+          {CircularTimer && <CircularTimer timeLeft={remaining} totalSeconds={revealed ? 3 : 60} isActive={remaining > 0} />}
         </div>
       </div>
       <div className="quiz-topbar-row quiz-topbar-row-bottom">

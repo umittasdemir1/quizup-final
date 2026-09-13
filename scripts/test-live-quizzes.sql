@@ -70,6 +70,7 @@ begin
   if st->>'answer' <> 'Doğru' then raise exception 'Answer was changed'; end if;
   st := public.live_quiz(sid,'answer',t2,'{"questionIndex":0,"answer":"Yanlış"}');
   if st->>'phase' <> 'reveal' or st->'question'->>'correctAnswer' <> 'Doğru' then raise exception 'Early reveal failed'; end if;
+  if abs(extract(epoch from ((st->>'deadline')::timestamptz - (st->>'serverNow')::timestamptz)) - 3) > 0.5 then raise exception 'Reveal countdown is not three seconds'; end if;
   if st->'answerFeedback'->>'text' <> 'Bir haftada 7 gün vardır.' or st->'answerFeedback'->>'isCorrect' <> 'false' then raise exception 'Wrong participant explanation missing'; end if;
   if (st->>'liveXp')::integer <> 0 then raise exception 'Wrong answer earned XP'; end if;
   update public.live_quiz_players set answers=jsonb_set(answers,'{0,timeUsed}','12') where session_id=sid and token_hash=md5(t1::text);
